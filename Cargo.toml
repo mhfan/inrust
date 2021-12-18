@@ -7,3 +7,6 @@ edition = "2021"    # use "cargo fix" to fix for compatibility with different Ru
 
 [dependencies]
 rand = "0.8.4"
+
+[lib]
+#proc-macro = true
