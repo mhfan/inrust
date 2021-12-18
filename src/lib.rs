@@ -1,8 +1,7 @@
 
 // src/lib.rs (default library entry point)
 
-pub fn f() { }
-//pub fn f() -> i32 { 0 }
+pub fn f() -> i32 { 0 }
 // Public item in root, accessible from the outside.
 
 mod m {

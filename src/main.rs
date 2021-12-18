@@ -15,31 +15,43 @@ fn main() { // src/main.rs (default application entry point)
     //let x: Result<u32, &str> = Err("Emergency Failure");
     //x.expect("Testing expect");
 
+    //let _a = [1; 5]; //_a.len();
+    //let _a = [1, 2, 3, 4, 5];
+    //for i in _a { println!("{:?}", i); }
+    //for i in (1..5).rev() { println!("{:?}", i); }
+
+    guess_number();
+}
+
+fn  guess_number() {
     let (max, lang) = (100, true);
+
     if  lang { println!("### 猜数字游戏 (1-{}) ###", max) } else {
-        println!("Game guess the number (1-{})", max);
+        println!("Guess the number (1-{})", max);
     }
 
    let secret = rand::thread_rng().gen_range(1..=max);
    //printvar!(secret);
 
-    loop {
+    let _result = 'label: loop {
         if lang { print!("\n输入你猜的数字: ") } else { print!("\nInput a number you guess: ") }
         io::stdout().flush().expect("Failed to flush"); //.unwrap();
 
         let mut guess = String::new();
         io::stdin().read_line(&mut guess).expect("Failed to read!");
-        let guess = guess.trim();   //printvar!(guess);
+        //printvar!(guess);
 
         //let guess: i32 = guess.parse().expect("Please type a number");
 
-        //match guess { Ok(guess) => { ... }, _ => () }
-        if let Ok(guess) = guess.parse::<i32>() { // isize
+        //match guess.trim().parse::<i32>() { Ok(_guess) => { }, _ => () }
+        if let Ok(guess) = guess.trim().parse::<i32>() { // isize
             match guess.cmp(&secret) {
-                Ordering::Greater   =>   if lang { println!("[大了]") } else { println!("[Too large]") },
-                Ordering::Less      =>   if lang { println!("[小了]") } else { println!("[Too small]") },
-                Ordering::Equal     => { if lang { println!("[你赢了!]") } else { println!("[Bingo!]") } break }
+                Ordering::Greater   =>   if lang { println!("[太大了]") } else { println!("[Too large]") },
+                Ordering::Less      =>   if lang { println!("[太小了]") } else { println!("[Too small]") },
+                Ordering::Equal     => { if lang { println!("[猜对了]") } else { println!("[Bingo!]") } break 1 }
             }
-        } else if guess.to_lowercase() == "quit" { break }
-    }
+        } else { guess.make_ascii_lowercase();  //guess.to_lowercase();
+            if   guess.trim() == "quit" { break 'label 0 }
+        }
+    };
 }
