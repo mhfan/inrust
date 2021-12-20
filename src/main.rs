@@ -1,15 +1,15 @@
 
-use std::io;
-use std::io::Write;
-use std::cmp::Ordering;
+use std::{io::{self, Write}, cmp::Ordering};
 
 use rand::Rng;
+//pub use A::B:C as D;
 
-#[allow(unused_macros)]
+//#[allow(unused_macros)]
 //macro_rules! var_args { ($($args: expr), *) => {{ }} }  //$(f($args);)*     // XXX
-macro_rules! printvar { ($var: expr) => { println!("{}: {}", stringify!($var), $var); } }
+//macro_rules! printvar { ($var: expr) => { println!("{}: {:?}", stringify!($var), $var); } }
 
-fn main() { // src/main.rs (default application entry point)
+// src/main.rs (default application entry point)
+fn main()/* -> Result<(), Box<dyn Error>>*/ {
     println!("Hello, world!\n");
 
     //let x: Result<u32, &str> = Err("Emergency Failure");
@@ -21,6 +21,7 @@ fn main() { // src/main.rs (default application entry point)
     //for i in (1..5).rev() { println!("{:?}", i); }
 
     guess_number();
+    //Ok(())
 }
 
 fn  guess_number() {
@@ -30,8 +31,7 @@ fn  guess_number() {
         println!("Guess the number (1-{})", max);
     }
 
-   let secret = rand::thread_rng().gen_range(1..=max);
-   //printvar!(secret);
+    let secret = rand::thread_rng().gen_range(1..=max);     //dbg!(secret);
 
     let _result = 'label: loop {
         if lang { print!("\n输入你猜的数字: ") } else { print!("\nInput a number you guess: ") }
@@ -39,7 +39,6 @@ fn  guess_number() {
 
         let mut guess = String::new();
         io::stdin().read_line(&mut guess).expect("Failed to read!");
-        //printvar!(guess);
 
         //let guess: i32 = guess.parse().expect("Please type a number");
 

@@ -1,7 +1,12 @@
+
 [package]
 name = "study-rust"
 version = "0.1.0"
 edition = "2021"    # use "cargo fix" to fix for compatibility with different Rust edition.
+authors = ["MeiHui FAN <mhfan@ustc.edu>"]
+
+[workspace]
+#members = [""]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
