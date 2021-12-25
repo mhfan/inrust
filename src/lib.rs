@@ -4,7 +4,7 @@
 pub fn f() -> i32 { 0 }
 // Public item in root, accessible from the outside.
 
-//pub mod external_mod;     // mod file or dir with mod.rs, relative to src/.
+//pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
 
 mod m {
     #[allow(dead_code)]
@@ -14,23 +14,20 @@ mod m {
 }
 
 #[cfg(test)]
-mod test {  // unit test sample
+mod tests {  // unit test sample
     use super::f;   // Need to import items from parent module. Has access to non-public members.
     #[test]
+    //#[should_panic]
+    //#[should_panic(expect = "some panic string")]
     fn testf() {
         assert_eq!(f(), 0);
     }
-}
 
-/* tests/sample.rs (sample integration test)
-
-#[test]
-fn sample_test() {
-    assert_eq!(study_rust::f(), 123);
-    // Integration tests (and benchmarks) 'depend' to the crate
-    // like a 3rd party would. Hence, they only see public items.
+    #[test]
+    fn testg() -> Result<(), String> {
+        if 0 == 0 { Ok(()) } else { Err(String::from("Failed")) }
+    }
 }
-*/
 
 /* src/lib.rs is also the default entry point for proc macros
 extern crate proc_macro;    // Apparently needed to be imported like this.

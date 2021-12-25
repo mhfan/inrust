@@ -1,5 +1,5 @@
 
-use std::{io::{self, Write}, cmp::Ordering};
+use std::{io::{self, Write}, cmp::Ordering/*, error::Error*/};
 //pub use A::B:C as D;
 use rand::Rng;
 
@@ -10,6 +10,7 @@ use rand::Rng;
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
     println!("Hello, world!\n");
+    //panic!("Test a panic.");
 
     //let x: Result<u32, &str> = Err("Emergency Failure");
     //x.expect("Testing expect");
@@ -23,11 +24,11 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
-fn  guess_number() {
+fn  guess_number() {    // interactive function
     let (max, lang) = (100, true);
 
     if  lang {  println!("### 猜数字游戏 (1-{}) ###", max) } else {
-                println!("Guess the number (1-{})", max);
+                println!("Guess the number (1-{})", max);   // i18n mechanism?
     }
 
     let secret = rand::thread_rng().gen_range(1..=max); //dbg!(secret);
@@ -58,4 +59,13 @@ fn  guess_number() {
             if   guess.trim() == "quit" { break 'label 0 }
         }
     };
+}
+
+#[allow(dead_code)]
+fn largest<T: PartialOrd>(list: &[T]) -> &T {
+    let mut largest = &list[0];
+
+    // for &item in list {}
+    for item in list { if  largest < item { largest = item; } }
+    largest
 }
