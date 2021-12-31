@@ -1,7 +1,6 @@
 
-use std::{io::{self, Write}, cmp::Ordering/*, error::Error*/};
+use std::{io::{self, Write}, cmp::Ordering/*, time::Duration, error::Error*/};
 //pub use A::B:C as D;
-use rand::Rng;
 
 //#[allow(unused_macros)]
 //macro_rules! var_args { ($($args: expr), *) => {{ }} }  //$(f($args);)*   // XXX
@@ -9,34 +8,50 @@ use rand::Rng;
 
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
-    println!("Hello, world!\n");
+    print!("{} v{} Args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    std::env::args().skip(1).for_each(|itor| print!(" {:?}", itor) );
+    //println!(" {:?}", std::env::args().collect::<Vec<String>>());
+
+    //std::env::var("CASE_INSENSITIVE").is_err();
+    //option_env!("ENV_VAR_NAME");
+
+    println!("\nHello, world!\n");
     //panic!("Test a panic.");
+
+    //std::thread::sleep(Duration::from_secs(1));
 
     //let x: Result<u32, &str> = Err("Emergency Failure");
     //x.expect("Testing expect");
 
-    //let _a = [1; 5]; //_a.len();
     //let _a = [1, 2, 3, 4, 5];
+    //let _a = [1; 5]; //_a.len();
     //for i in _a { println!("{:?}", i); }
     //for i in (1..5).rev() { println!("{:?}", i); }
 
     guess_number();
+    //_calc_pi();
     //Ok(())
 }
 
+use rand::Rng;
 fn  guess_number() {    // interactive function
     let (max, lang) = (100, true);
 
-    if  lang {  println!("### 猜数字游戏 (1-{}) ###", max) } else {
-                println!("Guess the number (1-{})", max);   // i18n mechanism?
-    }
+    let tips = if lang {    // i18n mechanism?
+        ["猜数字游戏", "输入你猜的数字: ", "太大了", "太小了", "对了!"]
+    } else {
+        ["Guess the number", "Input a number you guess: ",
+                "Too large", "Too small", "Bingo!"]
+    };
+
+    struct _TipStr<'a> { title: &'a str, prompt: &'a str,
+            too_big: &'a str, too_small: &'a str, bingo: &'a str }
 
     let secret = rand::thread_rng().gen_range(1..=max); //dbg!(secret);
+    println!("### {} (1~{}) ###", tips[0], max);
 
     let _result = 'label: loop {    // unused prefixed with underscore
-        if lang {   print!("\n输入你猜的数字: ") } else {
-                    print!("\nInput a number you guess: ")
-        }
+        print!("\n{}", tips[1]);
 
         let mut guess = String::new();
         io::stdout().flush().expect("Failed to flush"); //.unwrap();
@@ -47,13 +62,9 @@ fn  guess_number() {    // interactive function
         //match guess.trim().parse::<i32>() { Ok(_guess) => { }, _ => () }
         if let Ok(guess) = guess.trim().parse::<i32>() { // isize
             match guess.cmp(&secret) {
-                Ordering::Greater =>
-                    if lang { println!("[太大了]") } else { println!("[Too large]") },
-                Ordering::Less    =>
-                    if lang { println!("[太小了]") } else { println!("[Too small]") },
-                Ordering::Equal   => {
-                    if lang { println!("[猜对了]") } else { println!("[Bingo!]") } break 1
-                }
+                Ordering::Greater =>    println!("[{}]", tips[2]),
+                Ordering::Less    =>    println!("[{}]", tips[3]),
+                Ordering::Equal   => {  println!("[{}]", tips[4]); break 1 }
             }
         } else { guess.make_ascii_lowercase();  //guess.to_lowercase();
             if   guess.trim() == "quit" { break 'label 0 }
@@ -68,4 +79,35 @@ fn largest<T: PartialOrd>(list: &[T]) -> &T {
     // for &item in list {}
     for item in list { if  largest < item { largest = item; } }
     largest
+}
+
+use num_bigint::BigInt;
+fn  _calc_pi() {    // a streaming/spigot algorithm
+    // https://rosettacode.org/wiki/Pi
+    let mut q = BigInt::from(1);
+    let mut r = BigInt::from(0);
+    let mut t = BigInt::from(1);
+    let mut k = BigInt::from(1);
+    let mut n = BigInt::from(3);
+    let mut l = BigInt::from(3);
+    let mut first = true;
+    loop {
+        if &q * 4 + &r - &t < &n * &t {
+            print!("{}", n);
+            if first { print!("."); first = false; }
+            let nr = (&r - &n * &t) * 10;
+            n = (&q * 3 + &r) * 10 / &t - &n * 10;
+            q *= 10;
+            r = nr;
+        } else {
+            let nr = (&q * 2 + &r) * &l;
+            let nn = (&q * &k * 7 + 2 + &r * &l) / (&t * &l);
+            q *= &k;
+            t *= &l;
+            l += 2;
+            k += 1;
+            n = nn;
+            r = nr;
+        }
+    }
 }
