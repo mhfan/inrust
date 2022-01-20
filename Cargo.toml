@@ -1,6 +1,6 @@
 
 [package]
-name = "study-rust"
+name = "hello-rust"
 version = "0.1.0"
 edition = "2021"    # use "cargo fix" to fix for compatibility with different Rust edition.
 license = "MIT OR Apache-2.0"
@@ -10,6 +10,7 @@ exclude = ["tests"]
 
 [workspace]
 #members = [""]
+#exclude = ["hello-wasm"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
