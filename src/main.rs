@@ -12,16 +12,14 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     std::env::args().skip(1).for_each(|itor| print!(" {itor:?}") );
     //println!(" {:?}", std::env::args().collect::<Vec<String>>());
 
-    //std::env::var("CASE_INSENSITIVE").is_err();
-    //option_env!("ENV_VAR_NAME");
+    //std::env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
 
-    println!("\nHello, world!\n");
-    //panic!("Test a panic.");
+    println!("\nHello, world!\n");  //panic!("Test a panic.");
 
+    //use std::time::Duration;
     //std::thread::sleep(Duration::from_secs(1));
 
-    //let x: Result<u32, &str> = Err("Emergency Failure");
-    //x.expect("Testing expect");
+    //let x: Result<u32, &str> = Err("Emergency Failure");  //x.expect("Testing expect");
 
     //let _a = [1, 2, 3, 4, 5];
     //let _a = [1; 5]; //_a.len();
@@ -29,11 +27,41 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //for i in (1..5).rev() { println!("{i:?}"); }
 
     guess_number();
+    //compute_24();
     //_calc_pi();
     //Ok(())
 }
 
+#[allow(dead_code)]
+fn  compute_24() {
+    let mut goal = 24;
+
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if !args.is_empty() {
+        if let Ok(_goal) = args[0].parse::<i32>() { goal = _goal; }
+    }   println!("### Game {} computation ###", goal);
+
+    loop {
+        print!("\nInput a data series: ");
+
+        let mut datas = String::new();
+        io::stdout().flush().expect("Failed to flush!"); //.unwrap();
+        io::stdin().read_line(&mut datas).expect("Failed to read!");
+        let mut datas: Vec<&str>  = datas.trim().split(' ')
+                .filter(|s| !s.is_empty()).collect();
+
+        if datas[0].starts_with(&['g', 'G']) {  //dbg!(&datas);
+            if let Ok(_goal) = datas[0][1..].parse::<i32>() {
+                println!("\n### Reset GOAL to {} ###", goal = _goal);
+            }   datas.remove(0);
+        } else if datas[0].eq_ignore_ascii_case("quit") { break }
+
+        // TODO: output all results friendly
+     };
+}
+
 use rand::Rng;
+#[allow(dead_code)]
 fn  guess_number() {    // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
     //struct Param(i32, bool); let param = Param(100, true); //let param = (100, true);
@@ -55,22 +83,21 @@ fn  guess_number() {    // interactive function
         print!("\n{prompt}");
 
         let mut guess = String::new();
-        io::stdout().flush().expect("Failed to flush"); //.unwrap();
+        io::stdout().flush().expect("Failed to flush!"); //.unwrap();
         io::stdin().read_line(&mut guess).expect("Failed to read!");
+        let guess = guess.trim();
 
-        //let guess: i32 = guess.trim().parse().expect("Please type a number");
-
-        //match guess.trim().parse::<i32>() { Ok(_guess) => { }, _ => () }
-        if let Ok(guess) = guess.trim().parse::<i32>() { // isize
+        //let guess: i32 = guess.parse().expect("Please type a number");
+        //match guess.parse::<i32>() { Ok(_guess) => { }, _ => () }
+        if let Ok(guess) = guess.parse::<i32>() { // isize
             //if (guess < secret) { } else if (secret < guess) { } else { }
             match guess.cmp(&secret) {
                 Ordering::Greater =>    println!("[{too_big}]"),
                 Ordering::Less    =>    println!("[{too_small}]"),
                 Ordering::Equal   => {  println!("[{bingo}]"); break 1 }
             }
-        } else { guess.make_ascii_lowercase();  //guess.to_lowercase();
-            if   guess.trim() == "quit" { break 'label 0 }
-        }
+        } else if guess.eq_ignore_ascii_case("quit") { break 'label 0 }
+        //guess.make_ascii_lowercase();  //guess.to_lowercase();
     };
 }
 
@@ -83,16 +110,17 @@ fn largest<T: PartialOrd>(list: &[T]) -> &T {
     largest
 }
 
-use num_bigint::BigInt;
-fn  _calc_pi() {    // a streaming/spigot algorithm
-    // https://rosettacode.org/wiki/Pi
+fn  _calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.org/wiki/Pi
+    use num_bigint::BigInt;
+    let mut first = true;
+
     let mut q = BigInt::from(1);
     let mut r = BigInt::from(0);
     let mut t = BigInt::from(1);
     let mut k = BigInt::from(1);
     let mut n = BigInt::from(3);
     let mut l = BigInt::from(3);
-    let mut first = true;
+
     loop {
         if &q * 4 + &r - &t < &n * &t {
             print!("{}", n);
