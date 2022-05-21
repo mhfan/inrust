@@ -1,5 +1,5 @@
 
-use std::{io::{self, Write}, cmp::Ordering/*, time::Duration, error::Error*/};
+use std::{env, io::{self, Write}, cmp::Ordering/*, time::Duration, error::Error*/};
 //pub use A::B:C as D;
 
 //#[allow(unused_macros)]
@@ -9,10 +9,10 @@ use std::{io::{self, Write}, cmp::Ordering/*, time::Duration, error::Error*/};
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
     print!("{} v{}, args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-    std::env::args().skip(1).for_each(|itor| print!(" {itor:?}") );
-    //println!(" {:?}", std::env::args().collect::<Vec<String>>());
+    env::args().skip(1).for_each(|itor| print!(" {itor:?}") );
+    //println!(" {:?}", env::args().collect::<Vec<String>>());
 
-    //std::env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
+    //env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
 
     println!("\nHello, world!\n");  //panic!("Test a panic.");
 
@@ -26,9 +26,98 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //for i in _a { println!("{i:?}"); }
     //for i in (1..5).rev() { println!("{i:?}"); }
 
+    compute_24();
     guess_number();
-    //compute_24();
     //_calc_pi();
+
+    //Ok(())
+}
+
+fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> + std::fmt::Debug>(nums: T)
+        /*-> Result<(), std::error::Error>*/ {
+    #[derive(Debug)]
+    struct Rational(i32, i32);
+    //type Rational = (i32, i32);
+    //struct Rational { n: i32, d: i32 }
+    #[derive(Debug)]
+    enum Value { Void, Valid, R(Rational) }
+    //enum Value { Void, Valid, R(i32, i32) }
+
+    #[derive(Debug)]
+    enum Ops { Plus, Minus, Multiply, Divide }
+    #[derive(Debug)]
+    enum NoE { Num, Exp_ { a: Box<Expr>, op: Ops, b: Box<Expr> } }
+    #[derive(Debug)]
+    struct Expr { val: Rational, noe: NoE }
+
+    impl std::fmt::Display for Ops {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, r"{}", match self {
+                Ops::Plus     => '+', Ops::Minus    => '-',
+                Ops::Multiply => '*', Ops::Divide   => '/',
+            })
+        }
+    }
+
+    impl std::fmt::Display for Rational {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            if self.1 == 1 { write!(f, r"{}", self.0) } else {
+                write!(f, r"{}/{}", self.0, self.1)
+            }
+        }
+    }
+
+    impl Expr {
+        fn display(&self, sop: &Ops) -> String {
+            if let NoE::Exp_ { a, op, b } = &self.noe {
+                let es = a.display(sop) + &op.to_string() + &b.display(sop);
+                if matches!(sop, Ops::Multiply | Ops::Divide) &&
+                   matches!( op, Ops::Plus     | Ops::Minus) {
+                    // the precedence of 'op' is less than 'sop':
+                    return String::from(r"(") + &es + ")"
+                }   es
+            } else {
+                assert_eq!(self.val.1, 1);
+                //self.val.0.to_string()
+                self.val.to_string()
+            }
+        }
+
+        fn execuete(&mut self) {
+            if let NoE::Exp_ { a, op, b } = &self.noe {
+                //a.execute(); b.execuete();
+                match op {
+                    Ops::Plus     => {
+                        self.val.0 = a.val.0 * b.val.1 + a.val.1 * b.val.0;
+                        self.val.1 = a.val.1 * b.val.1;
+                    }
+                    Ops::Minus    => {
+                        self.val.0 = a.val.0 * b.val.1 - a.val.1 * b.val.0;
+                        self.val.1 = a.val.1 * b.val.1;
+                    }
+                    Ops::Multiply => {
+                        self.val.0 = a.val.0 * b.val.0;
+                        self.val.1 = a.val.1 * b.val.1;
+                    }
+                    Ops::Divide   => if b.val.1 != 0 {
+                        self.val.0 = a.val.0 * b.val.1;
+                        self.val.1 = a.val.1 * b.val.0;
+                    } else { self.val.1 = 0; }
+                }
+            }
+        }
+    }
+
+    let nums: Vec<Expr> = nums.map(|str| str.as_ref().parse::<i32>())
+            .inspect(|res| if let Err(e) = res { eprintln!("Error parsing data: {e}")})
+            .filter_map(Result::ok) // XXX:
+            .map(|num| Expr { val: Rational(num, 1), noe: NoE::Num }).collect();
+    let mut expr: Vec<Expr>;
+dbg!(nums);
+
+    // TODO: output all result expressions friendly
+    //todo!();  //unimplemented!();
+
     //Ok(())
 }
 
@@ -36,28 +125,40 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 fn  compute_24() {
     let mut goal = 24;
 
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if !args.is_empty() {
-        if let Ok(_goal) = args[0].parse::<i32>() { goal = _goal; }
-    }   println!("### Game {} computation ###", goal);
+    let mut nums = env::args().peekable();
+    nums.next();    // skip the executable path
+    if let Some(opt) = nums.peek() {
+        if opt == "-g" {    nums.next();
+            if let Some(gs) = &nums.next() {
+                match gs.parse::<i32>() {
+                    Ok(_goal) => goal = _goal,
+                    Err(e) => eprintln!("Error parsing GOAL: {e}"),
+                }
+            } else { eprintln!("Lack parameter for GOAL!"); }
+        }
 
-    loop {
-        print!("\nInput a data series: ");
+        compute_24_algo(nums);
+    }
 
-        let mut datas = String::new();
+    println!("### Game {goal} computation ###");
+    loop {  print!("\nInput a data series: ");
+
+        let mut nums = String::new();
         io::stdout().flush().expect("Failed to flush!"); //.unwrap();
-        io::stdin().read_line(&mut datas).expect("Failed to read!");
-        let mut datas: Vec<&str>  = datas.trim().split(' ')
-                .filter(|s| !s.is_empty()).collect();
+        io::stdin().read_line(&mut nums).expect("Failed to read!");
+        let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
-        if datas[0].starts_with(&['g', 'G']) {  //dbg!(&datas);
-            if let Ok(_goal) = datas[0][1..].parse::<i32>() {
-                println!("\n### Reset GOAL to {} ###", goal = _goal);
-            }   datas.remove(0);
-        } else if datas[0].eq_ignore_ascii_case("quit") { break }
+        if let Some(first) = nums.peek() {
+            if first.starts_with(&['g', 'G']) {
+                match first[1..].parse::<i32>() {
+                    Ok(_goal) => println!("\n### Reset GOAL to {} ###", goal = _goal),
+                    Err(e) => eprintln!("Error parsing GOAL: {e}"),
+                }   nums.next();
+            } else if first.eq_ignore_ascii_case("quit") { break }
+        }
 
-        // TODO: output all results friendly
-     };
+        compute_24_algo(nums);
+    }
 }
 
 use rand::Rng;
