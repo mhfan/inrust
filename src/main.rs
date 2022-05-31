@@ -44,7 +44,7 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     //type Value = Option<Rational>;
 
     //struct _Oper(char);
-    #[derive(Clone, Debug)]
+    #[derive(Clone, Hash, Debug)]
     enum Oper { Plus, Minus, Multiply, Divide }
     #[derive(Clone, Debug)]
     enum NoE { Num, Exp_ { a: Rc<Expr>, op: Rc<Oper>, b: Rc<Expr> } }
@@ -161,25 +161,32 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            self.val.0.hash(state);     self.val.1.hash(state);
+            if let NoE::Exp_ { a, op, b } = &self.noe {
+                a.hash(state);  b.hash(state);  op.hash(state);
+            } else {
+                self.val.0.hash(state);     self.val.1.hash(state);
+            }
         }
     }
 
     //const OPS: [Oper; 4] = [ '+', '-', '*', '/' ];
     const OPS: [Oper; 4] = [ Oper::Plus, Oper::Minus, Oper::Multiply, Oper::Divide ];
-    let ops: Vec<_> = OPS.into_iter().map(Rc::new).collect();
 
+    let ops: Vec<_> = OPS.into_iter().map(Rc::new).collect();
     let nums: Vec<_> = nums.map(|str| str.as_ref().parse::<i32>())
             .inspect(|res| if let Err(e) = res { eprintln!("Error parsing data: {e}")})
             .filter_map(Result::ok).collect();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
-    let exps: Vec<_> = nums.iter().map(|n| Rc::new(Expr::from(*n))).collect();
-    compute_24_recursive(goal, &ops, &exps);
+    let mut exps: Vec<Rc<Expr>> = Vec::new();
+    compute_24_recursive(goal, &ops, &nums.iter()
+        .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
+    exps.iter().for_each(|e| println!("{}", e));
+    eprintln!("Got {} results!", exps.len());
 
-    fn compute_24_recursive(goal: i32, ops: &[Rc<Oper>], nv: &[Rc<Expr>]) {
-        if nv.len() == 1 { if nv[0].eqn(goal) { println!("{}", nv[0]); } return; }
-        // XXX: how to collect result expression?
+    fn compute_24_recursive(goal: i32, ops: &[Rc<Oper>],
+            nv: &[Rc<Expr>], exps: &mut Vec<Rc<Expr>>) {
+        if nv.len() == 1 { if nv[0].eqn(goal) { exps.push(nv[0].clone()); } return; }
 
         use std::collections::HashSet;
         let mut hs = HashSet::new();
@@ -188,21 +195,21 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
             nv.iter().skip(i+1).enumerate().for_each(|(j, b)|
                 if hs.insert((a, b)) {
                     let j = i + 1 + j;
-                    let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)| if k != i && k != j { Some(e.clone()) } else { None }).collect();
+                    let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)|
+                        if k != i && k != j { Some(e.clone()) } else { None }).collect();
+                    let (_a, _b) = if a < b { (a, b) } else { (b, a) };
 
-                    //eprintln!("({} ? {})", a.val, b.val);
+                    //eprintln!("-> ({} ? {})", _a.val, _b.val);
                     ops.iter().for_each(|op| {
                         if matches!(op.as_ref(), Oper::Minus | Oper::Divide) {
                             let mut nv = nv.to_vec();
-                            nv.push(Rc::new(if a < b { Expr::new(b, op, a) } else {
-                                Expr::new(a, op, b) }));
-                            compute_24_recursive(goal, ops, &nv);
+                            nv.push(Rc::new(Expr::new(_b, op, _a)));
+                            compute_24_recursive(goal, ops, &nv, exps);
                         }
 
                         let mut nv = nv.to_vec();
-                        nv.push(Rc::new(if a < b { Expr::new(a, op, b) } else {
-                            Expr::new(b, op, a) }));
-                        compute_24_recursive(goal, ops, &nv);
+                        nv.push(Rc::new(Expr::new(_a, op, _b)));
+                        compute_24_recursive(goal, ops, &nv, exps);
                     });
                 }));
     }
