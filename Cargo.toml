@@ -17,6 +17,7 @@ exclude = ["tests"]
 [dependencies]
 rand = "0.8.*"
 num-bigint = "0.4.*"
+itertools = "0.10.*"
 
 [lib]
 #proc-macro = true
