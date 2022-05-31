@@ -36,7 +36,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 #[allow(dead_code)]
 fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         fmt::Debug>(goal: i32, nums: T) /*-> Result<(), std::error::Error>*/ {
-    #[derive(Clone, Debug)]
+    //#[derive(Clone, Debug)]
     struct Rational(i32, i32);
     //type Rational = (i32, i32);
     //struct Rational { n: i32, d: i32 }
@@ -44,11 +44,11 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     //type Value = Option<Rational>;
 
     //struct _Oper(char);
-    #[derive(Clone, Hash, Debug)]
+    #[derive(Hash)]
     enum Oper { Plus, Minus, Multiply, Divide }
-    #[derive(Clone, Debug)]
+    //#[derive(Debug)]
     enum NoE { Num, Exp_ { a: Rc<Expr>, op: Rc<Oper>, b: Rc<Expr> } }
-    #[derive(Clone, Debug)]
+    //#[derive(Debug)]
     struct Expr { val: Rational, noe: NoE }
     //struct _Expr { v: Rational, e: Option<(Rc<Expr>, Rc<Oper>, Rc<Expr>)> }
 
