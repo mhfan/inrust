@@ -33,99 +33,55 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
+
 #[allow(dead_code)]
+//#[allow(clippy::logic_bug)]
 fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         fmt::Debug>(goal: i32, nums: T) /*-> Result<(), std::error::Error>*/ {
     //#[derive(Clone, Debug)]
-    struct Rational(i32, i32);
-    //type Rational = (i32, i32);
+    //struct Rational(i32, i32);
     //struct Rational { n: i32, d: i32 }
+
     //enum Value { Void, Valid, R(Rational) }
     //type Value = Option<Rational>;
 
-    //struct _Oper(char);
-    #[derive(Hash)]
-    enum Oper { Plus, Minus, Multiply, Divide }
-    //#[derive(Debug)]
-    enum NoE { Num, Exp_ { a: Rc<Expr>, op: Rc<Oper>, b: Rc<Expr> } }
-    //#[derive(Debug)]
-    struct Expr { val: Rational, noe: NoE }
-    //struct _Expr { v: Rational, e: Option<(Rc<Expr>, Rc<Oper>, Rc<Expr>)> }
+    type Rational = (i32, i32);
+    type Oper = char;
 
-    impl fmt::Display for Oper {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            write!(f, r"{}", match self {
-                Oper::Plus  => '+', Oper::Multiply => '*',
-                Oper::Minus => '-', Oper::Divide   => '/' })
-        }
-    }
+    #[derive(Debug)]
+    struct Expr { v: Rational, e: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
-    impl fmt::Display for Rational {   // XXX: how to reuse for Debug?
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            if self.1 == 0 { write!(f, r"(INV)") } else {
-                let bracket = self.0 * self.1 < 0;
-                write!(f, r"{}{}{}{}", if bracket { r"(" } else { r"" }, self.0,
-                    if self.1 == 1 { String::new() } else { format!(r"/{}", self.1) },
-                                       if bracket { r")" } else { r"" })
-            }
-        }
-    }
-
-    impl fmt::Display for Expr {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            if let NoE::Exp_ { a, op, b } = &self.noe {
-                let (mut ls, mut rs) = (a.to_string(), b.to_string());
-                let lop = op.as_ref();
-
-                if let NoE::Exp_ { op, .. } = &a.noe {
-                    let op = op.as_ref();
-                    let braket = matches!(op, Oper::Minus | Oper::Plus) &&
-                        matches!(lop, Oper::Divide | Oper::Multiply);
-                    if braket { ls = format!(r"({})", ls); }
-                }
-
-                if let NoE::Exp_ { op, .. } = &b.noe {
-                    let op = op.as_ref();
-                    let braket = matches!(lop, Oper::Divide) &&
-                            matches!( op, Oper::Divide | Oper::Multiply) ||
-                           !matches!(lop, Oper::Plus) &&
-                            matches!( op, Oper::Minus  | Oper::Plus);
-                    if braket { rs = format!(r"({})", rs); }
-                }
-
-                write!(f, r"{}{}{}", ls, lop, rs)
-            } else { write!(f, r"{}", self.val) }
-        }
-    }
+    // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
     impl Expr {
-        fn from(num: i32) -> Self { Self { val: Rational(num, 1), noe: NoE::Num } }
-        fn new(a: &Rc<Expr>, op: &Rc<Oper>, b: &Rc<Expr>) -> Self {
-            Self {  val: Expr::operate(a, op, b),
-                    noe: NoE::Exp_ { a: Rc::clone(a), op: Rc::clone(op),
-                                     b: Rc::clone(b) } }
+        fn new(a: &Rc<Expr>, op: Oper, b: &Rc<Expr>) -> Self {
+            Self { v: Expr::operate(a, op, b),
+                   e: Some((Rc::clone(a), op, Rc::clone(b))) }
         }
 
-        fn operate(a: &Expr, op: &Oper, b: &Expr) -> Rational {
-            let mut val = Rational(0, 0);
+        fn from(num: i32) -> Self { Self { v: /*Rational*/(num, 1), e: None } }
+        fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
+            let mut val = a.v;  // just for initialize val
 
             match op {
-                Oper::Plus     => {
-                    val.0 = a.val.0 * b.val.1 + a.val.1 * b.val.0;
-                    val.1 = a.val.1 * b.val.1;
+                '+' => {
+                    val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;
+                    val.1 = a.v.1 * b.v.1;
                 }
-                Oper::Minus    => {
-                    val.0 = a.val.0 * b.val.1 - a.val.1 * b.val.0;
-                    val.1 = a.val.1 * b.val.1;
+                '-' => {
+                    val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;
+                    val.1 = a.v.1 * b.v.1;
                 }
-                Oper::Multiply => {
-                    val.0 = a.val.0 * b.val.0;
-                    val.1 = a.val.1 * b.val.1;
+                '*' => {
+                    val.0 = a.v.0 * b.v.0;
+                    val.1 = a.v.1 * b.v.1;
                 }
-                Oper::Divide   =>   if b.val.1 != 0 {
-                    val.0 = a.val.0 * b.val.1;
-                    val.1 = a.val.1 * b.val.0;
+                '/' =>   if b.v.1 != 0 {
+                    val.0 = a.v.0 * b.v.1;
+                    val.1 = a.v.1 * b.v.0;
                 } else { val.1 = 0; }  // invalidation
+
+                _ => unimplemented!("operator '{}'", op)
             }
 
             if  val.1 != 0 && val.1 != 1 && val.0 % val.1 == 0 {
@@ -133,27 +89,57 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
             }   val
         }
 
-        fn eqn(&self, n: i32) -> bool { self.val.1 != 0 && self.val.0 == self.val.1 * n }
+        fn eqn(&self, n: i32) -> bool { self.v.1 != 0 && self.v.0 == self.v.1 * n }
+    }
+
+    impl fmt::Display for Expr {   // XXX: how to reuse for Debug?
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            if let Some((a, op, b)) = &self.e {
+                let (mut ls, mut rs) = (a.to_string(), b.to_string());
+                let lop = op;
+
+                if let Some((_, op, ..)) = &a.e {
+                    let braket = matches!(lop, '*' | '/') && matches!(op, '+' | '-');
+                    if  braket { ls = format!(r"({})", ls); }
+                }
+
+                if let Some((_, op, .. )) = &b.e {
+                    let braket = matches!(lop, '/') && matches!(op, '*' | '/') ||
+                                      !matches!(lop, '+') && matches!(op, '+' | '-');
+                    if  braket { rs = format!(r"({})", rs); }
+                }
+
+                write!(f, r"{}{}{}", ls, lop, rs)
+            } else { //write!(f, r"{}", self.v)
+                let val = &self.v;
+                if  val.1 == 0 { write!(f, r"(INV)") } else {
+                    let bracket = val.0 * val.1 < 0;
+                    write!(f, r"{}{}{}{}", if bracket { r"(" } else { r"" },   val.0,
+                        if val.1 == 1 { String::new() } else { format!(r"/{}", val.1) },
+                                           if bracket { r")" } else { r"" })
+                }
+            }
+        }
     }
 
     impl std::cmp::Eq for Expr { }
     impl std::cmp::PartialEq for Expr {
         fn eq(&self, r: &Expr) -> bool {
-            self.val.1 != 0 && r.val.1 != 0 && self.val.0 * r.val.1 == self.val.1 * r.val.0
+            self.v.1 != 0 && r.v.1 != 0 && self.v.0 * r.v.1 == self.v.1 * r.v.0
         }
     }
 
     impl std::cmp::Ord for Expr {
         fn cmp(&self, r: &Self) -> Ordering {
-            let (a, b) = (self.val.0 * r.val.1, self.val.1 * r.val.0);
+            let (a, b) = (self.v.0 * r.v.1, self.v.1 * r.v.0);
             a.cmp(&b)
         }
     }
 
     impl std::cmp::PartialOrd for Expr {
         fn partial_cmp(&self, r: &Self) -> Option<Ordering> {
-            if self.val.1 == 0 || r.val.1 == 0 { None } else {
-                let (a, b) = (self.val.0 * r.val.1, self.val.1 * r.val.0);
+            if self.v.1 == 0 || r.v.1 == 0 { None } else {
+                let (a, b) = (self.v.0 * r.v.1, self.v.1 * r.v.0);
                 a.partial_cmp(&b)
             }
         }
@@ -161,60 +147,68 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            if let NoE::Exp_ { a, op, b } = &self.noe {
+            if let Some((a, op, b)) = &self.e {
                 a.hash(state);  b.hash(state);  op.hash(state);
-            } else {
-                self.val.0.hash(state);     self.val.1.hash(state);
+            } else { // XXX:
+                self.v.0.hash(state);     self.v.1.hash(state);
             }
         }
     }
 
-    //const OPS: [Oper; 4] = [ '+', '-', '*', '/' ];
-    const OPS: [Oper; 4] = [ Oper::Plus, Oper::Minus, Oper::Multiply, Oper::Divide ];
-
-    let ops: Vec<_> = OPS.into_iter().map(Rc::new).collect();
+    const OPS: [Oper; 4] = [ '+', '-', '*', '/' ];
     let nums: Vec<_> = nums.map(|str| str.as_ref().parse::<i32>())
             .inspect(|res| if let Err(e) = res { eprintln!("Error parsing data: {e}")})
             .filter_map(Result::ok).collect();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
     let mut exps: Vec<Rc<Expr>> = Vec::new();
-    compute_24_recursive(goal, &ops, &nums.iter()
+    compute_24_recursive(goal, &nums.iter()
         .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
     exps.iter().for_each(|e| println!("{}", e));
     eprintln!("Got {} results!", exps.len());
 
-    fn compute_24_recursive(goal: i32, ops: &[Rc<Oper>],
-            nv: &[Rc<Expr>], exps: &mut Vec<Rc<Expr>>) {
-        if nv.len() == 1 { if nv[0].eqn(goal) { exps.push(nv[0].clone()); } return; }
+    fn compute_24_recursive(goal: i32, nv: &[Rc<Expr>], exps: &mut Vec<Rc<Expr>>) {
+        if nv.len() == 1 { if nv[0].eqn(goal) { exps.push(nv[0].clone()); } return }
 
         use std::collections::HashSet;
         let mut hs = HashSet::new();
-
         nv.iter().enumerate().for_each(|(i, a)|
-            nv.iter().skip(i+1).enumerate().for_each(|(j, b)|
+            nv.iter().skip(i+1).enumerate().for_each(|(j, b)| {
+                let (a, b) = if a < b { (a, b) } else { (b, a) };
                 if hs.insert((a, b)) {
                     let j = i + 1 + j;
                     let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)|
                         if k != i && k != j { Some(e.clone()) } else { None }).collect();
-                    let (_a, _b) = if a < b { (a, b) } else { (b, a) };
 
-                    //eprintln!("-> ({} ? {})", _a.val, _b.val);
-                    ops.iter().for_each(|op| {
-                        if matches!(op.as_ref(), Oper::Minus | Oper::Divide) {
+                    //eprintln!("-> ({} ? {})", a.val, b.val);
+                    OPS.iter().for_each(|op| {
+                        if let Some((_, aop, ..)) = &a.e {
+                            if aop == op { return; }
+                        }
+
+                        if let Some((ba, bop, ..)) = &b.e {
+                            match (op, bop) {
+                                ('+', '+') | ('*', '*') => if ba < a { return }
+                                ('-', '-') | ('/', '/') => return,
+                                _ => ()
+                            }
+                        }
+
+                        if matches!(op, '-' | '/') {    // for order mattered operators
                             let mut nv = nv.to_vec();
-                            nv.push(Rc::new(Expr::new(_b, op, _a)));
-                            compute_24_recursive(goal, ops, &nv, exps);
+                            nv.push(Rc::new(Expr::new(b, *op, a)));
+                            compute_24_recursive(goal, &nv, exps);
                         }
 
                         let mut nv = nv.to_vec();
-                        nv.push(Rc::new(Expr::new(_a, op, _b)));
-                        compute_24_recursive(goal, ops, &nv, exps);
+                        nv.push(Rc::new(Expr::new(a, *op, b)));
+                        compute_24_recursive(goal, &nv, exps);
                     });
-                }));
+                }
+            }));
     }
 
-    //todo!();  //unimplemented!();
+    //todo!();
     //Ok(())
 }
 
