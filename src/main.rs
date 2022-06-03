@@ -33,8 +33,6 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
-
-#[allow(dead_code)]
 //#[allow(clippy::logic_bug)]
 fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         fmt::Debug>(goal: i32, nums: T) /*-> Result<(), std::error::Error>*/ {
@@ -49,33 +47,24 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     type Oper = char;
 
     #[derive(Debug)]
-    struct Expr { v: Rational, e: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
+    struct Expr { v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
     // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
     impl Expr {
         fn new(a: &Rc<Expr>, op: Oper, b: &Rc<Expr>) -> Self {
             Self { v: Expr::operate(a, op, b),
-                   e: Some((Rc::clone(a), op, Rc::clone(b))) }
+                   m: Some((Rc::clone(a), op, Rc::clone(b))) }
         }
 
-        fn from(num: i32) -> Self { Self { v: /*Rational*/(num, 1), e: None } }
+        fn from(num: i32) -> Self { Self { v: /*Rational*/(num, 1), m: None } }
         fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
             let mut val = a.v;  // just for initialize val
 
             match op {
-                '+' => {
-                    val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;
-                    val.1 = a.v.1 * b.v.1;
-                }
-                '-' => {
-                    val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;
-                    val.1 = a.v.1 * b.v.1;
-                }
-                '*' => {
-                    val.0 = a.v.0 * b.v.0;
-                    val.1 = a.v.1 * b.v.1;
-                }
+                '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                '-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                '*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
                 '/' =>   if b.v.1 != 0 {
                     val.0 = a.v.0 * b.v.1;
                     val.1 = a.v.1 * b.v.0;
@@ -94,31 +83,25 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     impl fmt::Display for Expr {   // XXX: how to reuse for Debug?
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            if let Some((a, op, b)) = &self.e {
-                let (mut ls, mut rs) = (a.to_string(), b.to_string());
-                let lop = op;
+            if let Some((a, op, b)) = &self.m {
+                let braket = if let Some((_, aop, ..)) = &a.m { //true ||
+                    matches!(aop, '+' | '-') && matches!(op, '*' | '/') } else { false };
 
-                if let Some((_, op, ..)) = &a.e {
-                    let braket = matches!(lop, '*' | '/') && matches!(op, '+' | '-');
-                    if  braket { ls = format!(r"({})", ls); }
-                }
+                if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
+                if  braket { write!(f, r")")? }     write!(f, r"{op}")?;
 
-                if let Some((_, op, .. )) = &b.e {
-                    let braket = matches!(lop, '/') && matches!(op, '*' | '/') ||
-                                      !matches!(lop, '+') && matches!(op, '+' | '-');
-                    if  braket { rs = format!(r"({})", rs); }
-                }
+                let braket = if let Some((_, bop, ..)) = &b.m { //true ||
+                    matches!(op, '/') && matches!(bop, '*' | '/') ||
+                   !matches!(op, '+') && matches!(bop, '+' | '-') } else { false };
 
-                write!(f, r"{}{}{}", ls, lop, rs)
-            } else { //write!(f, r"{}", self.v)
-                let val = &self.v;
-                if  val.1 == 0 { write!(f, r"(INV)") } else {
-                    let bracket = val.0 * val.1 < 0;
-                    write!(f, r"{}{}{}{}", if bracket { r"(" } else { r"" },   val.0,
-                        if val.1 == 1 { String::new() } else { format!(r"/{}", val.1) },
-                                           if bracket { r")" } else { r"" })
-                }
-            }
+                if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
+                if  braket { write!(f, r")")? }
+            } else if  self.v.1 == 0 { write!(f, r"(INV)")? } else {
+                let braket = self.v.0 * self.v.1 < 0;
+                if  braket { write!(f, r"(")? }     write!(f, r"{}", self.v.0)?;
+                if  self.v.1 != 1 { write!(f, r"/{}", self.v.1)? }
+                if  braket { write!(f, r")")? }
+            }   Ok(())
         }
     }
 
@@ -147,7 +130,7 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-            if let Some((a, op, b)) = &self.e {
+            if let Some((a, op, b)) = &self.m {
                 a.hash(state);  b.hash(state);  op.hash(state);
             } else { // XXX:
                 self.v.0.hash(state);     self.v.1.hash(state);
@@ -164,7 +147,7 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     let mut exps: Vec<Rc<Expr>> = Vec::new();
     compute_24_recursive(goal, &nums.iter()
         .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
-    exps.iter().for_each(|e| println!("{}", e));
+    exps.iter().for_each(|e| println!("{e}"));
     eprintln!("Got {} results!", exps.len());
 
     fn compute_24_recursive(goal: i32, nv: &[Rc<Expr>], exps: &mut Vec<Rc<Expr>>) {
@@ -180,13 +163,11 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                     let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)|
                         if k != i && k != j { Some(e.clone()) } else { None }).collect();
 
-                    //eprintln!("-> ({} ? {})", a.val, b.val);
+                    //eprintln!("-> ({} ? {})", a.v, b.v);
                     OPS.iter().for_each(|op| {
-                        if let Some((_, aop, ..)) = &a.e {
-                            if aop == op { return; }
-                        }
+                        if let Some((_, aop, ..)) = &a.m { if aop == op { return } }
 
-                        if let Some((ba, bop, ..)) = &b.e {
+                        if let Some((ba, bop, ..)) = &b.m {
                             match (op, bop) {
                                 ('+', '+') | ('*', '*') => if ba < a { return }
                                 ('-', '-') | ('/', '/') => return,
