@@ -11,10 +11,11 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     print!("{} v{}, args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     env::args().skip(1).for_each(|it| print!(" {it:?}") );
     //println!(" {:?}", env::args().collect::<Vec<String>>());
+    print!("\n{}\n", env!("CARGO_PKG_AUTHORS"));
 
     //env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
 
-    println!("\nHello, world!\n");  //panic!("Test a panic.");
+    println!("Hello, world!");  //panic!("Test a panic.");
 
     //use std::time::Duration;
     //std::thread::sleep(Duration::from_secs(1));
@@ -33,7 +34,9 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
-//#[allow(clippy::logic_bug)]
+use yansi::Paint;   // Color, Style
+
+#[allow(clippy::logic_bug)]
 fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         fmt::Debug>(goal: i32, nums: T) /*-> Result<(), std::error::Error>*/ {
     //#[derive(Clone, Debug)]
@@ -48,8 +51,6 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     #[derive(Debug)]
     struct Expr { v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
-
-    // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
     impl Expr {
         fn new(a: &Rc<Expr>, op: Oper, b: &Rc<Expr>) -> Self {
@@ -81,7 +82,10 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         fn eqn(&self, n: i32) -> bool { self.v.1 != 0 && self.v.0 == self.v.1 * n }
     }
 
-    impl fmt::Display for Expr {   // XXX: how to reuse for Debug?
+    // context-free grammar, Chomsky type 2/3, Kleen Algebra
+    // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
+
+    impl fmt::Display for Expr {   // XXX: How to reuse for Debug?
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             if let Some((a, op, b)) = &self.m {
                 let braket = if let Some((_, aop, ..)) = &a.m { //true ||
@@ -144,20 +148,25 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
             .filter_map(Result::ok).collect();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
-    let mut exps: Vec<Rc<Expr>> = Vec::new();
+    use std::collections::HashSet;
+    let mut exps = HashSet::new();
+    // XXX: How to construct unique expression sequences in different combination orders?
     compute_24_recursive(goal, &nums.iter()
         .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
-    exps.iter().for_each(|e| println!("{e}"));
-    eprintln!("Got {} results!", exps.len());
 
-    fn compute_24_recursive(goal: i32, nv: &[Rc<Expr>], exps: &mut Vec<Rc<Expr>>) {
-        if nv.len() == 1 { if nv[0].eqn(goal) { exps.push(nv[0].clone()); } return }
+    exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
+    if exps.is_empty() { eprintln!("{}", Paint::yellow("Found no expressions!")); } else {
+        //eprintln!("Got {} results!", Paint::yellow(exps.len()).bold());
+    }
 
-        use std::collections::HashSet;
+    fn compute_24_recursive(goal: i32, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
+        if nv.len() == 1 { if nv[0].eqn(goal) { exps.insert(nv[0].clone()); } return }
+
         let mut hs = HashSet::new();
         nv.iter().enumerate().for_each(|(i, a)|
             nv.iter().skip(i+1).enumerate().for_each(|(j, b)| {
                 let (a, b) = if a < b { (a, b) } else { (b, a) };
+                // make (a, b) in ascending order
                 if hs.insert((a, b)) {
                     let j = i + 1 + j;
                     let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)|
@@ -165,22 +174,43 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
                     //eprintln!("-> ({} ? {})", a.v, b.v);
                     OPS.iter().for_each(|op| {
-                        if let Some((_, aop, ..)) = &a.m { if aop == op { return } }
+                        if let Some((_, aop, ..)) = &a.m {
+                            // here 'c' is upper expr. 'b'
+                            // ((a . b) . c) => (a . (b . c))
+                            if aop == op { return }
+
+                            // ((a - b) + c) => ((a + c) - b)
+                            // ((a / b) * c) => ((a * c) / b)
+                            match (aop, op) { ('-', '+') | ('/', '*') => return, _ => () }
+                        }
 
                         if let Some((ba, bop, ..)) = &b.m {
-                            match (op, bop) {
+                            match (op, bop) {   // here 'c' is upper expr. 'a'
+                                // (c + (a + b)) => (a + (c + b)) if a < c
+                                // (c * (a * b)) => (a * (c * b)) if a < c
                                 ('+', '+') | ('*', '*') => if ba < a { return }
+
+                                // (c + (a - b)) => ((c + a) - b)
+                                // (c * (a / b)) => ((c * a) / b)
+                                ('+', '-') | ('*', '/') |
+
+                                // (c - (a - b)) => ((c + b) - a)
+                                // (c / (a / b)) => ((c * b) / a)
                                 ('-', '-') | ('/', '/') => return,
+
                                 _ => ()
                             }
                         }
 
-                        if matches!(op, '-' | '/') {    // for order mattered operators
+                        if matches!(op, '-' | '/') {
+                            // for order mattered (different value) operators
+                            if *op == '/' && a.eqn(0) { return }    // skip invalid expr.
                             let mut nv = nv.to_vec();
                             nv.push(Rc::new(Expr::new(b, *op, a)));
                             compute_24_recursive(goal, &nv, exps);
                         }
 
+                        if *op == '/' && b.eqn(0) { return }        // skip invalid expr.
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(a, *op, b)));
                         compute_24_recursive(goal, &nv, exps);
@@ -212,8 +242,8 @@ fn  compute_24() {
         compute_24_algo(goal, nums);
     }
 
-    println!("### Game {goal} computation ###");
-    loop {  print!("\nInput a data series: ");
+    println!("\n### Game {} computation ###", Paint::magenta(goal).bold());
+    loop {  print!("\n{}", Paint::white("Input a string of integers: ").dimmed());
 
         let mut nums = String::new();
         io::stdout().flush().expect("Failed to flush!"); //.unwrap();
@@ -223,7 +253,9 @@ fn  compute_24() {
         if let Some(first) = nums.peek() {
             if first.starts_with(&['g', 'G']) {
                 match first[1..].parse::<i32>() {
-                    Ok(_goal) => println!("\n### Reset GOAL to {} ###", goal = _goal),
+                    Ok(_goal) => {  goal = _goal;
+                        println!("### Reset GOAL to {} ###", Paint::magenta(goal).bold());
+                    }
                     Err(e) => eprintln!("Error parsing GOAL: {e}"),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("quit") { break }
@@ -250,7 +282,7 @@ fn  guess_number() {    // interactive function
 
     use rand::Rng;
     let secret = rand::thread_rng().gen_range(1..=max); //dbg!(secret);
-    println!("### {title} (1~{max}) ###");
+    println!("\n### {title} (1~{max}) ###");
 
     let _result = 'label: loop {    // unused prefixed with underscore
         print!("\n{prompt}");
