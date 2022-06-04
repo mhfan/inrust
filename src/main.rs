@@ -36,8 +36,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 
 use yansi::Paint;   // Color, Style
 
-#[allow(clippy::logic_bug)]
-fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
+fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         fmt::Debug>(goal: i32, nums: T) /*-> Result<(), std::error::Error>*/ {
     //#[derive(Clone, Debug)]
     //struct Rational(i32, i32);
@@ -88,6 +87,7 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     impl fmt::Display for Expr {   // XXX: How to reuse for Debug?
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             if let Some((a, op, b)) = &self.m {
+                //#[allow(clippy::logic_bug)]
                 let braket = if let Some((_, aop, ..)) = &a.m { //true ||
                     matches!(aop, '+' | '-') && matches!(op, '*' | '/') } else { false };
 
@@ -135,8 +135,8 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             if let Some((a, op, b)) = &self.m {
-                a.hash(state);  b.hash(state);  op.hash(state);
-            } else { // XXX:
+                a.hash(state);  b.hash(state);  op.hash(state);     // XXX: recursivions
+            } else {
                 self.v.0.hash(state);     self.v.1.hash(state);
             }
         }
@@ -150,7 +150,6 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     use std::collections::HashSet;
     let mut exps = HashSet::new();
-    // XXX: How to construct unique expression sequences in different combination orders?
     compute_24_recursive(goal, &nums.iter()
         .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
 
@@ -163,17 +162,18 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
         if nv.len() == 1 { if nv[0].eqn(goal) { exps.insert(nv[0].clone()); } return }
 
         let mut hs = HashSet::new();
+        // XXX: How to construct unique expressions over different combination orders?
         nv.iter().enumerate().for_each(|(i, a)|
             nv.iter().skip(i+1).enumerate().for_each(|(j, b)| {
+                // traverse all two expr. combinations, make (a, b) in ascending order
                 let (a, b) = if a < b { (a, b) } else { (b, a) };
-                // make (a, b) in ascending order
-                if hs.insert((a, b)) {
+                if hs.insert((a, b)) {  // skip exactly same combinations
                     let j = i + 1 + j;
                     let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)|
                         if k != i && k != j { Some(e.clone()) } else { None }).collect();
 
                     //eprintln!("-> ({} ? {})", a.v, b.v);
-                    OPS.iter().for_each(|op| {
+                    OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
                         if let Some((_, aop, ..)) = &a.m {
                             // here 'c' is upper expr. 'b'
                             // ((a . b) . c) => (a . (b . c))
@@ -202,8 +202,10 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                             }
                         }
 
+                        // swap sub-expr. for order mattered (different values) operators
                         if matches!(op, '-' | '/') {
-                            // for order mattered (different value) operators
+                            // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
+                            if *op == '-' && is_nminus_expr(a) { return }
                             if *op == '/' && a.eqn(0) { return }    // skip invalid expr.
                             let mut nv = nv.to_vec();
                             nv.push(Rc::new(Expr::new(b, *op, a)));
@@ -214,6 +216,16 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(a, *op, b)));
                         compute_24_recursive(goal, &nv, exps);
+
+                        fn is_nminus_expr(e: &Expr) -> bool {
+                            // find ((a - b) * x / y) where a < b
+                            if let Some((a, op, b)) = &e.m {
+                                if *op == '-' && a < b { return true }
+                                if matches!(op, '*' | '/') {
+                                    return is_nminus_expr(a) || is_nminus_expr(b)
+                                }
+                            }   false
+                        }
                     });
                 }
             }));
@@ -224,7 +236,7 @@ fn  compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 }
 
 #[allow(dead_code)]
-fn  compute_24() {
+fn compute_24() {
     let mut goal = 24;
 
     let mut nums = env::args().peekable();
@@ -242,7 +254,7 @@ fn  compute_24() {
         compute_24_algo(goal, nums);
     }
 
-    println!("\n### Game {} computation ###", Paint::magenta(goal).bold());
+    println!("\n### Solve {} computation ###", Paint::magenta(goal).bold());
     loop {  print!("\n{}", Paint::white("Input a string of integers: ").dimmed());
 
         let mut nums = String::new();
@@ -266,7 +278,7 @@ fn  compute_24() {
 }
 
 #[allow(dead_code)]
-fn  guess_number() {    // interactive function
+fn guess_number() {    // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
     //struct Param(i32, bool); let param = Param(100, true); //let param = (100, true);
     let (max, lang) = (100, false);
@@ -315,7 +327,7 @@ fn largest<T: PartialOrd>(list: &[T]) -> &T {
     largest
 }
 
-fn  _calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.org/wiki/Pi
+fn _calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.org/wiki/Pi
     use num_bigint::BigInt;
     let mut first = true;
 
