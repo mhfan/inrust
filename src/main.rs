@@ -36,23 +36,57 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 
 use yansi::Paint;   // Color, Style
 
+//#[derive(Clone, Debug)]
+struct Rational(i32, i32);
+//struct Rational { n: i32, d: i32 }
+//type Rational = (i32, i32);
+
+//std::ops::{Add, Sub, Mul, Div}
+/* impl std::ops::Add for Rational {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output { todo!() }
+} */
+
+//enum Value { Void, Valid, R(Rational) }
+//type Value = Option<Rational>;
+
+//impl std::cmp::Eq for Rational { }
+impl std::cmp::PartialEq for Rational {
+    fn eq(&self, r: &Self) -> bool {
+        self.1 != 0 && r.1 != 0 && self.0 * r.1 == self.1 * r.0
+    }
+}
+
+impl core::convert::From<i32> for Rational {
+    fn from(n: i32) -> Self { Self(n, 1) }
+}
+
+impl std::fmt::Display for Rational {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if  self.1 == 0 { write!(f, r"(INV)")? } else {
+            let braket = self.0 * self.1 < 0;
+            if  braket { write!(f, r"(")? }     write!(f, r"{}", self.0)?;
+            if  self.1 != 1 { write!(f, r"/{}", self.1)? }
+            if  braket { write!(f, r")")? }
+        }   Ok(())
+    }
+}
+
+impl std::str::FromStr for Rational {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let v = s.split('/').collect::<Vec<_>>();
+        let (n, mut d) = (v[0].parse::<i32>()?, 1);
+        if 1 < v.len() { d = v[1].parse::<i32>()? }
+        Ok(Rational(n, d))
+    }
+}
+
 fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
-        fmt::Debug>(goal: i32, nums: T) /*-> Result<(), std::error::Error>*/ {
-    //#[derive(Clone, Debug)]
-    //struct Rational(i32, i32);
-    //struct Rational { n: i32, d: i32 }
-
-    //std::ops::{Add, Sub, Mul, Div}
-    /* impl std::ops::Add for Rational {
-        type Output = Self;
-        fn add(self, rhs: Self) -> Self::Output { todo!() }
-    } */
-
-    //enum Value { Void, Valid, R(Rational) }
-    //type Value = Option<Rational>;
-
-    type Rational = (i32, i32);
+        fmt::Debug>(goal: &Rational, nums: T)/* -> Result<(), std::error::Error>*/ {
     type Oper = char;
+    const OPS: [Oper; 4] = ['+', '-', '*', '/'];
 
     //#[derive(Debug)]
     struct Expr { v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
@@ -63,9 +97,8 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                    m: Some((Rc::clone(a), op, Rc::clone(b))) }
         }
 
-        fn from(num: i32) -> Self { Self { v: /*Rational*/(num, 1), m: None } }
         fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
-            let mut val = a.v;  // just for initialize val
+            let mut val = Rational(0, 0);
 
             match op {
                 '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
@@ -91,13 +124,11 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
             fn _simplify(v: &Rational) -> Rational {
                 let gcd = _gcd(v.0, v.1);
-                (v.0 / gcd, v.1 / gcd)
+                Rational(v.0 / gcd, v.1 / gcd)
             }
 
             val //Expr::_simplify(&val)     // XXX:
         }
-
-        fn eqn(&self, n: i32) -> bool { self.v.1 != 0 && self.v.0 == self.v.1 * n }
 
         fn acceptable(a: &Expr, op: Oper, b: &Expr) -> bool {   // assuming a < b
             if let Some((_, aop, ..)) = &a.m {
@@ -155,21 +186,12 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
                 if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
                 if  braket { write!(f, r")")? }
-            } else if  self.v.1 == 0 { write!(f, r"(INV)")? } else {
-                let braket = self.v.0 * self.v.1 < 0;
-                if  braket { write!(f, r"(")? }     write!(f, r"{}", self.v.0)?;
-                if  self.v.1 != 1 { write!(f, r"/{}", self.v.1)? }
-                if  braket { write!(f, r")")? }
-            }   Ok(())
+            } else { write!(f, r"{}", self.v)? }    Ok(())
         }
     }
 
     impl std::cmp::Eq for Expr { }
-    impl std::cmp::PartialEq for Expr {
-        fn eq(&self, r: &Expr) -> bool {
-            self.v.1 != 0 && r.v.1 != 0 && self.v.0 * r.v.1 == self.v.1 * r.v.0
-        }
-    }
+    impl std::cmp::PartialEq for Expr { fn eq(&self, r: &Self) -> bool { self.v == r.v } }
 
     impl std::cmp::Ord for Expr {
         fn cmp(&self, r: &Self) -> Ordering {
@@ -189,30 +211,33 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             if let Some((a, op, b)) = &self.m {
-                a.hash(state);  op.hash(state);  b.hash(state);     // XXX: recursions
-            } else { self.v.hash(state) }
+                a.hash(state);  op.hash(state);   b.hash(state);     // XXX: recursions
+            } else { self.v.0.hash(state); self.v.1.hash(state); }
         }
     }
 
-    const OPS: [Oper; 4] = ['+', '-', '*', '/'];
+    impl core::convert::From<Rational> for Expr {
+        fn from(r: Rational) -> Self { Self { v: r, m: None } }
+    }
+
     // TODO: accept rational numbers input
-    let nums: Vec<_> = nums.map(|str| str.as_ref().parse::<i32>())
+    let nums = nums.map(|str| str.as_ref().parse::<Rational>())
             .inspect(|res| if let Err(e) = res { eprintln!("Error parsing data: {e}")})
-            .filter_map(Result::ok).collect();
+            .filter_map(Result::ok)
+            //.map(|n| Rc::new(Expr::from(Rational::from(n)))).collect::<Vec<_>>();
+            .map(|r| Rc::new(Expr::from(r))).collect::<Vec<_>>();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
-    let exps = compute_24_splitset(&nums.iter()
-        .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>());
-    let exps = exps.into_iter()
-        .filter(|e| e.eqn(goal)).collect::<Vec<_>>();
+    let exps = compute_24_splitset(&nums).into_iter()
+        .filter(|e| e.v == *goal).collect::<Vec<_>>();
     exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
 
     //use itertools::Itertools;
     use std::collections::HashSet;
-    /*let mut exps = HashSet::new();
-    compute_24_recursive(goal, &nums.iter()
-        .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
-    exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));*/
+
+    /* let mut exps = HashSet::new();
+    compute_24_recursive(goal, &nums, &mut exps);
+    exps.iter().for_each(|e| println!(r"{}", Paint::green(e))); */
 
     if exps.is_empty() { eprintln!("{}", Paint::yellow("Found no expressions!")); } else {
         //eprintln!("Got {} results!", Paint::yellow(exps.len()).bold());
@@ -266,12 +291,13 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                     if !Expr::acceptable(a, *op, b) { return }
 
                     // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
-                    if *op == '-' && !a.is_subn_expr() || *op == '/' && !a.eqn(0) {
+                    if *op == '-' && !a.is_subn_expr() ||
+                       *op == '/' &&  a.v != 0.into() {         // skip invalid expr.
                         // swap sub-expr. for order mattered (different values) operators
                         exps.push(Rc::new(Expr::new(b, *op, a)));
                     }
 
-                    if *op == '/' && b.eqn(0) { return }    // skip invalid expr.
+                    if *op == '/' && b.v == 0.into() { return } // skip invalid expr.
                     exps.push(Rc::new(Expr::new(a, *op, b)));
                 });
             }));
@@ -280,8 +306,8 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     #[allow(dead_code)]
     // construct expressions down up from numbers
-    fn compute_24_recursive(goal: i32, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
-        if nv.len() == 1 { if nv[0].eqn(goal) { exps.insert(nv[0].clone()); } return }
+    fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
+        if nv.len() == 1 { if nv[0].v == *goal { exps.insert(nv[0].clone()); } return }
 
         let mut hs = HashSet::new();
         // XXX: How to construct unique expressions over different combination orders?
@@ -300,14 +326,15 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                         if !Expr::acceptable(a, *op, b) { return }
 
                         // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
-                        if *op == '-' && !a.is_subn_expr() || *op == '/' && !a.eqn(0) {
+                        if *op == '-' && !a.is_subn_expr() ||
+                           *op == '/' &&  a.v != 0.into() {         // skip invalid expr.
                             // swap sub-expr. for order mattered (different values) operators
                             let mut nv = nv.to_vec();
                             nv.push(Rc::new(Expr::new(b, *op, a)));
                             compute_24_recursive(goal, &nv, exps);
                         }
 
-                        if *op == '/' && b.eqn(0) { return }    // skip invalid expr.
+                        if *op == '/' && b.v == 0.into() { return } // skip invalid expr.
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(a, *op, b)));
                         compute_24_recursive(goal, &nv, exps);
@@ -322,25 +349,25 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
 #[allow(dead_code)]
 fn compute_24() {
-    let mut goal = 24;
+    let mut goal = Rational(24, 1);
 
     let mut nums = env::args().peekable();
     nums.next();    // skip the executable path
     if let Some(opt) = nums.peek() {
         if opt == "-g" {    nums.next();
             if let Some(gs) = &nums.next() {
-                match gs.parse::<i32>() {
+                match gs.parse::<Rational>() {
                     Ok(_goal) => goal = _goal,
                     Err(e) => eprintln!("Error parsing GOAL: {e}"),
                 }
             } else { eprintln!("Lack parameter for GOAL!"); }
         }
 
-        compute_24_algo(goal, nums);
+        compute_24_algo(&goal, nums);
     }
 
-    println!("\n### Solve {} computation ###", Paint::magenta(goal).bold());
-    loop {  print!("\n{}", Paint::white("Input a string of integers: ").dimmed());
+    println!("\n### Solve {} computation ###", Paint::magenta(&goal).bold());
+    loop {  print!("\n{}", Paint::white("Input a string of rationals: ").dimmed());
 
         let mut nums = String::new();
         io::stdout().flush().expect("Failed to flush!"); //.unwrap();
@@ -349,16 +376,16 @@ fn compute_24() {
 
         if let Some(first) = nums.peek() {
             if first.starts_with(&['g', 'G']) {
-                match first[1..].parse::<i32>() {
+                match first[1..].parse::<Rational>() {
                     Ok(_goal) => {  goal = _goal;
-                        println!("### Reset GOAL to {} ###", Paint::magenta(goal).bold());
+                        println!("### Reset GOAL to {} ###", Paint::magenta(&goal).bold());
                     }
                     Err(e) => eprintln!("Error parsing GOAL: {e}"),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("quit") { break }
         }
 
-        compute_24_algo(goal, nums);
+        compute_24_algo(&goal, nums);
     }
 }
 
