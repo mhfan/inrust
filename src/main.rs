@@ -42,13 +42,19 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     //struct Rational(i32, i32);
     //struct Rational { n: i32, d: i32 }
 
+    //std::ops::{Add, Sub, Mul, Div}
+    /* impl std::ops::Add for Rational {
+        type Output = Self;
+        fn add(self, rhs: Self) -> Self::Output { todo!() }
+    } */
+
     //enum Value { Void, Valid, R(Rational) }
     //type Value = Option<Rational>;
 
     type Rational = (i32, i32);
     type Oper = char;
 
-    #[derive(Debug)]
+    //#[derive(Debug)]
     struct Expr { v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
     impl Expr {
@@ -73,12 +79,61 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                 _ => unimplemented!("operator '{}'", op)
             }
 
-            if  val.1 != 0 && val.1 != 1 && val.0 % val.1 == 0 {
-                val.0 /= val.1;   val.1  = 1;
-            }   val
+            // Calculate the greatest common denominator for two numbers
+            fn _gcd(a: i32, b: i32) -> i32 {
+                let (mut m, mut n) = (a, b);
+                while m != 0 {  // Use Euclid's algorithm
+                    let temp = m;
+                    m = n % temp;
+                    n = temp;
+                }   n.abs()
+            }
+
+            fn _simplify(v: &Rational) -> Rational {
+                let gcd = _gcd(v.0, v.1);
+                (v.0 / gcd, v.1 / gcd)
+            }
+
+            val //Expr::_simplify(&val)     // XXX:
         }
 
         fn eqn(&self, n: i32) -> bool { self.v.1 != 0 && self.v.0 == self.v.1 * n }
+
+        fn acceptable(a: &Expr, op: Oper, b: &Expr) -> bool {   // assuming a < b
+            if let Some((_, aop, ..)) = &a.m {
+                // hereafter 'c' is upper expr. 'b'
+                // ((a . b) . c) => (a . (b . c))
+                if *aop == op { return false }
+
+                // ((a - b) + c) => ((a + c) - b)
+                // ((a / b) * c) => ((a * c) / b)
+                match (aop, op) { ('-', '+') | ('/', '*') => return false, _ => () }
+            }
+
+            if let Some((ba, bop, ..)) = &b.m {
+                match (op, bop) {   // here 'c' is upper expr. 'a'
+                    // (c + (a + b)) => (a + (c + b)) if a < c
+                    // (c * (a * b)) => (a * (c * b)) if a < c
+                    ('+', '+') | ('*', '*') => if ba.as_ref() < a { return false }
+
+                    // (c + (a - b)) => ((c + a) - b)
+                    // (c * (a / b)) => ((c * a) / b)
+                    // (c - (a - b)) => ((c + b) - a)
+                    // (c / (a / b)) => ((c * b) / a)
+                    ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return false,
+
+                    _ => ()
+                }
+            }   true
+        }
+
+        fn is_subn_expr(&self) -> bool {
+            if let Some((a, op, b)) = &self.m {
+                // find ((a - b) * x / y) where a < b
+                if *op == '-' && a < b { return true }
+                if matches!(op, '*' | '/') { return a.is_subn_expr() || b.is_subn_expr() }
+            }   false
+        }
     }
 
     // context-free grammar, Chomsky type 2/3, Kleen Algebra
@@ -118,8 +173,7 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
     impl std::cmp::Ord for Expr {
         fn cmp(&self, r: &Self) -> Ordering {
-            let (a, b) = (self.v.0 * r.v.1, self.v.1 * r.v.0);
-            a.cmp(&b)
+            let (a, b) = (self.v.0 * r.v.1, self.v.1 * r.v.0);  a.cmp(&b)
         }
     }
 
@@ -135,97 +189,128 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             if let Some((a, op, b)) = &self.m {
-                a.hash(state);  b.hash(state);  op.hash(state);     // XXX: recursivions
-            } else {
-                self.v.0.hash(state);     self.v.1.hash(state);
-            }
+                a.hash(state);  op.hash(state);  b.hash(state);     // XXX: recursions
+            } else { self.v.hash(state) }
         }
     }
 
-    const OPS: [Oper; 4] = [ '+', '-', '*', '/' ];
+    const OPS: [Oper; 4] = ['+', '-', '*', '/'];
+    // TODO: accept rational numbers input
     let nums: Vec<_> = nums.map(|str| str.as_ref().parse::<i32>())
             .inspect(|res| if let Err(e) = res { eprintln!("Error parsing data: {e}")})
             .filter_map(Result::ok).collect();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
+    let exps = compute_24_splitset(&nums.iter()
+        .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>());
+    let exps = exps.into_iter()
+        .filter(|e| e.eqn(goal)).collect::<Vec<_>>();
+    exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
+
+    //use itertools::Itertools;
     use std::collections::HashSet;
-    let mut exps = HashSet::new();
+    /*let mut exps = HashSet::new();
     compute_24_recursive(goal, &nums.iter()
         .map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>(), &mut exps);
+    exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));*/
 
-    exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
     if exps.is_empty() { eprintln!("{}", Paint::yellow("Found no expressions!")); } else {
         //eprintln!("Got {} results!", Paint::yellow(exps.len()).bold());
     }
 
+    // divide and conque with numbers
+    fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+        let mut exps = Vec::new();
+        if nv.len() < 2 { for e in nv { exps.push(e.clone()); } return exps }
+
+        assert!(nv.len() < 128);
+        let plen = (1 << nv.len()) as u128;
+        let mut hs = vec![];
+
+        for mask in 1..plen/2 {
+            let (mut s0, mut s1) = (vec![], vec![]);
+            let pick_item =
+                |ss: &mut Vec<_>, mut bits: u128| while 0 < bits {
+                // isolate the rightmost bit to select one item
+                let rightmost = bits & !(bits - 1);
+                // turn the isolated bit into an array index
+                let idx = rightmost.trailing_zeros() as usize;
+                let item = (*nv.get(idx).unwrap()).clone();
+                bits &= bits - 1;   // zero the trailing bit
+                ss.push(item);      //print!(" {idx}");
+            };
+
+            // split true sub sets
+            pick_item(&mut s0,  mask);              //print!(";");
+            pick_item(&mut s1, !mask & (plen - 1)); //println!();
+
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+
+            // skip duplicated (s0, s1)
+            let mut hasher = DefaultHasher::new();
+            s0.hash(&mut hasher);   let h0 = hasher.finish();
+            if hs.contains(&h0) { continue } else { hs.push(h0) }
+
+            let mut hasher = DefaultHasher::new();
+            s1.hash(&mut hasher);   let h1 = hasher.finish();
+            if h1 != h0 { if hs.contains(&h1) { continue } else { hs.push(h1) } }
+
+            let (s0, s1) =
+                (compute_24_splitset(&s0), compute_24_splitset(&s1));
+
+            s0.iter().for_each(|a| s1.iter().for_each(|b| {
+            //s0.iter().cartesian_product(s1).for_each(|(&a, &b)| { });
+                let (a, b) = if a < b { (a, b) } else { (b, a) };
+                OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
+                    if !Expr::acceptable(a, *op, b) { return }
+
+                    // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
+                    if *op == '-' && !a.is_subn_expr() || *op == '/' && !a.eqn(0) {
+                        // swap sub-expr. for order mattered (different values) operators
+                        exps.push(Rc::new(Expr::new(b, *op, a)));
+                    }
+
+                    if *op == '/' && b.eqn(0) { return }    // skip invalid expr.
+                    exps.push(Rc::new(Expr::new(a, *op, b)));
+                });
+            }));
+        }   exps
+    }
+
+    #[allow(dead_code)]
+    // construct expressions down up from numbers
     fn compute_24_recursive(goal: i32, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
         if nv.len() == 1 { if nv[0].eqn(goal) { exps.insert(nv[0].clone()); } return }
 
         let mut hs = HashSet::new();
         // XXX: How to construct unique expressions over different combination orders?
         nv.iter().enumerate().for_each(|(i, a)|
-            nv.iter().skip(i+1).enumerate().for_each(|(j, b)| {
-                // traverse all two expr. combinations, make (a, b) in ascending order
+            nv.iter().skip(i+1).for_each(|b| {
+        //nv.iter().tuple_combinations::<(_,_)>().for_each(|(a, b)| { });
+                // traverse all expr. combinations, make (a, b) in ascending order
                 let (a, b) = if a < b { (a, b) } else { (b, a) };
                 if hs.insert((a, b)) {  // skip exactly same combinations
-                    let j = i + 1 + j;
-                    let nv: Vec<_> = nv.iter().enumerate().filter_map(|(k, e)|
-                        if k != i && k != j { Some(e.clone()) } else { None }).collect();
+                    let nv = nv.iter().filter(|&e|
+                        !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
+                        .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
                     //eprintln!("-> ({} ? {})", a.v, b.v);
                     OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
-                        if let Some((_, aop, ..)) = &a.m {
-                            // here 'c' is upper expr. 'b'
-                            // ((a . b) . c) => (a . (b . c))
-                            if aop == op { return }
+                        if !Expr::acceptable(a, *op, b) { return }
 
-                            // ((a - b) + c) => ((a + c) - b)
-                            // ((a / b) * c) => ((a * c) / b)
-                            match (aop, op) { ('-', '+') | ('/', '*') => return, _ => () }
-                        }
-
-                        if let Some((ba, bop, ..)) = &b.m {
-                            match (op, bop) {   // here 'c' is upper expr. 'a'
-                                // (c + (a + b)) => (a + (c + b)) if a < c
-                                // (c * (a * b)) => (a * (c * b)) if a < c
-                                ('+', '+') | ('*', '*') => if ba < a { return }
-
-                                // (c + (a - b)) => ((c + a) - b)
-                                // (c * (a / b)) => ((c * a) / b)
-                                ('+', '-') | ('*', '/') |
-
-                                // (c - (a - b)) => ((c + b) - a)
-                                // (c / (a / b)) => ((c * b) / a)
-                                ('-', '-') | ('/', '/') => return,
-
-                                _ => ()
-                            }
-                        }
-
-                        // swap sub-expr. for order mattered (different values) operators
-                        if matches!(op, '-' | '/') {
-                            // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
-                            if *op == '-' && is_nminus_expr(a) { return }
-                            if *op == '/' && a.eqn(0) { return }    // skip invalid expr.
+                        // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
+                        if *op == '-' && !a.is_subn_expr() || *op == '/' && !a.eqn(0) {
+                            // swap sub-expr. for order mattered (different values) operators
                             let mut nv = nv.to_vec();
                             nv.push(Rc::new(Expr::new(b, *op, a)));
                             compute_24_recursive(goal, &nv, exps);
                         }
 
-                        if *op == '/' && b.eqn(0) { return }        // skip invalid expr.
+                        if *op == '/' && b.eqn(0) { return }    // skip invalid expr.
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(a, *op, b)));
                         compute_24_recursive(goal, &nv, exps);
-
-                        fn is_nminus_expr(e: &Expr) -> bool {
-                            // find ((a - b) * x / y) where a < b
-                            if let Some((a, op, b)) = &e.m {
-                                if *op == '-' && a < b { return true }
-                                if matches!(op, '*' | '/') {
-                                    return is_nminus_expr(a) || is_nminus_expr(b)
-                                }
-                            }   false
-                        }
                     });
                 }
             }));
@@ -277,6 +362,30 @@ fn compute_24() {
     }
 }
 
+/* https://gist.github.com/synecdoche/9ade913c891dda6fcf1cdac823e7d524
+ * Given a slice of type T, return a Vec containing the powerset,
+ * i.e. the set of all subsets.
+ *
+ * This works by treating each int the range [0, 2**n) (where n is the length of the slice)
+ * as a bitmask, selecting only the members of the original slice whose corresponding
+ * positional bits are flipped on in each mask.
+ */
+pub fn _powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
+    let mut v = Vec::new();
+    for mask in 0..(1 << slice.len()) as u128 {
+        assert!(slice.len() < 128);
+        let (mut ss, mut bits) = (vec![], mask);
+        while 0 < bits {
+            // isolate the rightmost bit to select one item
+            let rightmost = bits & !(bits - 1);
+            // turn the isolated bit into an array index
+            let idx = rightmost.trailing_zeros() as usize;
+            let item = (*slice.get(idx).unwrap()).clone();
+            ss.push(item);  bits &= bits - 1;   // zero the trailing bit
+        }   v.push(ss);
+    }       v
+}
+
 #[allow(dead_code)]
 fn guess_number() {    // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
@@ -319,7 +428,7 @@ fn guess_number() {    // interactive function
 }
 
 #[allow(dead_code)]
-fn largest<T: PartialOrd>(list: &[T]) -> &T {
+pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
     let mut largest = &list[0];
 
     // for &item in list {}

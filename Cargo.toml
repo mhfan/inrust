@@ -19,6 +19,7 @@ rand = "0.8.*"
 num-bigint = "0.4.*"
 #itertools = "0.10.*"
 yansi = "0.5.*"
+#num = "0.4.*"
 
 [lib]
 #proc-macro = true
