@@ -1,3 +1,19 @@
+/****************************************************************
+ * $ID: main.rs        四, 09  6 2022 18:09:34 +0800  mhfan $ *
+ *                                                              *
+ * Description:                                                 *
+ *                                                              *
+ * Maintainer:  范美辉 (MeiHui FAN) <mhfan@ustc.edu>            *
+ *                                                              *
+ * Copyright (c) 2022 M.H.Fan                                   *
+ *   All Rights Reserved.                                       *
+ *                                                              *
+ * This file is free software;                                  *
+ *   you are free to modify and/or redistribute it   	        *
+ *   under the terms of the GNU General Public Licence (GPL).   *
+ *                                                              *
+ * Last modified: 四, 09  6 2022 18:10:04 +0800       by mhfan #
+ ****************************************************************/
 
 use std::{env, cmp::Ordering, io::{self, Write}/*, error::Error*/};
 //pub use A::B::C as D;
@@ -142,3 +158,5 @@ fn _calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.or
         }
     }
 }
+
+// vim:sts=4 ts=8 sw=4 noet

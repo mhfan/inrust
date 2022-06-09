@@ -1,3 +1,19 @@
+/****************************************************************
+ * $ID: comp24.rs        四, 09  6 2022 18:09:34 +0800  mhfan $ *
+ *                                                              *
+ * Description:                                                 *
+ *                                                              *
+ * Maintainer:  范美辉 (MeiHui FAN) <mhfan@ustc.edu>            *
+ *                                                              *
+ * Copyright (c) 2022 M.H.Fan                                   *
+ *   All Rights Reserved.                                       *
+ *                                                              *
+ * This file is free software;                                  *
+ *   you are free to modify and/or redistribute it   	        *
+ *   under the terms of the GNU General Public Licence (GPL).   *
+ *                                                              *
+ * Last modified: 四, 09  6 2022 18:10:33 +0800       by mhfan #
+ ****************************************************************/
 
 //pub mod comp24 {
 
@@ -364,7 +380,7 @@ mod tests { // unit test sample
 
         cases.iter().for_each(|it| assert_eq!(it.0.to_string(), it.1));
         cases.iter().for_each(|it| assert_eq!(it.0,
-                it.1.trim_start_matches('(').trim_end_matches(')')
+            it.1.trim_start_matches('(').trim_end_matches(')')
                 .parse::<Rational>().unwrap()));
     }
 
@@ -373,12 +389,18 @@ mod tests { // unit test sample
         use super::*;
 
         let cases = [
-            ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)"]),
-            ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"]),
-            ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"]),
-            ( 24, vec![ 8, 8, 8, 8], vec![]),
-            ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"]),
-            (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)", "(17-13)*(14+15)-16"]),
+            ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "2*3*4/1",
+                "(1+3)*(2+4)", "4*(1+2+3)"], -1i32),
+            ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], -1),
+            ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], -1),
+            ( 24, vec![ 8, 8, 8, 8], vec![], -1),
+            ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], -1),
+            (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)",
+                "(17-13)*(14+15)-16"], -1),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
+            (100, vec![ 1, 2, 3, 4, 5], vec![], 7),
+            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 2166),
+            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 307),
         ];
 
         cases.iter().for_each(|it| {
@@ -388,21 +410,30 @@ mod tests { // unit test sample
             let exps = compute_24_splitset(&nums).into_iter()
                 .filter(|e| e.v == it.0.into()).collect::<Vec<_>>();
 
-            assert!(exps.len() == it.2.len());
-            if  exps.len() == 1 { assert_eq!(exps[0].to_string(), it.2[0]) } else {
-                exps.iter().for_each(|e|
-                    assert!(it.2.contains(&e.to_string().as_str())));
+            if 0 < it.3 { assert_eq!(exps.len(), it.3 as usize) } else {
+                assert!(exps.len() == it.2.len());
+                if  exps.len() == 1 { assert_eq!(exps[0].to_string(), it.2[0]) } else {
+                    exps.iter().for_each(|e|
+                        assert!(it.2.contains(&e.to_string().as_str())));
+                }
             }
 
+            if 0 < it.3 { return }  // XXX: skip slow test running
             let mut exhs = HashSet::default();
             compute_24_recursive(&it.0.into(), &nums, &mut exhs);
             let exps = exhs.into_iter().collect::<Vec<_>>();
 
-            assert!(exps.len() == it.2.len());
-            if  exps.len() == 1 { assert_eq!(exps[0].to_string(), it.2[0]) } else {
-                exps.iter().for_each(|e|
-                    assert!(it.2.contains(&e.to_string().as_str())));
+            if 0 < it.3 { assert_eq!(exps.len(), it.3 as usize) } else {
+                assert!(exps.len() == it.2.len());
+                if  exps.len() == 1 { assert_eq!(exps[0].to_string(), it.2[0]) } else {
+                    exps.iter().for_each(|e|
+                        assert!(it.2.contains(&e.to_string().as_str())));
+                }
             }
         });
     }
+
+    //#[bench]
 }
+
+// vim:sts=4 ts=8 sw=4 noet
