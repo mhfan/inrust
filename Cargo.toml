@@ -18,6 +18,7 @@ exclude = ["tests"]
 rand = "0.8.*"
 num-bigint = "0.4.*"
 #itertools = "0.10.*"
+rustc-hash = "1.1.*"
 yansi = "0.5.*"
 #num = "0.4.*"
 
@@ -26,6 +27,7 @@ yansi = "0.5.*"
 
 [profile.release]
 panic = 'abort'
+#opt-level = 3
 
 [profile.release-lto]
 inherits = "release"

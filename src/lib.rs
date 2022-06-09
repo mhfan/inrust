@@ -2,10 +2,12 @@
 
 // src/lib.rs (default library entry point)
 
-pub fn f() -> i32 { 0 }
-// Public item in root, accessible from the outside.
+//#![feature(test)]
+//extern crate test;
 
+pub fn f() -> i32 { 0 }     // Public item in root, accessible from the outside.
 //pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
+pub mod comp24;
 
 mod m {
     #[allow(dead_code)]
@@ -15,14 +17,15 @@ mod m {
 }
 
 #[cfg(test)]
-mod tests {  // unit test sample
-    use super::f;   // Need to import items from parent module. Has access to non-public members.
+mod tests { // unit test sample
+    //use test::Bencher;
+    // Need to import items from parent module. Has access to non-public members.
+    use super::*;
+
     #[test]
     //#[should_panic]
     //#[should_panic(expect = "some panic string")]
-    fn testf() {
-        assert_eq!(f(), 0);
-    }
+    fn testf() { assert_eq!(f(), 0); }
 
     #[test]
     fn testg() -> Result<(), String> {
