@@ -1,10 +1,10 @@
 
 use std::{env, fmt, io::{self, Write}, cmp::Ordering, rc::Rc/*, error::Error*/};
-//pub use A::B:C as D;
+//pub use A::B::C as D;
 
 //#[allow(unused_macros)]
-//macro_rules! var_args { ($($args:expr),*) => {{ }} }  //$(f($args);)*   // XXX
-//macro_rules! printvar { ($var:expr) => { println!("{}: {:?}", stringify!($var), $var); } }
+//macro_rules! var_args { ($($args:expr),*) => {{ }} }  //$(f($args);)*   // XXX:
+//macro_rules! printvar { ($var:expr) => { println!("{}: {:?}", stringify!($var), $var) } }
 
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
@@ -24,8 +24,8 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 
     //let _a = [1, 2, 3, 4, 5];
     //let _a = [1; 5]; //_a.len();
-    //for i in _a { println!("{i:?}"); }
-    //for i in (1..5).rev() { println!("{i:?}"); }
+    //for i in _a { println!("{i:?}") }
+    //for i in (1..5).rev() { println!("{i:?}") }
 
     compute_24();
     guess_number();
@@ -103,12 +103,12 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     struct Expr { v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
     impl Expr {
-        fn new(a: &Rc<Expr>, op: Oper, b: &Rc<Expr>) -> Self {
-            Self { v: Expr::operate(a, op, b),
+        fn new(a: &Rc<Self>, op: Oper, b: &Rc<Self>) -> Self {
+            Self { v: Self::operate(a, op, b),
                    m: Some((Rc::clone(a), op, Rc::clone(b))) }
         }
 
-        fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
+        fn operate(a: &Self, op: Oper, b: &Self) -> Rational {
             let mut val = Rational(0, 0);
 
             match op {
@@ -138,10 +138,10 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                 Rational(v.0 / gcd, v.1 / gcd)
             }
 
-            val //Expr::_simplify(&val)     // XXX:
+            val //Self::_simplify(&val)     // XXX:
         }
 
-        fn acceptable(a: &Expr, op: Oper, b: &Expr) -> bool {   // assuming a < b
+        fn acceptable(a: &Self, op: Oper, b: &Self) -> bool {   // assuming a < b
             if let Some((_, aop, ..)) = &a.m {
                 // hereafter 'c' is upper expr. 'b'
                 // ((a . b) . c) => (a . (b . c))
@@ -171,9 +171,9 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
 
         fn is_subn_expr(&self) -> bool {
             if let Some((a, op, b)) = &self.m {
-                // find ((a - b) * x / y) where a < b
-                if *op == '-' && a.v < b.v { return true }
                 if matches!(op, '*' | '/') { return a.is_subn_expr() || b.is_subn_expr() }
+                if *op == '-' && a.v < b.v { return true }
+                // find ((a - b) * x / y) where a < b
             }   false
         }
     }
@@ -181,7 +181,7 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     // context-free grammar, Chomsky type 2/3, Kleen Algebra
     // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
-    impl fmt::Display for Expr {   // XXX: How to reuse for Debug?
+    impl fmt::Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             if let Some((a, op, b)) = &self.m {
                 //#[allow(clippy::logic_bug)]
@@ -206,8 +206,9 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     impl std::hash::Hash for Expr {
         fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
             if let Some((a, op, b)) = &self.m {
-                a.hash(state);  op.hash(state);   b.hash(state);     // XXX: recursions
+                a.hash(state);  op.hash(state);   b.hash(state);
             } else { self.v.0.hash(state); self.v.1.hash(state); }
+            // XXX: have recursions, yet occasionally collision
         }
     }
 
@@ -220,7 +221,7 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     let exps = compute_24_splitset(&nums).into_iter()
         .filter(|e| e.v == *goal).collect::<Vec<_>>();
     exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
-    //eprintln!("{}: {}", file!(), line!());
+    //eprintln!("{}: {}", file!(), line!());    // TODO: How to define it as 'dtrace' macro
 
     //use itertools::Itertools;
     use std::collections::HashSet;
@@ -230,7 +231,7 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     //return exps.into_iter().collect::<Vec<_>>();
     exps.iter().for_each(|e| println!(r"{}", Paint::green(e))); */
 
-    if exps.is_empty() { eprintln!("{}", Paint::yellow("Found no expressions!")); } else {
+    if exps.is_empty() { eprintln!("{}", Paint::yellow("Found no expressions!")) } else {
         //eprintln!("Got {} results!", Paint::yellow(exps.len()).bold());
     }
 
@@ -238,15 +239,15 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
     // divide and conque with numbers
     fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         let mut exps = Vec::new();
-        if nv.len() < 2 { for e in nv { exps.push(e.clone()); } return exps }
+        if nv.len() < 2 { for e in nv { exps.push(e.clone()) } return exps }
 
-        assert!(nv.len() < 128);
-        let (plen, mut hs) = ((1 << nv.len()) as u128, vec![]);
+        assert!(nv.len() < 64);
+        let (plen, mut hs) = ((1 << nv.len()), vec![]);
 
         for mask in 1..plen/2 {
             let (mut s0, mut s1) = (vec![], vec![]);
             let pick_item =
-                |ss: &mut Vec<_>, mut bits: u128| while 0 < bits {
+                |ss: &mut Vec<_>, mut bits: u64| while 0 < bits {
                 // isolate the rightmost bit to select one item
                 let rightmost = bits & !(bits - 1);
                 // turn the isolated bit into an array index
@@ -282,14 +283,18 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                 OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
                     if !Expr::acceptable(a, *op, b) { return }
 
-                    // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
+                    // keep (c - d) * x / y - a for negative goal?
+                    // (b - (c - d) * x / y) => (b + (d - c) * x / y) if (c < d)
                     if *op == '-' && !a.is_subn_expr() ||
                        *op == '/' &&  a.v != 0.into() {         // skip invalid expr.
                         // swap sub-expr. for order mattered (different values) operators
                         exps.push(Rc::new(Expr::new(b, *op, a)));
                     }
 
-                    if *op == '/' && b.v == 0.into() { return } // skip invalid expr.
+                    // keep (c - d) * x / y - b for negative goal?
+                    // (a - (c - d) * x / y) => (a + (c - d) * x / y) if (c < d)
+                    if *op == '-' &&  b.is_subn_expr() ||
+                       *op == '/' &&  b.v == 0.into() { return } // skip invalid expr.
                     exps.push(Rc::new(Expr::new(a, *op, b)));
                 });
             }));
@@ -317,16 +322,20 @@ fn compute_24_algo<ST: AsRef<str>, T: Iterator<Item = ST> +
                     OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
                         if !Expr::acceptable(a, *op, b) { return }
 
-                        // (c - (a - b) * x / y) => (c + (b - a) * x / y) if (a < b)
+                        // keep (c - d) * x / y - a for negative goal?
+                        // (b - (c - d) * x / y) => (b + (d - c) * x / y) if (c < d)
                         if *op == '-' && !a.is_subn_expr() ||
-                           *op == '/' &&  a.v != 0.into() {         // skip invalid expr.
+                           *op == '/' &&  a.v != 0.into() {          // skip invalid expr.
                             // swap sub-expr. for order mattered (different values) operators
                             let mut nv = nv.to_vec();
                             nv.push(Rc::new(Expr::new(b, *op, a)));
                             compute_24_recursive(goal, &nv, exps);
                         }
 
-                        if *op == '/' && b.v == 0.into() { return } // skip invalid expr.
+                        // keep (c - d) * x / y - b for negative goal?
+                        // (a - (c - d) * x / y) => (a + (c - d) * x / y) if (c < d)
+                        if *op == '-' &&  b.is_subn_expr() ||
+                           *op == '/' &&  b.v == 0.into() { return } // skip invalid expr.
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(a, *op, b)));
                         compute_24_recursive(goal, &nv, exps);
@@ -352,7 +361,7 @@ fn compute_24() {
                     Ok(_goal) => goal = _goal,
                     Err(e) => eprintln!("Error parsing GOAL: {e}"),
                 }
-            } else { eprintln!("Lack parameter for GOAL!"); }
+            } else { eprintln!("Lack parameter for GOAL!") }
         }
 
         compute_24_algo(&goal, nums);
@@ -422,10 +431,10 @@ fn guess_number() {    // interactive function
 
     use rand::Rng;
     let secret = rand::thread_rng().gen_range(1..=max); //dbg!(secret);
-    println!("\n### {title} (1~{max}) ###");
+    println!("\n### {title} (1~{}) ###", Paint::cyan(max).bold());
 
     let _result = 'label: loop {    // unused prefixed with underscore
-        print!("\n{prompt}");
+        print!("\n{}", Paint::white(prompt).dimmed());
 
         let mut guess = String::new();
         io::stdout().flush().expect("Failed to flush!"); //.unwrap();
@@ -437,9 +446,9 @@ fn guess_number() {    // interactive function
         if let Ok(guess) = guess.parse::<i32>() { // isize
             //if (guess < secret) { } else if (secret < guess) { } else { }
             match guess.cmp(&secret) {
-                Ordering::Greater =>    println!("[{too_big}]"),
-                Ordering::Less    =>    println!("[{too_small}]"),
-                Ordering::Equal   => {  println!("[{bingo}]"); break 1 }
+                Ordering::Greater =>    println!("[{}]", Paint::magenta(too_big)),
+                Ordering::Less    =>    println!("[{}]", Paint::yellow(too_small)),
+                Ordering::Equal   => {  println!("[{}]", Paint::green(bingo)); break 1 }
             }
         } else if guess.eq_ignore_ascii_case("quit") { break 'label 0 }
         //guess.make_ascii_lowercase();  //guess.to_lowercase();
@@ -451,7 +460,7 @@ pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
     let mut largest = &list[0];
 
     // for &item in list {}
-    for item in list { if  largest < item { largest = item; } }
+    for item in list { if  largest < item { largest = item } }
     largest
 }
 
