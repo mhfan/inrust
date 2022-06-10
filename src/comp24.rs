@@ -192,9 +192,9 @@ impl std::hash::Hash for Expr {
 #[allow(dead_code)]
 // divide and conque with numbers
 pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
-    let mut exps = Vec::new();
-    if nv.len() < 2 { if !nv.is_empty() { exps.push(nv[0].clone()) } return exps }
     let (plen, mut hs) = ((1 << nv.len()), vec![]);
+    let mut exps = Vec::new();
+    if plen == 2 { exps.push(nv[0].clone()) }
 
     for mask in 1..plen/2 {
         let (mut s0, mut s1) = (vec![], vec![]);
@@ -226,8 +226,8 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         s1.hash(&mut hasher);   let h1 = hasher.finish();
         if h1 != h0 { if hs.contains(&h1) { continue } else { hs.push(h1) } }
 
-        let (s0, s1) =
-            (compute_24_splitset(&s0), compute_24_splitset(&s1));
+        /*if 1 < s0.len() { */s0 = compute_24_splitset(&s0);// }
+        /*if 1 < s1.len() { */s1 = compute_24_splitset(&s1);// }
 
         //s0.iter().cartesian_product(s1).for_each(|(&a, &b)| { });
         s0.iter().for_each(|a| s1.iter().for_each(|b| {
@@ -262,14 +262,15 @@ pub use rustc_hash::FxHashSet as HashSet;
 // construct expressions down up from numbers
 pub fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
     if nv.len() == 1 { if nv[0].v == *goal { exps.insert(nv[0].clone()); } return }
-
     let mut hs = HashSet::default();
+
     // XXX: How to construct unique expressions over different combination orders?
     //nv.iter().tuple_combinations::<(_,_)>().for_each(|(a, b)| { });
     nv.iter().enumerate().for_each(|(i, a)|
         nv.iter().skip(i+1).for_each(|b| {
             // traverse all expr. combinations, make (a, b) in ascending order
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
+
             if hs.insert((a, b)) {  // skip exactly same combinations
                 let nv = nv.iter().filter(|&e|
                     !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
@@ -312,7 +313,7 @@ pub fn compute_24_helper<ST: AsRef<str>, T: Iterator<Item = ST> +
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
     let exps = if algo {
-        assert!(nums.len() < 64);   // XXX: max u128 for bitmask
+        debug_assert!(nums.len() < 64);     // XXX: max u128 for bitmask
         compute_24_splitset(&nums).into_iter()
             .filter(|e| e.v == *goal).collect::<Vec<_>>()
     } else {
@@ -389,18 +390,20 @@ mod tests { // unit test sample
         use super::*;
 
         let cases = [
+            ( 24, vec![ 0], vec![], -1),
+            ( 24, vec![24], vec!["24"], -1),
+            ( 24, vec![ 8, 8, 8, 8], vec![], -1),
             ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "2*3*4/1",
                 "(1+3)*(2+4)", "4*(1+2+3)"], -1i32),
             ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], -1),
             ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], -1),
-            ( 24, vec![ 8, 8, 8, 8], vec![], -1),
             ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], -1),
             (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)",
                 "(17-13)*(14+15)-16"], -1),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
             (100, vec![ 1, 2, 3, 4, 5], vec![], 7),
-            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 2166),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
             (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 307),
+            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 2166),
         ];
 
         cases.iter().for_each(|it| {
@@ -410,6 +413,7 @@ mod tests { // unit test sample
             let exps = compute_24_splitset(&nums).into_iter()
                 .filter(|e| e.v == it.0.into()).collect::<Vec<_>>();
 
+            // XXX: pipe result expr. to bc for checking: echo "4*(1+2+3)" | bc
             if 0 < it.3 { assert_eq!(exps.len(), it.3 as usize) } else {
                 assert!(exps.len() == it.2.len());
                 if  exps.len() == 1 { assert_eq!(exps[0].to_string(), it.2[0]) } else {

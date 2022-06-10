@@ -22,7 +22,6 @@ use yansi::Paint;   // Color, Style
 //#[allow(unused_macros)]
 //macro_rules! var_args { ($($args:expr),*) => {{ }} }  //$(f($args);)*   // XXX:
 //macro_rules! printvar { ($var:expr) => { println!("{}: {:?}", stringify!($var), $var) } }
-//eprintln!("{}: {}", file!(), line!());    // TODO: How to define it as 'dtrace' macro
 
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
