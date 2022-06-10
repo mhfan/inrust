@@ -28,6 +28,7 @@ pub struct Rational(i32, i32);
     fn add(self, rhs: Self) -> Self::Output { todo!() }
 } */
 
+//use std::io::prelude::*;
 pub use std::{fmt, rc::Rc, io::{self, Write}, cmp::{Ordering, PartialEq}};
 
 impl core::convert::From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
@@ -73,8 +74,15 @@ impl PartialOrd for Rational {
     }
 }
 
-const OPS: [Oper; 4] = ['+', '-', '*', '/'];
-type Oper = char;
+//const Add: Oper = Oper('+');
+//const Sub: Oper = Oper('-');
+//const Mul: Oper = Oper('*');
+//const Div: Oper = Oper('/');
+const OPS: [Oper; 4] = [Oper('+'), Oper('-'), Oper('*'), Oper('/')];
+//enum Oper { Add(char), Sub(char), Mul(char), Div(char), }
+#[derive(Clone, Copy)]  // low cost
+pub struct Oper(char);  // newtype idiom
+//type Oper = char;       // type alias
 
 //#[derive(Debug)]
 //enum Value { Void, Valid, R(Rational) }
@@ -92,14 +100,14 @@ impl Expr {
     fn operate(a: &Self, op: Oper, b: &Self) -> Rational {
         let mut val = Rational(0, 0);
         match op {
-            '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            '-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            '*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            '/' => if b.v.1 != 0 {
+            Oper('+') => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+            Oper('-') => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+            Oper('*') => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+            Oper('/') => if b.v.1 != 0 {
                      val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
             } else { val.1 = 0; }  // invalidation
 
-            _ => unimplemented!("operator '{}'", op)
+            _ => unimplemented!("operator '{}'", op.0)
         }   val //Self::_simplify(&val)     // XXX:
     }
 
@@ -122,24 +130,29 @@ impl Expr {
         if let Some((_, aop, ..)) = &a.m {
             // hereafter 'c' is upper expr. 'b'
             // ((a . b) . c) => (a . (b . c))
-            if *aop == op { return false }
+            if aop.0 == op.0 { return false }
 
             // ((a - b) + c) => ((a + c) - b)
             // ((a / b) * c) => ((a * c) / b)
-            match (aop, op) { ('-', '+') | ('/', '*') => return false, _ => () }
+            match (aop, op) {
+                (Oper('-'), Oper('+')) | (Oper('/'), Oper('*')) => return false,
+                _ => ()
+            }
         }
 
         if let Some((ba, bop, ..)) = &b.m {
             match (op, bop) {   // here 'c' is upper expr. 'a'
                 // (c + (a + b)) => (a + (c + b)) if a < c
                 // (c * (a * b)) => (a * (c * b)) if a < c
-                ('+', '+') | ('*', '*') => if ba.v < a.v { return false }
+                (Oper('+'), Oper('+')) | (Oper('*'), Oper('*')) =>
+                    if ba.v < a.v { return false }
 
                 // (c + (a - b)) => ((c + a) - b)
                 // (c * (a / b)) => ((c * a) / b)
                 // (c - (a - b)) => ((c + b) - a)
                 // (c / (a / b)) => ((c * b) / a)
-                ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return false,
+                (Oper('+'), Oper('-')) | (Oper('*'), Oper('/')) |
+                (Oper('-'), Oper('-')) | (Oper('/'), Oper('/')) => return false,
 
                 _ => ()
             }
@@ -148,8 +161,9 @@ impl Expr {
 
     fn is_subn_expr(&self) -> bool {
         if let Some((a, op, b)) = &self.m {
-            if matches!(op, '*' | '/') { return a.is_subn_expr() || b.is_subn_expr() }
-            if *op == '-' && a.v < b.v { return true }
+            if matches!(op, Oper('*') | Oper('/')) {
+                return a.is_subn_expr() || b.is_subn_expr() }
+            if matches!(op, Oper('-')) && a.v < b.v { return true }
             // find ((a - b) * x / y) where a < b
         }   false
     }
@@ -160,14 +174,15 @@ impl fmt::Display for Expr {   // XXX: Is it possible to reuse it for Debug trai
         if let Some((a, op, b)) = &self.m {
             //#[allow(clippy::logic_bug)]
             let braket = if let Some((_, aop, ..)) = &a.m { //true ||
-                matches!(aop, '+' | '-') && matches!(op, '*' | '/') } else { false };
+                matches!(aop, Oper('+') | Oper('-')) &&
+                matches!( op, Oper('*') | Oper('/')) } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
-            if  braket { write!(f, r")")? }     write!(f, r"{op}")?;
+            if  braket { write!(f, r")")? }     write!(f, r"{}", op.0)?;
 
             let braket = if let Some((_, bop, ..)) = &b.m { //true ||
-                matches!(op, '/') && matches!(bop, '*' | '/') ||
-               !matches!(op, '+') && matches!(bop, '+' | '-') } else { false };
+                matches!(op, Oper('/')) && matches!(bop, Oper('*') | Oper('/')) ||
+               !matches!(op, Oper('+')) && matches!(bop, Oper('+') | Oper('-')) } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
             if  braket { write!(f, r")")? }
@@ -180,7 +195,7 @@ impl PartialEq for Expr { fn eq(&self, rhs: &Self) -> bool { self.v == rhs.v } }
 impl std::hash::Hash for Expr {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         if let Some((a, op, b)) = &self.m {
-            a.hash(state);  op.hash(state);   b.hash(state);
+            a.hash(state);  op.0.hash(state);   b.hash(state);
         } else { self.v.0.hash(state); self.v.1.hash(state); }
         // XXX: have recursions, yet occasionally collision
     }
@@ -195,6 +210,7 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     let (plen, mut hs) = ((1 << nv.len()), vec![]);
     let mut exps = Vec::new();
     if plen == 2 { exps.push(nv[0].clone()) }
+    // XXX: How to judge if every elements in nv is all unique?
 
     for mask in 1..plen/2 {
         let (mut s0, mut s1) = (vec![], vec![]);
@@ -238,16 +254,16 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 
                 // keep (c - d) * x / y - a for negative goal?
                 // (b - (c - d) * x / y) => (b + (d - c) * x / y) if (c < d)
-                if *op == '-' && !a.is_subn_expr() ||
-                   *op == '/' &&  a.v != 0.into() {         // skip invalid expr.
+                if matches!(op, Oper('-')) && !a.is_subn_expr() ||
+                   matches!(op, Oper('/')) &&  a.v != 0.into() {    // skip invalid expr.
                     // swap sub-expr. for order mattered (different values) operators
                     exps.push(Rc::new(Expr::new(b, *op, a)));
                 }
 
                 // keep (c - d) * x / y - b for negative goal?
                 // (a - (c - d) * x / y) => (a + (c - d) * x / y) if (c < d)
-                if *op == '-' &&  b.is_subn_expr() ||
-                   *op == '/' &&  b.v == 0.into() { return } // skip invalid expr.
+                if matches!(op, Oper('-')) &&  b.is_subn_expr() ||
+                   matches!(op, Oper('/')) &&  b.v == 0.into() { return }   // invalid expr.
                 exps.push(Rc::new(Expr::new(a, *op, b)));
             });
         }));
@@ -282,8 +298,8 @@ pub fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet
 
                     // keep (c - d) * x / y - a for negative goal?
                     // (b - (c - d) * x / y) => (b + (d - c) * x / y) if (c < d)
-                    if *op == '-' && !a.is_subn_expr() ||
-                       *op == '/' &&  a.v != 0.into() {          // skip invalid expr.
+                    if matches!(op, Oper('-')) && !a.is_subn_expr() ||
+                       matches!(op, Oper('/')) &&  a.v != 0.into() {    // skip invalid expr.
                         // swap sub-expr. for order mattered (different values) operators
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(b, *op, a)));
@@ -292,8 +308,8 @@ pub fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet
 
                     // keep (c - d) * x / y - b for negative goal?
                     // (a - (c - d) * x / y) => (a + (c - d) * x / y) if (c < d)
-                    if *op == '-' &&  b.is_subn_expr() ||
-                       *op == '/' &&  b.v == 0.into() { return } // skip invalid expr.
+                    if matches!(op, Oper('-')) &&  b.is_subn_expr() ||
+                       matches!(op, Oper('/')) &&  b.v == 0.into() { return } // invalid expr.
                     let mut nv = nv.to_vec();
                     nv.push(Rc::new(Expr::new(a, *op, b)));
                     compute_24_recursive(goal, &nv, exps);
@@ -304,10 +320,10 @@ pub fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet
 
 pub use yansi::Paint;   // Color, Style
 
-pub fn compute_24_helper<ST: AsRef<str>, T: Iterator<Item = ST> +
-    fmt::Debug>(goal: &Rational, nums: T, algo: bool) {
+pub fn compute_24_helper<I, S>(goal: &Rational, nums: I, algo: bool)
+    where I: Iterator<Item = S>, S: AsRef<str> {
     let nums = nums.map(|str| str.as_ref().parse::<Rational>())
-        .inspect(|res| if let Err(e) = res { eprintln!("Error parsing data: {e}")})
+        .inspect(|res| if let Err(why) = res { eprintln!("Error parsing data: {why}")})
         .filter_map(Result::ok)
         .map(|rn| Rc::new(Expr { v: rn, m: None })).collect::<Vec<_>>();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
@@ -367,7 +383,8 @@ pub fn compute_24_main() {
 
 //}
 
-mod tests { // unit test sample
+mod tests {
+ // unit test sample
     // Need to import items from parent module. Has access to non-public members.
 
     #[test]
@@ -386,7 +403,7 @@ mod tests { // unit test sample
     }
 
     #[test]
-    fn test_24comp() {
+    fn test_comp24() {
         use super::*;
 
         let cases = [
@@ -413,7 +430,6 @@ mod tests { // unit test sample
             let exps = compute_24_splitset(&nums).into_iter()
                 .filter(|e| e.v == it.0.into()).collect::<Vec<_>>();
 
-            // XXX: pipe result expr. to bc for checking: echo "4*(1+2+3)" | bc
             if 0 < it.3 { assert_eq!(exps.len(), it.3 as usize) } else {
                 assert!(exps.len() == it.2.len());
                 if  exps.len() == 1 { assert_eq!(exps[0].to_string(), it.2[0]) } else {

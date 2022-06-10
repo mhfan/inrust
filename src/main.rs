@@ -15,7 +15,13 @@
  * Last modified: 四, 09  6 2022 18:10:04 +0800       by mhfan #
  ****************************************************************/
 
-use std::{env, cmp::Ordering, io::{self, Write}/*, error::Error*/};
+// https://cheats.rs
+// https://doc.rust-lang.org/book/
+// https://doc.rust-lang.org/rust-by-example/index.html
+
+//#![allow(dead_code)]
+use std::{env, cmp::Ordering/*, error::Error*/};
+use std::io::prelude::*;
 //pub use A::B::C as D;
 use yansi::Paint;   // Color, Style
 
@@ -52,6 +58,27 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
+// https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
+fn _shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
+    use std::process::{Command, Stdio};
+    //use std::io::prelude::*;
+
+    let proc = match Command::new(prog)
+        .args(args).stdin(Stdio::piped()).stdout(Stdio::piped()).spawn() {
+        Err(why) => panic!("Couldn't spawn {prog}: {why}"),
+        Ok(proc) => proc,
+    };
+
+    if let Err(why) = proc.stdin.unwrap().write_all(inps.as_bytes()) {
+        panic!("Couldn't write to {prog} stdin: {why}")
+    }
+
+    let mut outs = String::new();
+    if let Err(why) = proc.stdout.unwrap().read_to_string(&mut outs) {
+        panic!("Couldn't read {prog} stdout: {why}")
+    }   outs
+}
+
 /* https://gist.github.com/synecdoche/9ade913c891dda6fcf1cdac823e7d524
  * Given a slice of type T, return a Vec containing the powerset,
  * i.e. the set of all subsets.
@@ -76,7 +103,6 @@ pub fn _powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
     }       v
 }
 
-#[allow(dead_code)]
 fn guess_number() {    // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
     //struct Param(i32, bool); let param = Param(100, true); //let param = (100, true);
@@ -99,8 +125,8 @@ fn guess_number() {    // interactive function
         print!("\n{}", Paint::white(prompt).dimmed());
 
         let mut guess = String::new();
-        io::stdout().flush().expect("Failed to flush!"); //.unwrap();
-        io::stdin().read_line(&mut guess).expect("Failed to read!");
+        std::io::stdout().flush().expect("Failed to flush!"); //.unwrap();
+        std::io::stdin().read_line(&mut guess).expect("Failed to read!");
         let guess = guess.trim();
 
         //let guess: i32 = guess.parse().expect("Please type a number");
