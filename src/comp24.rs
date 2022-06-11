@@ -106,11 +106,11 @@ impl Expr {
 
     fn operate(a: &Self, op: Oper, b: &Self) -> Rational {
         let mut val = Rational(0, 0);
-        match op {
-            Oper('+') => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            Oper('-') => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            Oper('*') => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            Oper('/') => if b.v.1 != 0 {
+        match op.0 {
+            '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+            '-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+            '*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+            '/' => if b.v.1 != 0 {
                      val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
             } else { val.1 = 0; }  // invalidation
 
@@ -140,25 +140,20 @@ impl Expr {
 
             // ((a - b) + B) => ((a + B) - b)
             // ((a / b) * B) => ((a * B) / b)
-            match (aop, op) {
-                (Oper('-'), Oper('+')) | (Oper('/'), Oper('*')) => return false,
-                _ => ()
-            }
+            match (aop.0, op.0) { ('-', '+') | ('/', '*') => return false, _ => () }
         }
 
         if let Some((ba, bop, ..)) = &b.m {
-            match (op, bop) {
+            match (op.0, bop.0) {
                 // (A + (a + b)) => (a + (A + b)) if a < A
                 // (A * (a * b)) => (a * (A * b)) if a < A
-                (Oper('+'), Oper('+')) | (Oper('*'), Oper('*')) =>
-                    if ba.v < a.v { return false }
+                ('+', '+') | ('*', '*') => if ba.v < a.v { return false }
 
                 // (A + (a - b)) => ((A + a) - b)
                 // (A * (a / b)) => ((A * a) / b)
                 // (A - (a - b)) => ((A + b) - a)
                 // (A / (a / b)) => ((A * b) / a)
-                (Oper('+'), Oper('-')) | (Oper('*'), Oper('/')) |
-                (Oper('-'), Oper('-')) | (Oper('/'), Oper('/')) => return false,
+                ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return false,
 
                 _ => ()
             }
@@ -167,9 +162,9 @@ impl Expr {
 
     fn is_subn_expr(&self) -> bool {
         if let Some((a, op, b)) = &self.m {
-            if matches!(op, Oper('*') | Oper('/')) {
+            if matches!(op.0, '*' | '/') {
                 return a.is_subn_expr() || b.is_subn_expr() }
-            if matches!(op, Oper('-')) && a.v < b.v { return true }
+            if op.0 == '-' && a.v < b.v { return true }
             // find ((a - b) * x / y) where a < b
         }   false
     }
@@ -180,15 +175,15 @@ impl fmt::Display for Expr {   // XXX: Is it possible to reuse it for Debug trai
         if let Some((a, op, b)) = &self.m {
             //#[allow(clippy::logic_bug)]
             let braket = if let Some((_, aop, ..)) = &a.m { //true ||
-                matches!(aop, Oper('+') | Oper('-')) &&
-                matches!( op, Oper('*') | Oper('/')) } else { false };
+                matches!(aop.0, '+' | '-') &&
+                matches!( op.0, '*' | '/') } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
             if  braket { write!(f, r")")? }     write!(f, r"{}", op.0)?;
 
             let braket = if let Some((_, bop, ..)) = &b.m { //true ||
-                matches!(op, Oper('/')) && matches!(bop, Oper('*') | Oper('/')) ||
-               !matches!(op, Oper('+')) && matches!(bop, Oper('+') | Oper('-')) } else { false };
+                op.0 == '/' && matches!(bop.0, '*' | '/') ||
+                op.0 != '+' && matches!(bop.0, '+' | '-') } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
             if  braket { write!(f, r")")? }
@@ -263,16 +258,16 @@ pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 
                 // keep (a - b) * x / y - A for negative goal?
                 // (B - (a - b) * x / y) => (B + (b - a) * x / y) if (a < b)
-                if matches!(op, Oper('-')) && !a.is_subn_expr() ||
-                   matches!(op, Oper('/')) &&  a.v != 0.into() {    // skip invalid expr.
+                if op.0 == '-' && !a.is_subn_expr() ||
+                   op.0 == '/' &&  a.v != 0.into() {    // skip invalid expr.
                     // swap sub-expr. for order mattered (different values) operators
                     exps.push(Rc::new(Expr::new(b, *op, a)));
                 }
 
                 // keep (a - b) * x / y - B for negative goal?
                 // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
-                if matches!(op, Oper('-')) &&  b.is_subn_expr() ||
-                   matches!(op, Oper('/')) &&  b.v == 0.into() { return }   // invalid expr.
+                if op.0 == '-' &&  b.is_subn_expr() ||
+                   op.0 == '/' &&  b.v == 0.into() { return }   // invalid expr.
                 exps.push(Rc::new(Expr::new(a, *op, b)));
             });
         }));
@@ -302,8 +297,8 @@ pub fn comp24_construct(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<
 
                     // keep (a - b) * x / y - A for negative goal?
                     // (B - (a - b) * x / y) => (B + (b - a) * x / y) if (a < b)
-                    if matches!(op, Oper('-')) && !a.is_subn_expr() ||
-                       matches!(op, Oper('/')) &&  a.v != 0.into() {    // skip invalid expr.
+                    if op.0 == '-' && !a.is_subn_expr() ||
+                       op.0 == '/' &&  a.v != 0.into() {    // skip invalid expr.
                         // swap sub-expr. for order mattered (different values) operators
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(b, *op, a)));
@@ -312,8 +307,8 @@ pub fn comp24_construct(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<
 
                     // keep (a - b) * x / y - B for negative goal?
                     // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
-                    if matches!(op, Oper('-')) &&  b.is_subn_expr() ||
-                       matches!(op, Oper('/')) &&  b.v == 0.into() { return } // invalid expr.
+                    if op.0 == '-' &&  b.is_subn_expr() ||
+                       op.0 == '/' &&  b.v == 0.into() { return } // invalid expr.
                     let mut nv = nv.to_vec();
                     nv.push(Rc::new(Expr::new(a, *op, b)));
                     comp24_construct(goal, &nv, exps);
