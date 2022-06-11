@@ -51,7 +51,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //for i in (1..5).rev() { println!("{i:?}") }
 
     use hello_rust::comp24::*;
-    compute_24_main();
+    comp24_main();
     guess_number();
     //_calc_pi();
 
@@ -70,12 +70,12 @@ fn _shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
     };
 
     if let Err(why) = proc.stdin.unwrap().write_all(inps.as_bytes()) {
-        panic!("Couldn't write to {prog} stdin: {why}")
+        panic!("Couldn't write to {prog}: {why}")
     }
 
     let mut outs = String::new();
     if let Err(why) = proc.stdout.unwrap().read_to_string(&mut outs) {
-        panic!("Couldn't read {prog} stdout: {why}")
+        panic!("Couldn't read from {prog}: {why}")
     }   outs
 }
 

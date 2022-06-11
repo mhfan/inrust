@@ -18,7 +18,7 @@ exclude = ["tests"]
 rand = "0.8.*"
 num-bigint = "0.4.*"
 #itertools = "0.10.*"
-rustc-hash = "1.1.*"
+#rustc-hash = "1.1.*"
 yansi = "0.5.*"
 #num = "0.4.*"
 
@@ -28,6 +28,7 @@ criterion = "0.3.*"
 
 [[bench]]
 name = "comp24_bench"
+#html_reports = false
 harness = false
 
 [lib]

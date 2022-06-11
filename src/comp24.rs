@@ -3,7 +3,7 @@
  *                                                              *
  * Description:                                                 *
  *                                                              *
- * Maintainer:  范美辉 (MeiHui FAN) <mhfan@ustc.edu>            *
+ * Maintainer:   范美辉 (MeiHui FAN) <mhfan@ustc.edu>            *
  *                                                              *
  * Copyright (c) 2022 M.H.Fan                                   *
  *   All Rights Reserved.                                       *
@@ -17,6 +17,16 @@
 
 //pub mod comp24 {
 
+//use std::io::prelude::*;
+pub use std::{fmt, rc::Rc, io::Write, cmp::{Ordering, PartialEq}};
+
+pub use yansi::Paint;   // Color, Style
+//pub use itertools::Itertools;
+pub use std::collections::HashSet;
+//pub use rustc_hash::FxHashSet as HashSet;
+// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
+
+
 #[derive(Debug)]
 pub struct Rational(i32, i32);
 //struct Rational { n: i32, d: i32 }
@@ -27,9 +37,6 @@ pub struct Rational(i32, i32);
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output { todo!() }
 } */
-
-//use std::io::prelude::*;
-pub use std::{fmt, rc::Rc, io::{self, Write}, cmp::{Ordering, PartialEq}};
 
 impl core::convert::From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
 
@@ -126,14 +133,13 @@ impl Expr {
         Rational(v.0 / gcd, v.1 / gcd)
     }
 
-    fn acceptable(a: &Self, op: Oper, b: &Self) -> bool {   // assuming a < b
+    fn acceptable(a: &Self, op: Oper, b: &Self) -> bool {   // premise a < b
         if let Some((_, aop, ..)) = &a.m {
-            // hereafter 'c' is upper expr. 'b'
-            // ((a . b) . c) => (a . (b . c))
+            // ((a . b) . B) => (a . (b . B))
             if aop.0 == op.0 { return false }
 
-            // ((a - b) + c) => ((a + c) - b)
-            // ((a / b) * c) => ((a * c) / b)
+            // ((a - b) + B) => ((a + B) - b)
+            // ((a / b) * B) => ((a * B) / b)
             match (aop, op) {
                 (Oper('-'), Oper('+')) | (Oper('/'), Oper('*')) => return false,
                 _ => ()
@@ -141,16 +147,16 @@ impl Expr {
         }
 
         if let Some((ba, bop, ..)) = &b.m {
-            match (op, bop) {   // here 'c' is upper expr. 'a'
-                // (c + (a + b)) => (a + (c + b)) if a < c
-                // (c * (a * b)) => (a * (c * b)) if a < c
+            match (op, bop) {
+                // (A + (a + b)) => (a + (A + b)) if a < A
+                // (A * (a * b)) => (a * (A * b)) if a < A
                 (Oper('+'), Oper('+')) | (Oper('*'), Oper('*')) =>
                     if ba.v < a.v { return false }
 
-                // (c + (a - b)) => ((c + a) - b)
-                // (c * (a / b)) => ((c * a) / b)
-                // (c - (a - b)) => ((c + b) - a)
-                // (c / (a / b)) => ((c * b) / a)
+                // (A + (a - b)) => ((A + a) - b)
+                // (A * (a / b)) => ((A * a) / b)
+                // (A - (a - b)) => ((A + b) - a)
+                // (A / (a / b)) => ((A * b) / a)
                 (Oper('+'), Oper('-')) | (Oper('*'), Oper('/')) |
                 (Oper('-'), Oper('-')) | (Oper('/'), Oper('/')) => return false,
 
@@ -204,13 +210,14 @@ impl std::hash::Hash for Expr {
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
-#[allow(dead_code)]
 // divide and conque with numbers
-pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     let (plen, mut hs) = ((1 << nv.len()), vec![]);
     let mut exps = Vec::new();
-    if plen == 2 { exps.push(nv[0].clone()) }
-    // XXX: How to judge if every elements in nv is all unique?
+    if plen == 2 { exps.push(nv[0].clone()); return exps }
+
+    //let mut used = HashSet::default();
+    //let all_unique = nv.iter().all(|e| used.insert(e));
 
     for mask in 1..plen/2 {
         let (mut s0, mut s1) = (vec![], vec![]);
@@ -229,8 +236,9 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         pick_item(&mut s0,  mask);              //eprint!(";");
         pick_item(&mut s1, !mask & (plen - 1)); //eprintln!();
 
-        //use std::collections::hash_map::DefaultHasher;
-        use rustc_hash::FxHasher as DefaultHasher;
+        //if !all_unique {
+        use std::collections::hash_map::DefaultHasher;
+        //use rustc_hash::FxHasher as DefaultHasher;
         use std::hash::{Hash, Hasher};
 
         // skip duplicated (s0, s1)
@@ -241,9 +249,10 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         let mut hasher = DefaultHasher::default();
         s1.hash(&mut hasher);   let h1 = hasher.finish();
         if h1 != h0 { if hs.contains(&h1) { continue } else { hs.push(h1) } }
+        //}
 
-        /*if 1 < s0.len() { */s0 = compute_24_splitset(&s0);// }
-        /*if 1 < s1.len() { */s1 = compute_24_splitset(&s1);// }
+        /*if 1 < s0.len() { */s0 = comp24_splitset(&s0);// }
+        /*if 1 < s1.len() { */s1 = comp24_splitset(&s1);// }
 
         //s0.iter().cartesian_product(s1).for_each(|(&a, &b)| { });
         s0.iter().for_each(|a| s1.iter().for_each(|b| {
@@ -252,16 +261,16 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
             OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
                 if !Expr::acceptable(a, *op, b) { return }
 
-                // keep (c - d) * x / y - a for negative goal?
-                // (b - (c - d) * x / y) => (b + (d - c) * x / y) if (c < d)
+                // keep (a - b) * x / y - A for negative goal?
+                // (B - (a - b) * x / y) => (B + (b - a) * x / y) if (a < b)
                 if matches!(op, Oper('-')) && !a.is_subn_expr() ||
                    matches!(op, Oper('/')) &&  a.v != 0.into() {    // skip invalid expr.
                     // swap sub-expr. for order mattered (different values) operators
                     exps.push(Rc::new(Expr::new(b, *op, a)));
                 }
 
-                // keep (c - d) * x / y - b for negative goal?
-                // (a - (c - d) * x / y) => (a + (c - d) * x / y) if (c < d)
+                // keep (a - b) * x / y - B for negative goal?
+                // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
                 if matches!(op, Oper('-')) &&  b.is_subn_expr() ||
                    matches!(op, Oper('/')) &&  b.v == 0.into() { return }   // invalid expr.
                 exps.push(Rc::new(Expr::new(a, *op, b)));
@@ -270,15 +279,10 @@ pub fn compute_24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     }   exps
 }
 
-//pub use itertools::Itertools;
-//pub use std::collections::HashSet;
-pub use rustc_hash::FxHashSet as HashSet;
-// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
-
 // construct expressions down up from numbers
-pub fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
+pub fn comp24_construct(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
     if nv.len() == 1 { if nv[0].v == *goal { exps.insert(nv[0].clone()); } return }
-    let mut hs = HashSet::default();
+    let mut hs = HashSet::new();
 
     // XXX: How to construct unique expressions over different combination orders?
     //nv.iter().tuple_combinations::<(_,_)>().for_each(|(a, b)| { });
@@ -296,31 +300,29 @@ pub fn compute_24_recursive(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet
                 OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
                     if !Expr::acceptable(a, *op, b) { return }
 
-                    // keep (c - d) * x / y - a for negative goal?
-                    // (b - (c - d) * x / y) => (b + (d - c) * x / y) if (c < d)
+                    // keep (a - b) * x / y - A for negative goal?
+                    // (B - (a - b) * x / y) => (B + (b - a) * x / y) if (a < b)
                     if matches!(op, Oper('-')) && !a.is_subn_expr() ||
                        matches!(op, Oper('/')) &&  a.v != 0.into() {    // skip invalid expr.
                         // swap sub-expr. for order mattered (different values) operators
                         let mut nv = nv.to_vec();
                         nv.push(Rc::new(Expr::new(b, *op, a)));
-                        compute_24_recursive(goal, &nv, exps);
+                        comp24_construct(goal, &nv, exps);
                     }
 
-                    // keep (c - d) * x / y - b for negative goal?
-                    // (a - (c - d) * x / y) => (a + (c - d) * x / y) if (c < d)
+                    // keep (a - b) * x / y - B for negative goal?
+                    // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
                     if matches!(op, Oper('-')) &&  b.is_subn_expr() ||
                        matches!(op, Oper('/')) &&  b.v == 0.into() { return } // invalid expr.
                     let mut nv = nv.to_vec();
                     nv.push(Rc::new(Expr::new(a, *op, b)));
-                    compute_24_recursive(goal, &nv, exps);
+                    comp24_construct(goal, &nv, exps);
                 });
             }
         }));
 }
 
-pub use yansi::Paint;   // Color, Style
-
-pub fn compute_24_helper<I, S>(goal: &Rational, nums: I, algo: bool)
+pub fn comp24_helper<I, S>(goal: &Rational, nums: I, algo: bool)
     where I: Iterator<Item = S>, S: AsRef<str> {
     let nums = nums.map(|str| str.as_ref().parse::<Rational>())
         .inspect(|res| if let Err(why) = res { eprintln!("Error parsing data: {why}")})
@@ -330,11 +332,11 @@ pub fn compute_24_helper<I, S>(goal: &Rational, nums: I, algo: bool)
 
     let exps = if algo {
         debug_assert!(nums.len() < 64);     // XXX: max u128 for bitmask
-        compute_24_splitset(&nums).into_iter()
+        comp24_splitset(&nums).into_iter()
             .filter(|e| e.v == *goal).collect::<Vec<_>>()
     } else {
         let mut exhs = HashSet::default();
-        compute_24_recursive(goal, &nums, &mut exhs);
+        comp24_construct(goal, &nums, &mut exhs);
         exhs.into_iter().collect::<Vec<_>>()
     };
 
@@ -344,7 +346,7 @@ pub fn compute_24_helper<I, S>(goal: &Rational, nums: I, algo: bool)
     }   //todo!();  //Ok(())
 }
 
-pub fn compute_24_main() {
+pub fn comp24_main() {
     let mut goal = Rational::from(24);
     let mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
@@ -357,15 +359,17 @@ pub fn compute_24_main() {
                     Err(e) => eprintln!("Error parsing GOAL: {e}"),
                 }
             } else { eprintln!("Lack parameter for GOAL!") }
-        }   compute_24_helper(&goal, nums, true);
+        }   comp24_helper(&goal, nums, true);
     }
 
     println!("\n### Solve {} computation ###", Paint::magenta(&goal).bold());
-    loop {  print!("\n{}", Paint::white("Input integer/rational numbers: ").dimmed());
+    loop {
+        print!("\n{}{}{}", Paint::white("Input integers/rationals (for ").dimmed(),
+            Paint::cyan(&goal), Paint::white("): ").dimmed());
 
         let mut nums = String::new();
-        io::stdout().flush().expect("Failed to flush!"); //.unwrap();
-        io::stdin().read_line(&mut nums).expect("Failed to read!");
+        std::io::stdout().flush().expect("Failed to flush!"); //.unwrap();
+        std::io::stdin().read_line(&mut nums).expect("Failed to read!");
         let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
         if let Some(first) = nums.peek() {
@@ -377,7 +381,7 @@ pub fn compute_24_main() {
                     Err(e) => eprintln!("Error parsing GOAL: {e}"),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("quit") { break }
-        }   compute_24_helper(&goal, nums, true);
+        }   comp24_helper(&goal, nums, true);
     }
 }
 
@@ -427,7 +431,7 @@ mod tests {
             let nums = it.1.iter().map(|&n|
                 Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>();
 
-            let exps = compute_24_splitset(&nums).into_iter()
+            let exps = comp24_splitset(&nums).into_iter()
                 .filter(|e| e.v == it.0.into()).collect::<Vec<_>>();
 
             if 0 < it.3 { assert_eq!(exps.len(), it.3 as usize) } else {
@@ -439,9 +443,9 @@ mod tests {
             }
 
             if 0 < it.3 { return }  // XXX: skip slow test running
-            let mut exhs = HashSet::default();
-            compute_24_recursive(&it.0.into(), &nums, &mut exhs);
-            let exps = exhs.into_iter().collect::<Vec<_>>();
+            let mut exps = HashSet::default();
+            comp24_construct(&it.0.into(), &nums, &mut exps);
+            let exps = exps.into_iter().collect::<Vec<_>>();
 
             if 0 < it.3 { assert_eq!(exps.len(), it.3 as usize) } else {
                 assert!(exps.len() == it.2.len());
