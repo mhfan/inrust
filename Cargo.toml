@@ -22,10 +22,19 @@ rustc-hash = "1.1.*"
 yansi = "0.5.*"
 #num = "0.4.*"
 
+[dev-dependencies]
+criterion = "0.3.*"
+#bencher = "0.1.*"
+
+[[bench]]
+name = "comp24_bench"
+harness = false
+
 [lib]
 #proc-macro = true
 
 [profile.release]
+incremental = true
 panic = 'abort'
 #opt-level = 3
 
