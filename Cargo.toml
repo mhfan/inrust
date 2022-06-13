@@ -1,12 +1,12 @@
 
 [package]
 name = "hello-rust"
-version = "0.1.0"
-edition = "2021"    # use "cargo fix" to fix for compatibility with different Rust edition.
+version = "0.2.1"
+edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
 license = "MIT OR Apache-2.0"
 description = "Accumulate knowledge of my study on Rust language"
 authors = ["MeiHui FAN <mhfan@ustc.edu>"]
-exclude = ["tests"]
+#exclude = ["tests", "benches"]
 
 [workspace]
 #members = [""]
@@ -14,6 +14,7 @@ exclude = ["tests"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+# 'cargo tree', to visualize the dependency graph
 [dependencies]
 rand = "0.8.*"
 num-bigint = "0.4.*"
@@ -28,10 +29,12 @@ criterion = "0.3.*"
 
 [[bench]]
 name = "comp24_bench"
+#cargo_bench_support = true
 #html_reports = false
 harness = false
 
 [lib]
+#crate-type = ["cdylib", "lib"]
 #proc-macro = true
 
 [profile.release]

@@ -1,16 +1,8 @@
 /****************************************************************
- * $ID: main.rs        四, 09  6 2022 18:09:34 +0800  mhfan $ *
+ * $ID: main.rs          四, 09  6 2022 18:09:34 +0800  mhfan $ *
  *                                                              *
- * Description:                                                 *
- *                                                              *
- * Maintainer:  范美辉 (MeiHui FAN) <mhfan@ustc.edu>            *
- *                                                              *
- * Copyright (c) 2022 M.H.Fan                                   *
- *   All Rights Reserved.                                       *
- *                                                              *
- * This file is free software;                                  *
- *   you are free to modify and/or redistribute it   	        *
- *   under the terms of the GNU General Public Licence (GPL).   *
+ * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
+ * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
  * Last modified: 四, 09  6 2022 18:10:04 +0800       by mhfan #
  ****************************************************************/
@@ -49,6 +41,11 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //let _a = [1; 5]; //_a.len();
     //for i in _a { println!("{i:?}") }
     //for i in (1..5).rev() { println!("{i:?}") }
+
+    /* // way of recursive closure:
+    struct Fact<'s> { f: &'s dyn Fn(&Fact, u32) -> u32 }
+    let fact = Fact { f: &|fact, x| if x == 0 {1} else {x * (fact.f)(fact, x - 1)} };
+    println!("{}", (fact.f)(&fact, 5)); */
 
     use hello_rust::comp24::*;
     comp24_main();
