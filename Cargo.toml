@@ -24,6 +24,7 @@ yansi = "0.5.*"
 #num = "0.4.*"
 
 [dev-dependencies]
+#pprof = { version = "0.9.*", features = ["flamegraph"] }
 criterion = "0.3.*"
 #bencher = "0.1.*"
 

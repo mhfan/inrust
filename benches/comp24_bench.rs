@@ -22,8 +22,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("comp24");
     group.sample_size(10);
 
-    let (goal, nums) = (24, [1, 2, 3, 4, 5, 6].iter().map(|&n|
-        Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>());
+    use rand::{Rng, thread_rng, distributions::Uniform};
+    let (rng, dst) = (thread_rng(), Uniform::new(1, 100));
+    let (goal, nums) = (24, rng.sample_iter(dst).take(6)
+        .map(|n| Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>());
+    print!("Benchmark compute {goal} from [ ");
+    nums.iter().for_each(|e| print!("{e}, "));
+    println!("]");  // XXX:
 
     group.bench_function("splitset", |b| b.iter(|| {
         let _exps = comp24_splitset(&nums).into_iter()
