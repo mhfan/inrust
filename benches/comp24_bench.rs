@@ -22,20 +22,25 @@ fn criterion_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("comp24");
     group.sample_size(10);
 
-    use rand::{Rng, thread_rng, distributions::Uniform};
-    let (rng, dst) = (thread_rng(), Uniform::new(1, 100));
-    let (goal, nums) = (24, rng.sample_iter(dst).take(6)
-        .map(|n| Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>());
-    print!("Benchmark compute {goal} from [ ");
-    nums.iter().for_each(|e| print!("{e}, "));
-    println!("]");  // XXX:
+    /*use rand::{Rng, thread_rng, distributions::Uniform};
+    let (mut rng, dst) = (thread_rng(), Uniform::new(1, 100));
+    let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
+    */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6]);
 
-    group.bench_function("splitset", |b| b.iter(|| {
+    println!("Benchmark compute {goal} from {nums:?} ");
+    let nums = nums.into_iter().map(|n|
+        Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>();
+
+    group.bench_function("SplitSet", |b| b.iter(|| {
         let _exps = comp24_splitset(&nums).into_iter()
             .filter(|e| e.v == goal.into()).collect::<Vec<_>>();
     }));
 
-    /* group.bench_function("construct", |b| b.iter(|| {
+    group.bench_function("DynProg", |b| b.iter(|| {
+        let _exps = comp24_dynprog(&goal.into(), &nums);
+    }));
+
+    /* group.bench_function("Construct", |b| b.iter(|| {
         let mut exps = HashSet::default();
         comp24_construct(&goal.into(), &nums, &mut exps);
         let _exps = exps.into_iter().collect::<Vec<_>>();

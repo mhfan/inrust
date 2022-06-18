@@ -21,6 +21,8 @@ use yansi::Paint;   // Color, Style
 //macro_rules! var_args { ($($args:expr),*) => {{ }} }  //$(f($args);)*   // XXX:
 //macro_rules! printvar { ($var:expr) => { println!("{}: {:?}", stringify!($var), $var) } }
 
+//std::any::type_name::<T>()
+
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
     print!("{} v{}, args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
