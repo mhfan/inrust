@@ -28,8 +28,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6]);
 
     println!("Benchmark compute {goal} from {nums:?} ");
-    let nums = nums.into_iter().map(|n|
-        Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>();
+    let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
 
     group.bench_function("SplitSet", |b| b.iter(|| {
         let _exps = comp24_splitset(&nums).into_iter()
@@ -40,11 +39,11 @@ fn criterion_benchmark(c: &mut Criterion) {
         let _exps = comp24_dynprog(&goal.into(), &nums);
     }));
 
-    /* group.bench_function("Construct", |b| b.iter(|| {
+    group.bench_function("Construct", |b| b.iter(|| {
         let mut exps = HashSet::default();
         comp24_construct(&goal.into(), &nums, &mut exps);
         let _exps = exps.into_iter().collect::<Vec<_>>();
-    })); */
+    }));
 
     group.finish();
 }

@@ -82,7 +82,7 @@ pub struct Oper(char);  // newtype idiom
 //type Value = Option<Rational>;
 
 //#[derive(Debug)]
-pub struct Expr { pub v: Rational, pub m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
+pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
 impl Expr {
     #[inline(always)]
@@ -184,6 +184,14 @@ impl Expr {
     }
 }
 
+impl core::convert::From<Rational> for Expr {
+    fn from(r: Rational) -> Self { Self { v: r, m: None } }
+}
+
+impl core::convert::From<i32> for Expr {
+    fn from(n: i32) -> Self { Rational::from(n).into() }
+}
+
 impl fmt::Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some((a, op, b)) = &self.m {
@@ -221,8 +229,9 @@ impl std::hash::Hash for Expr {
 
 pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
+    //use crate::list::List;
     let plen = 1 << nv.len();
-    let mut exps: Vec<RefCell<Vec<_>>> = Vec::with_capacity(plen);
+    let mut exps = Vec::with_capacity(plen);
     (0..plen).for_each(|_| { exps.push(RefCell::new(Vec::new())) });
     for i in 0..nv.len() { exps[1 << i].borrow_mut().push(nv[i].clone()); }
 
@@ -254,15 +263,14 @@ pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 
 // divide and conque with numbers
 pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
-    let (plen, mut hs) = ((1 << nv.len()), vec![]);
-    let mut exps = Vec::new();
+    let (plen, mut hs, mut exps) = ((1 << nv.len()), Vec::new(), Vec::new());
     if plen == 2 { exps.push(nv[0].clone()); return exps }
 
     //let mut used = HashSet::default();
     //let all_unique = nv.iter().all(|e| used.insert(e));
 
     for mask in 1..plen/2 {
-        let (mut s0, mut s1) = (vec![], vec![]);
+        let (mut s0, mut s1) = (Vec::new(), Vec::new());
         let pick_item = |ss: &mut Vec<_>, mut bits: u64|
             while 0 < bits {
             // isolate the rightmost bit to select one item
@@ -354,8 +362,7 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
     where I: Iterator<Item = S>, S: AsRef<str> {
     let nums = nums.map(|str| str.as_ref().parse::<Rational>())
         .inspect(|res| if let Err(why) = res { eprintln!("Error parsing data: {why}")})
-        .filter_map(Result::ok).map(|rn|
-            Rc::new(Expr { v: rn, m: None })).collect::<Vec<_>>();
+        .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
 
     debug_assert!(nums.len() < 64);     // XXX: max u128 for bitmask
@@ -456,8 +463,7 @@ mod tests {     // unit test
             println!("Test compute {} from {:?}, expect {} expr.",
                 Paint::cyan(goal), Paint::cyan(nums), Paint::cyan(cnt));
 
-            let nums = nums.iter().map(|&n|
-                Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>();
+            let nums = nums.iter().map(|&n| Rc::new(n.into())).collect::<Vec<_>>();
             let goal = (*goal).into();
 
             let assert_closure = |goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo| {
@@ -493,8 +499,7 @@ mod tests {     // unit test
         let (goal, nums) = (rng.sample(dst),
             rng.sample_iter(dst).take(6).collect::<Vec<_>>());
         println!("Benchmark compute {} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
-        let nums = nums.into_iter().map(|n|
-            Rc::new(Expr { v: n.into(), m: None })).collect::<Vec<_>>();
+        let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
         let goal = goal.into();
 
         let _exps = comp24_algo(&goal, &nums, DynProg);

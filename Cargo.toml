@@ -42,7 +42,8 @@ harness = false
 incremental = true
 panic = 'abort'
 #opt-level = 3
-
-[profile.release-lto]
-inherits = "release"
+strip = true  # Automatically strip symbols from the binary.
 lto = true
+
+#[profile.release-lto]
+#inherits = "release"

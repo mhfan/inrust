@@ -8,6 +8,7 @@
 pub fn f() -> i32 { 0 }     // Public item in root, accessible from the outside.
 //pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
 pub mod comp24;
+//pub mod list;
 
 mod m {
     #[allow(dead_code)]
