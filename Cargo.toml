@@ -42,8 +42,9 @@ harness = false
 incremental = true
 panic = 'abort'
 #opt-level = 3
-strip = true  # Automatically strip symbols from the binary.
-lto = true
+#strip = true    # Automatically strip symbols from the binary.
+debug = true    # for flamegraph
+#lto = true
 
 #[profile.release-lto]
 #inherits = "release"

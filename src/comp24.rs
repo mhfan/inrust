@@ -230,7 +230,7 @@ impl std::hash::Hash for Expr {
 pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
     //use crate::list::List;
-    let plen = 1 << nv.len();
+    let plen = 1 << nv.len();   // size of powerset
     let mut exps = Vec::with_capacity(plen);
     (0..plen).for_each(|_| { exps.push(RefCell::new(Vec::new())) });
     for i in 0..nv.len() { exps[1 << i].borrow_mut().push(nv[i].clone()); }
@@ -263,22 +263,23 @@ pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 
 // divide and conque with numbers
 pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
-    let (plen, mut hs, mut exps) = ((1 << nv.len()), Vec::new(), Vec::new());
-    if plen == 2 { exps.push(nv[0].clone()); return exps }
+    if nv.len() == 1 { return nv.to_vec() }
 
     //let mut used = HashSet::default();
     //let all_unique = nv.iter().all(|e| used.insert(e));
 
+    let (plen, mut exps, mut hs) = (1 << nv.len(), Vec::new(), Vec::new());
     for mask in 1..plen/2 {
         let (mut s0, mut s1) = (Vec::new(), Vec::new());
-        let pick_item = |ss: &mut Vec<_>, mut bits: u64|
+
+        let pick_item = |ss: &mut Vec<_>, mut bits: usize|
             while 0 < bits {
             // isolate the rightmost bit to select one item
             let rightmost = bits & !(bits - 1);
             // turn the isolated bit into an array index
             let idx = rightmost.trailing_zeros() as usize;
 
-            let item = (*nv.get(idx).unwrap()).clone();
+            let item = nv[idx].clone();
             bits &= bits - 1;   // zero the trailing bit
             ss.push(item);      //eprint!(" {idx}");
         };
@@ -302,8 +303,8 @@ pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         if h1 != h0 { if hs.contains(&h1) { continue } else { hs.push(h1) } }
         //}
 
-        /*if 1 < s0.len() { */s0 = comp24_splitset(&s0);// }
-        /*if 1 < s1.len() { */s1 = comp24_splitset(&s1);// }
+        if 1 < s0.len() { s0 = comp24_splitset(&s0); }
+        if 1 < s1.len() { s1 = comp24_splitset(&s1); }
 
         //s0.iter().cartesian_product(s1).for_each(|(&a, &b)| { });
         s0.iter().for_each(|a| s1.iter().for_each(|b| {
@@ -367,11 +368,12 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
 
     debug_assert!(nums.len() < 64);     // XXX: max u128 for bitmask
     let exps = comp24_algo(goal, &nums, algo);
-
         exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
-    if  exps.is_empty() && !nums.is_empty() {
-        eprintln!("{}", Paint::yellow("Found no expressions!")) } else {
-        //eprintln!("Got {} results!", Paint::yellow(exps.len()).bold());
+
+    let len = exps.len();
+    if  len < 1 && !nums.is_empty() {
+        eprintln!("{}", Paint::yellow("Found no expressions!")) } else if 50 < len {
+         println!("Got {} expressions!", Paint::cyan(len).bold());
     }
 }
 
