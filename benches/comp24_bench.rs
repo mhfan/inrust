@@ -29,21 +29,17 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     println!("Benchmark compute {goal} from {nums:?} ");
     let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
+    let goal = goal.into();
 
-    group.bench_function("SplitSet", |b| b.iter(|| {
-        let _exps = comp24_splitset(&nums).into_iter()
-            .filter(|e| e.v == goal.into()).collect::<Vec<_>>();
-    }));
+    let mut bench_closure = |algo: Comp24Algo| {
+        group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
+            let _exps = comp24_algo(&goal, &nums, algo);
+        }));
+    };
 
-    group.bench_function("DynProg", |b| b.iter(|| {
-        let _exps = comp24_dynprog(&goal.into(), &nums);
-    }));
-
-    group.bench_function("Construct", |b| b.iter(|| {
-        let mut exps = HashSet::default();
-        comp24_construct(&goal.into(), &nums, &mut exps);
-        let _exps = exps.into_iter().collect::<Vec<_>>();
-    }));
+    bench_closure(SplitSet);
+    //bench_closure(DynProg);
+    //bench_closure(Construct);
 
     group.finish();
 }
