@@ -87,26 +87,26 @@ pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 impl Expr {
     #[inline(always)]
     fn new(a: &Rc<Self>, op: Oper, b: &Rc<Self>) -> Self {
-        Self { v: Self::operate(a, op, b),
+        #[inline(always)]
+        fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
+            let mut val = Rational(0, 0);
+            match op.0 {
+                '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                '-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                '*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                '/' => if b.v.1 != 0 {
+                         val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
+                } else { val.1 = 0; }  // invalidation
+
+                _ => unimplemented!("operator '{}'", op.0)
+            }   val //Self::_simplify(&val)     // XXX:
+        }
+
+        Self { v: operate(a, op, b),
                m: Some((Rc::clone(a), op, Rc::clone(b))) }
     }
 
-    #[inline(always)]
-    fn operate(a: &Self, op: Oper, b: &Self) -> Rational {
-        let mut val = Rational(0, 0);
-        match op.0 {
-            '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            '-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            '*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-            '/' => if b.v.1 != 0 {
-                     val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
-            } else { val.1 = 0; }  // invalidation
-
-            _ => unimplemented!("operator '{}'", op.0)
-        }   val //Self::_simplify(&val)     // XXX:
-    }
-
-    fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational
+    fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
         // Calculate the greatest common denominator for two numbers
         fn _gcd(a: i32, b: i32) -> i32 {
             let (mut m, mut n) = (a, b);
@@ -121,66 +121,66 @@ impl Expr {
         Rational(v.0 / gcd, v.1 / gcd)
     }
 
-    //const Add: Oper = Oper('+');
-    //const Sub: Oper = Oper('-');
-    //const Mul: Oper = Oper('*');
-    //const Div: Oper = Oper('/');
-    const OPS: [Oper; 4] = [Oper('+'), Oper('-'), Oper('*'), Oper('/')];
-
     #[inline(always)]
     fn form_expr_exec<F: FnMut(Rc<Self>)>(a: &Rc<Self>, b: &Rc<Self>, mut func: F) {
-        Self::OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
-            if !Self::acceptable(a, *op, b) { return }
+        //const Add: Oper = Oper('+');
+        //const Sub: Oper = Oper('-');
+        //const Mul: Oper = Oper('*');
+        //const Div: Oper = Oper('/');
+        const OPS: [Oper; 4] = [Oper('+'), Oper('-'), Oper('*'), Oper('/')];
+
+        OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
+            if !acceptable(a, *op, b) { return }
 
             // swap sub-expr. for order mattered (different values) operators
-            if a != b && (op.0 == '/'/* &&  a.v.0 != 0*/ ||
-                            op.0 == '-' && !a.is_subn_expr()) {
+            if a != b && (op.0 == '/' &&  a.v.0 != 0 ||     // skip invalid expr.
+                          op.0 == '-' && !is_subn_expr(a)) {
                 func(Rc::new(Self::new(b, *op, a)));
             }
 
             // keep (a - b) * x / y - B for negative goal?
             // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
-            if //op.0 == '/' && b.v.0 == 0 ||     // skip invalid expr.?
-                op.0 == '-' && b.is_subn_expr() { return }
+            if op.0 == '/' && b.v.0 == 0 ||     // skip invalid expr.
+               op.0 == '-' && is_subn_expr(b) { return }
             func(Rc::new(Self::new(a, *op, b)));
         });
-    }
 
-    #[inline(always)]
-    fn acceptable(a: &Self, op: Oper, b: &Self) -> bool {   // premise a < b
-        if let Some((_, aop, ..)) = &a.m {
-            // ((a . b) . B) => (a . (b . B))
-            if aop.0 == op.0 { return false }
+        #[inline(always)]
+        fn acceptable(a: &Expr, op: Oper, b: &Expr) -> bool {   // premise a < b
+            if let Some((_, aop, ..)) = &a.m {
+                // ((a . b) . B) => (a . (b . B))
+                if aop.0 == op.0 { return false }
 
-            // ((a - b) + B) => ((a + B) - b)
-            // ((a / b) * B) => ((a * B) / b)
-            match (aop.0, op.0) { ('-', '+') | ('/', '*') => return false, _ => () }
+                // ((a - b) + B) => ((a + B) - b)
+                // ((a / b) * B) => ((a * B) / b)
+                match (aop.0, op.0) { ('-', '+') | ('/', '*') => return false, _ => () }
+            }
+
+            if let Some((ba, bop, ..)) = &b.m {
+                match (op.0, bop.0) {
+                    // (A + (a + b)) => (a + (A + b)) if a < A
+                    // (A * (a * b)) => (a * (A * b)) if a < A
+                    ('+', '+') | ('*', '*') => if ba.v < a.v { return false }
+
+                    // (A + (a - b)) => ((A + a) - b)
+                    // (A * (a / b)) => ((A * a) / b)
+                    // (A - (a - b)) => ((A + b) - a)
+                    // (A / (a / b)) => ((A * b) / a)
+                    ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return false,
+
+                    _ => ()
+                }
+            }   true    // to keep human friendly expression form ONLY
         }
 
-        if let Some((ba, bop, ..)) = &b.m {
-            match (op.0, bop.0) {
-                // (A + (a + b)) => (a + (A + b)) if a < A
-                // (A * (a * b)) => (a * (A * b)) if a < A
-                ('+', '+') | ('*', '*') => if ba.v < a.v { return false }
-
-                // (A + (a - b)) => ((A + a) - b)
-                // (A * (a / b)) => ((A * a) / b)
-                // (A - (a - b)) => ((A + b) - a)
-                // (A / (a / b)) => ((A * b) / a)
-                ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return false,
-
-                _ => ()
-            }
-        }   true    // to keep human friendly expression form ONLY
-    }
-
-    #[inline(always)]
-    fn is_subn_expr(&self) -> bool {
-        if let Some((a, op, b)) = &self.m {
-            if matches!(op.0, '*' | '/') { return a.is_subn_expr() || b.is_subn_expr() }
-            if op.0 == '-' && a.v < b.v  { return true }
-            // find ((a - b) * x / y) where a < b
-        }   false
+        #[inline(always)]
+        fn is_subn_expr(e: &Expr) -> bool {
+            if let Some((a, op, b)) = &e.m {
+                if matches!(op.0, '*' | '/') { return is_subn_expr(a) || is_subn_expr(b) }
+                if op.0 == '-' && a.v < b.v  { return true }
+                // find ((a - b) * x / y) where a < b
+            }   false
+        }
     }
 }
 
@@ -229,7 +229,6 @@ impl std::hash::Hash for Expr {
 
 pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
-    //use crate::list::List;
     let plen = 1 << nv.len();   // size of powerset
     let mut exps = Vec::with_capacity(plen);
     (0..plen).for_each(|_| { exps.push(RefCell::new(Vec::new())) });
@@ -260,6 +259,9 @@ pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     let exps = exps.last().unwrap().borrow().iter()
         .filter(|e| e.v == *goal).cloned().collect::<Vec<_>>(); exps
 }
+
+//use crate::list::List;
+//use std::collections::LinkedList as List;
 
 // divide and conque with numbers
 pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
