@@ -227,15 +227,15 @@ impl std::hash::Hash for Expr {
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
-pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
-    let plen = 1 << nv.len();   // size of powerset
-    let mut exps = Vec::with_capacity(plen);
-    (0..plen).for_each(|_| { exps.push(RefCell::new(Vec::new())) });
-    for i in 0..nv.len() { exps[1 << i].borrow_mut().push(nv[i].clone()); }
+    let pow = 1 << nums.len();   // size of powerset
+    let mut vexp = Vec::with_capacity(pow);
+    (0..pow).for_each(|_| { vexp.push(RefCell::new(Vec::new())) });
+    for i in 0..nums.len() { vexp[1 << i].borrow_mut().push(nums[i].clone()); }
 
-    for x in 3..plen {
-        let mut ex = exps[x].borrow_mut();
+    for x in 3..pow {
+        let mut ex = vexp[x].borrow_mut();
         let mut hs = HashSet::new();
 
         // XXX: How to skip duplicate combinations over different 'x'
@@ -243,7 +243,7 @@ pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
             if x & i != i { continue }  let j = x - i;
             //if j < i { continue }   // skip symmetric computation
 
-            let (si, sj) = (exps[i].borrow(), exps[j].borrow());
+            let (si, sj) = (vexp[i].borrow(), vexp[j].borrow());
 
             //si.iter().cartesian_product(sj).for_each(|(&a, &b)| { });
             si.iter().for_each(|a| sj.iter().for_each(|b| {
@@ -256,7 +256,7 @@ pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         }
     }
 
-    let exps = exps.last().unwrap().borrow().iter()
+    let exps = vexp.last().unwrap().borrow().iter()
         .filter(|e| e.v == *goal).cloned().collect::<Vec<_>>(); exps
 }
 
@@ -264,15 +264,15 @@ pub fn comp24_dynprog(goal: &Rational, nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 //use std::collections::LinkedList as List;
 
 // divide and conque with numbers
-pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
-    if nv.len() == 1 { return nv.to_vec() }
+pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+    if nums.len() == 1 { return nums.to_vec() }
 
     //let mut used = HashSet::default();
-    //let all_unique = nv.iter().all(|e| used.insert(e));
+    //let all_unique = nums.iter().all(|e| used.insert(e));
 
-    let (plen, mut exps, mut hs) = (1 << nv.len(), Vec::new(), Vec::new());
-    for mask in 1..plen/2 {
-        let (mut s0, mut s1) = (Vec::new(), Vec::new());
+    let (pow, mut exps, mut hs) = (1 << nums.len(), Vec::new(), Vec::new());
+    for mask in 1..pow/2 {
+        let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
 
         let pick_item = |ss: &mut Vec<_>, mut bits: usize|
             while 0 < bits {
@@ -281,35 +281,35 @@ pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
             // turn the isolated bit into an array index
             let idx = rightmost.trailing_zeros() as usize;
 
-            let item = nv[idx].clone();
+            let item = nums[idx].clone();
             bits &= bits - 1;   // zero the trailing bit
             ss.push(item);      //eprint!(" {idx}");
         };
 
         // split true sub sets
-        pick_item(&mut s0,  mask);              //eprint!(";");
-        pick_item(&mut s1, !mask & (plen - 1)); //eprintln!();
+        pick_item(&mut ns0,  mask);              //eprint!(";");
+        pick_item(&mut ns1, !mask & (pow - 1)); //eprintln!();
 
         //if !all_unique {      // no gain no penality for performance
         //use rustc_hash::FxHasher as DefaultHasher;
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
 
-        // skip duplicate (s0, s1)
+        // skip duplicate (ns0, ns1)
         let mut hasher = DefaultHasher::default();
-        s0.hash(&mut hasher);   let h0 = hasher.finish();
+        ns0.hash(&mut hasher);   let h0 = hasher.finish();
         if hs.contains(&h0) { continue } else { hs.push(h0) }
 
         let mut hasher = DefaultHasher::default();
-        s1.hash(&mut hasher);   let h1 = hasher.finish();
+        ns1.hash(&mut hasher);   let h1 = hasher.finish();
         if h1 != h0 { if hs.contains(&h1) { continue } else { hs.push(h1) } }
         //}
 
-        if 1 < s0.len() { s0 = comp24_splitset(&s0); }
-        if 1 < s1.len() { s1 = comp24_splitset(&s1); }
+        if 1 < ns0.len() { ns0 = comp24_splitset(&ns0); }
+        if 1 < ns1.len() { ns1 = comp24_splitset(&ns1); }
 
-        //s0.iter().cartesian_product(s1).for_each(|(&a, &b)| { });
-        s0.iter().for_each(|a| s1.iter().for_each(|b| {
+        //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
+        ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
             Expr::form_expr_exec(a, b, |e| exps.push(e));
             //eprintln!("-> ({a}) ? ({b})");
@@ -318,26 +318,26 @@ pub fn comp24_splitset(nv: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 }
 
 // construct expressions down up from numbers
-pub fn comp24_construct(goal: &Rational, nv: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
-    if nv.len() == 1 { if nv[0].v == *goal { exps.insert(nv[0].clone()); } return }
+pub fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
+    if nums.len() == 1 { if nums[0].v == *goal { exps.insert(nums[0].clone()); } return }
     let mut hs = HashSet::new();
 
     // XXX: How to skip duplicates over different combination orders?
-    //nv.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
-    nv.iter().enumerate().for_each(|(i, a)|
-        nv.iter().skip(i+1).for_each(|b| {
+    //nums.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
+    nums.iter().enumerate().for_each(|(i, a)|
+        nums.iter().skip(i+1).for_each(|b| {
             // traverse all expr. combinations, make (a, b) in ascending order
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
             if !hs.insert((a, b)) { return }    // skip exactly same combinations
             //eprintln!("-> ({a}) ? ({b})");
 
-            let nv = nv.iter().filter(|&e|
+            let nums = nums.iter().filter(|&e|
                 !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
             Expr::form_expr_exec(a, b, |e| {
-                let mut nv = nv.to_vec();   nv.push(e);
-                comp24_construct(goal, &nv, exps);
+                let mut nums = nums.to_vec();   nums.push(e);
+                comp24_construct(goal, &nums, exps);
             });
         }));
 }
@@ -445,17 +445,17 @@ mod tests {     // unit test
 
         let cases = [
             ( 24, vec![ 0], vec![], 0),
-            ( 24, vec![24], vec!["24"], -1i32),
+            ( 24, vec![24], vec!["24"], 0),
             ( 24, vec![ 8, 8, 8, 8], vec![], 0),
+            ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], 0),
+            ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], 0),
+            ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], 0),
             ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "2*3*4/1",
-                                          "(1+3)*(2+4)", "4*(1+2+3)"], -1),
-            ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], -1),
-            ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], -1),
-            ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], -1),
+                                          "(1+3)*(2+4)", "4*(1+2+3)"], 0),
             (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)",
-                                             "(17-13)*(14+15)-16"], -1),
+                                             "(17-13)*(14+15)-16"], 0),
             (  5, vec![ 1, 2, 3], vec!["1*(2+3)", "(2+3)/1", "2*3-1",
-                                       "2+1*3", "2/1+3", "2+3/1", "1*2+3", ], -1),
+                                       "2+1*3", "2/1+3", "2+3/1", "1*2+3", ], 0),
             ( 24, vec![ 1, 2, 3, 4, 5], vec![], 75),
             (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 304),
             ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 2054),
@@ -463,7 +463,7 @@ mod tests {     // unit test
 
         cases.iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
-            let cnt = if 0 < *cnt { *cnt as usize } else { res.len() };
+            let cnt = if 0 < *cnt { *cnt } else { res.len() };
             println!("Test compute {} from {:?}, expect {} expr.",
                 Paint::cyan(goal), Paint::cyan(nums), Paint::cyan(cnt));
 
