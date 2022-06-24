@@ -127,10 +127,34 @@ impl Expr {
         //const Sub: Oper = Oper('-');
         //const Mul: Oper = Oper('*');
         //const Div: Oper = Oper('/');
-        const OPS: [Oper; 4] = [Oper('+'), Oper('-'), Oper('*'), Oper('/')];
+        const OPS: [Oper; 4] = [ Oper('+'), Oper('-'), Oper('*'), Oper('/') ];
 
         OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
-            if !acceptable(a, *op, b) { return }
+            // keep human friendly expression form ONLY
+            if let Some((_, aop, ..)) = &a.m {
+                // ((a . b) . B) => (a . (b . B))
+                if aop.0 == op.0 { return }
+
+                // ((a - b) + B) => ((a + B) - b)
+                // ((a / b) * B) => ((a * B) / b)
+                match (aop.0, op.0) { ('-', '+') | ('/', '*') => return, _ => () }
+            }
+
+            if let Some((ba, bop, ..)) = &b.m {
+                match (op.0, bop.0) {
+                    // (A + (a + b)) => (a + (A + b)) if a < A
+                    // (A * (a * b)) => (a * (A * b)) if a < A
+                    ('+', '+') | ('*', '*') => if ba.v < a.v { return }
+
+                    // (A + (a - b)) => ((A + a) - b)
+                    // (A * (a / b)) => ((A * a) / b)
+                    // (A - (a - b)) => ((A + b) - a)
+                    // (A / (a / b)) => ((A * b) / a)
+                    ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return,
+
+                    _ => ()
+                }
+            }
 
             // swap sub-expr. for order mattered (different values) operators
             if a != b && (op.0 == '/' &&  a.v.0 != 0 ||     // skip invalid expr.
@@ -146,34 +170,6 @@ impl Expr {
         });
 
         #[inline(always)]
-        fn acceptable(a: &Expr, op: Oper, b: &Expr) -> bool {   // premise a < b
-            if let Some((_, aop, ..)) = &a.m {
-                // ((a . b) . B) => (a . (b . B))
-                if aop.0 == op.0 { return false }
-
-                // ((a - b) + B) => ((a + B) - b)
-                // ((a / b) * B) => ((a * B) / b)
-                match (aop.0, op.0) { ('-', '+') | ('/', '*') => return false, _ => () }
-            }
-
-            if let Some((ba, bop, ..)) = &b.m {
-                match (op.0, bop.0) {
-                    // (A + (a + b)) => (a + (A + b)) if a < A
-                    // (A * (a * b)) => (a * (A * b)) if a < A
-                    ('+', '+') | ('*', '*') => if ba.v < a.v { return false }
-
-                    // (A + (a - b)) => ((A + a) - b)
-                    // (A * (a / b)) => ((A * a) / b)
-                    // (A - (a - b)) => ((A + b) - a)
-                    // (A / (a / b)) => ((A * b) / a)
-                    ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return false,
-
-                    _ => ()
-                }
-            }   true    // to keep human friendly expression form ONLY
-        }
-
-        #[inline(always)]
         fn is_subn_expr(e: &Expr) -> bool {
             if let Some((a, op, b)) = &e.m {
                 if matches!(op.0, '*' | '/') { return is_subn_expr(a) || is_subn_expr(b) }
@@ -183,6 +179,8 @@ impl Expr {
         }
     }
 }
+
+//impl Drop for Expr { fn drop(&mut self) { eprintln!("Dropping: {self}"); } }
 
 impl core::convert::From<Rational> for Expr {
     fn from(r: Rational) -> Self { Self { v: r, m: None } }
@@ -235,7 +233,7 @@ pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     for i in 0..nums.len() { vexp[1 << i].borrow_mut().push(nums[i].clone()); }
 
     for x in 3..pow {
-        let mut ex = vexp[x].borrow_mut();
+        let mut exps = vexp[x].borrow_mut();
         let mut hs = HashSet::new();
 
         // XXX: How to skip duplicate combinations over different 'x'
@@ -252,7 +250,7 @@ pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
                 //eprintln!("-> ({a}) ? ({b})");
 
                 //if x + 1 == pow && e.v == *goal { }   // XXX:
-                Expr::form_expr_exec(a, b, |e| ex.push(e));
+                Expr::form_expr_exec(a, b, |e| exps.push(e));
             }));
         }
     }
@@ -271,7 +269,7 @@ pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
 
-    let (pow, mut exps, mut hs) = (1 << nums.len(), Vec::new(), Vec::new());
+    let (pow, mut exps, mut hv) = (1 << nums.len(), Vec::new(), Vec::new());
     for mask in 1..pow/2 {
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
         nums.iter().enumerate().for_each(|(i, e)|
@@ -285,11 +283,11 @@ pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         // skip duplicate (ns0, ns1)
         let mut hasher = DefaultHasher::default();
         ns0.hash(&mut hasher);   let h0 = hasher.finish();
-        if hs.contains(&h0) { continue } else { hs.push(h0) }
+        if hv.contains(&h0) { continue } else { hv.push(h0) }
 
         let mut hasher = DefaultHasher::default();
         ns1.hash(&mut hasher);   let h1 = hasher.finish();
-        if h1 != h0 { if hs.contains(&h1) { continue } else { hs.push(h1) } }
+        if h1 != h0 { if hv.contains(&h1) { continue } else { hv.push(h1) } }
         //}
 
         if 1 < ns0.len() { ns0 = comp24_splitset(&ns0); }
