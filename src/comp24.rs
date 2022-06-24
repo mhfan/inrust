@@ -251,6 +251,7 @@ pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
                 if !hs.insert((a.clone(), b.clone())) { return }
                 //eprintln!("-> ({a}) ? ({b})");
 
+                //if x + 1 == pow && e.v == *goal { }   // XXX:
                 Expr::form_expr_exec(a, b, |e| ex.push(e));
             }));
         }
@@ -273,22 +274,8 @@ pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     let (pow, mut exps, mut hs) = (1 << nums.len(), Vec::new(), Vec::new());
     for mask in 1..pow/2 {
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
-
-        let pick_item = |ss: &mut Vec<_>, mut bits: usize|
-            while 0 < bits {
-            // isolate the rightmost bit to select one item
-            let rightmost = bits & !(bits - 1);
-            // turn the isolated bit into an array index
-            let idx = rightmost.trailing_zeros() as usize;
-
-            let item = nums[idx].clone();
-            bits &= bits - 1;   // zero the trailing bit
-            ss.push(item);      //eprint!(" {idx}");
-        };
-
-        // split true sub sets
-        pick_item(&mut ns0,  mask);              //eprint!(";");
-        pick_item(&mut ns1, !mask & (pow - 1)); //eprintln!();
+        nums.iter().enumerate().for_each(|(i, e)|
+            if (1 << i) & mask != 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
 
         //if !all_unique {      // no gain no penality for performance
         //use rustc_hash::FxHasher as DefaultHasher;
