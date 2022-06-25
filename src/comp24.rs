@@ -212,6 +212,13 @@ impl fmt::Display for Expr {   // XXX: Is it possible to reuse it for Debug trai
 
 impl std::cmp::Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { }*/ }
 impl PartialEq for Expr { fn eq(&self, rhs: &Self) -> bool { self.v == rhs.v } }
+        /* match (&self.m, &rhs.m) {
+            (None, None) => self.v == rhs.v,
+            (None, Some(_)) | (Some(_), None) => false,
+            (Some((la, lop, lb)), Some((ra, rop, rb))) =>
+                la == ra && lop.0 == rop.0 && lb == rb //&& self.v == rhs.v,
+        } */
+
 impl std::hash::Hash for Expr {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;

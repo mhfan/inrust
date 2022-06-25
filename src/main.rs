@@ -34,6 +34,8 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 
     println!("Hello, world!");  //panic!("Test a panic.");
 
+    //include!("relative_path");    // XXX:
+
     //use std::time::Duration;
     //std::thread::sleep(Duration::from_secs(1));
 
