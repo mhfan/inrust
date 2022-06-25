@@ -137,6 +137,9 @@ void form_expr_exec(const auto a, const auto b, auto func) {
 }
 
 typedef std::pair<const Expr*, const Expr*> EPT;
+bool operator==(const EPT& e1, const EPT& e2) {
+    return e1.first->v == e2.first->v && e1.second->v == e2.second->v;
+}
 
 inline size_t hash_combine(size_t lhs, size_t rhs) {
   return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
@@ -171,21 +174,19 @@ list<const Expr*> comp24_dynprog(const auto& goal, const list<const Expr*>& nums
     auto i = 0; for (auto e: nums) vexp[1 << i++].push_back(e);
 
     for (auto x = 3; x < pow; ++x) {
-        //std::unordered_set<EPT> hs;
+        //vector<size_t> hv; hash<EPT> hasher;
+        std::unordered_set<EPT> hs;
         auto& exps = vexp[x];
-        vector<size_t> hv;
-        hash<EPT> hasher;
 
         for (auto i = 1; i < (x+1)/2; ++i) {
             if ((x & i) != i) continue;  auto j = x - i;
 
             for (auto a: vexp[i]) for (auto b: vexp[j]) {
                 auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
-                // FIXME: implement operator== for EPT?
-                //if (!hs.insert(std::make_pair(ea, eb)).second) continue;
-                auto h0 = hasher(std::make_pair(ea, eb));
+                if (!hs.insert(std::make_pair(ea, eb)).second) continue;
+                /* auto h0 = hasher(std::make_pair(ea, eb));
                 if (std::find(hv.begin(), hv.end(), h0) != hv.end())
-                    continue; else hv.push_back(h0);
+                    continue; else hv.push_back(h0); */
 
                 form_expr_exec(ea, eb, [&](const auto* e) { exps.push_back(e); });
             }
