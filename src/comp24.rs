@@ -256,27 +256,25 @@ pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
                 if !hs.insert((a.clone(), b.clone())) { return }
                 //eprintln!("-> ({a}) ? ({b})");
 
-                //if x + 1 == pow && e.v == *goal { }   // XXX:
-                Expr::form_expr_exec(a, b, |e| exps.push(e));
+                Expr::form_expr_exec(a, b, |e|
+                    if x + 1 != pow || e.v == *goal { exps.push(e) });
             }));
         }
     }
 
-    let exps = vexp.last().unwrap().borrow().iter()
-        .filter(|e| e.v == *goal).cloned().collect::<Vec<_>>(); exps
+    vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
 }
 
 //use crate::list::List;
-//use std::collections::LinkedList as List;
+//use std::collections::LinkedList as List;     // both seems lower performance than Vec
 
 // divide and conque with numbers
-pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
-    if nums.len() == 1 { return nums.to_vec() }
+pub fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+    let (pow, mut exps, mut hv) = (1 << nums.len(), Vec::new(), Vec::new());
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
 
-    let (pow, mut exps, mut hv) = (1 << nums.len(), Vec::new(), Vec::new());
     for mask in 1..pow/2 {
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
         nums.iter().enumerate().for_each(|(i, e)|
@@ -297,13 +295,15 @@ pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         if h1 != h0 { if hv.contains(&h1) { continue } else { hv.push(h1) } }
         //}
 
-        if 1 < ns0.len() { ns0 = comp24_splitset(&ns0); }
-        if 1 < ns1.len() { ns1 = comp24_splitset(&ns1); }
+        const R0: Rational = Rational(0, 0);
+        if 1 < ns0.len() { ns0 = comp24_splitset(&R0, &ns0); }
+        if 1 < ns1.len() { ns1 = comp24_splitset(&R0, &ns1); }
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
-            Expr::form_expr_exec(a, b, |e| exps.push(e));
+            Expr::form_expr_exec(a, b, |e|
+                if std::ptr::eq(goal, &R0) || e.v == *goal { exps.push(e) });
             //eprintln!("-> ({a}) ? ({b})");
         }));
     }   exps
@@ -311,7 +311,6 @@ pub fn comp24_splitset(nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 
 // construct expressions down up from numbers
 pub fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
-    if nums.len() == 1 { if nums[0].v == *goal { exps.insert(nums[0].clone()); } return }
     let mut hs = HashSet::new();
 
     // XXX: How to skip duplicates over different combination orders?
@@ -328,8 +327,10 @@ pub fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<R
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
             Expr::form_expr_exec(a, b, |e| {
-                let mut nums = nums.to_vec();   nums.push(e);
-                comp24_construct(goal, &nums, exps);
+                if nums.is_empty() && e.v == *goal { exps.insert(e); } else {
+                    let mut nums = nums.to_vec();   nums.push(e);
+                    comp24_construct(goal, &nums, exps);
+                }
             });
         }));
 }
@@ -340,10 +341,11 @@ pub  use Comp24Algo::*;
 
 #[inline(always)]
 pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
+    if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { Vec::new() } }
+
     match algo {
-        SplitSet => comp24_splitset(nums).into_iter()
-            .filter(|e| e.v == *goal).collect::<Vec<_>>(),
-        DynProg  => comp24_dynprog(goal, nums),
+        SplitSet => comp24_splitset(goal, nums),
+        DynProg  => comp24_dynprog (goal, nums),
 
         Construct => {
             let mut exps = HashSet::default();
