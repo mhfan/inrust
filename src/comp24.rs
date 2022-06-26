@@ -356,7 +356,7 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
     }
 }
 
- fn comp24_helper<I, S>(goal: &Rational, nums: I)
+fn comp24_helper<I, S>(goal: &Rational, nums: I)
     where I: Iterator<Item = S>, S: AsRef<str> {
     let nums = nums.map(|str| str.as_ref().parse::<Rational>())
         .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
@@ -424,8 +424,9 @@ pub fn comp24_main() {
 
 //}
 
+#[cfg(test)]
 mod tests {     // unit test
-    // Need to import items from parent module. Has access to non-public members.
+    use super::*;   // Need to import items from parent module, to access non-public members.
 
     #[test]
     fn test_rational() {
@@ -445,8 +446,6 @@ mod tests {     // unit test
 
     #[test]
     fn test_comp24() {
-        use super::*;
-
         let cases = [
             ( 24, vec![ 0], vec![], 0),
             ( 24, vec![24], vec!["24"], 0),
@@ -468,25 +467,22 @@ mod tests {     // unit test
         cases.iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < *cnt { *cnt } else { res.len() };
-            println!(r"Test compute {} from {:?}, expect {} expr.",
+            println!(r"Test compute {:3} from {:?}, expect {:4} expr.",
                 Paint::cyan(goal), Paint::cyan(nums), Paint::cyan(cnt));
 
             let nums = nums.iter().map(|&n| Rc::new(n.into())).collect::<Vec<_>>();
             let goal = (*goal).into();
 
             let assert_closure = |goal, nums, algo| {
-                use std::time::Instant;
-                let now = Instant::now();
                 let exps = comp24_algo(goal, nums, algo);
-                let elapsed_time = now.elapsed();
 
                 exps.iter().for_each(|e| {
-                    println!(r"    {}", Paint::green(e));
+                    //println!(r"    {}", Paint::green(e));
                     if !res.is_empty() { assert!(res.contains(&e.to_string().as_str())) }
                 });
 
-                println!(r"  Got {} expr. in {}ms by algo-{:?}:", Paint::magenta(exps.len()),
-                    elapsed_time.as_millis(), Paint::magenta(algo));
+                println!(r"  Got {:4} expr. by algo-{:?}:",
+                    Paint::magenta(exps.len()), Paint::magenta(algo));
                 assert!(exps.len() == cnt);
             };
 
@@ -500,25 +496,34 @@ mod tests {     // unit test
         });
     }
 
+    #[test]
     //#[bench]
-    fn _bench_comp24() {
-        use super::*;
-
+    fn test_bench() {
+        use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
-        let (mut rng, dst) = (thread_rng(), Uniform::new(1, 100));
 
-        // repeat ? times
-        let (goal, nums) = (rng.sample(dst),
-            rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-        println!(r"Benchmark compute {} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
-        let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
-        let goal = goal.into();
+        let mut total_time = Duration::from_millis(0);
+        for _ in 0..50 {
+            let (mut rng, dst) = (thread_rng(), Uniform::new(1, 20));
 
-        let _exps = comp24_algo(&goal, &nums, SplitSet(false));
+            let (goal, nums) = (rng.sample(dst),
+                rng.sample_iter(dst).take(6).collect::<Vec<_>>());
+            println!(r"Bench compute {:2} from {:?}",
+                Paint::cyan(goal), Paint::cyan(&nums));
+            let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
+            let goal = goal.into();
 
-        // TODO:
+            let now = Instant::now();
+            comp24_algo(&goal, &nums, SplitSet(false));
+            total_time += now.elapsed();
+        }
+
+        println!(r"Total computation time: {}s",
+            Paint::magenta(total_time.as_millis() as f32 / 1000.0));
+        assert!(total_time.as_secs() < 8);
     }
 
+    // cargo test -- --color always --nocapture
 }
 
 // vim:sts=4 ts=8 sw=4 noet
