@@ -2,6 +2,29 @@
 
 // src/lib.rs (default library entry point)
 
+/* https://lib.rs/crates/build_timestamp
+
+extern crate syn;
+extern crate time;
+extern crate proc_macro;
+use proc_macro::TokenStream;
+
+#[proc_macro]
+pub fn build_time(input: TokenStream) -> TokenStream {
+    // TODO support passing the name of the generated const as an argument
+    // TODO proper error handling
+
+    let time = time::now_utc();
+    let fmtstr: syn::LitStr = syn::parse(input).unwrap();
+    let ftime = time::strftime(&fmtstr.value(), &time).unwrap();
+
+    let mut out_str = String::new();
+    out_str.push_str("const BUILD_TIME: &str = \"");
+    out_str.push_str(&ftime);
+    out_str.push_str("\";");
+    out_str.parse().unwrap()
+} */
+
 //#![feature(test)]
 //extern crate test;
 
@@ -26,10 +49,10 @@ mod tests { // unit test sample
     #[test]
     //#[should_panic]
     //#[should_panic(expect = "some panic string")]
-    fn testf() { assert_eq!(f(), 0); }
+    fn test_f() { assert_eq!(f(), 0); }
 
     #[test]
-    fn testg() -> Result<(), String> {
+    fn test_g() -> Result<(), String> {
         if 0 == 0 { Ok(()) } else { Err(String::from("Failed")) }
     }
 }

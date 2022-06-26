@@ -10,13 +10,15 @@
 //pub mod comp24 {
 
 //use std::io::prelude::*;
-pub use std::{fmt, rc::Rc, io::Write, cmp::{Ordering, PartialEq}};
+use std::{fmt, cmp::{Ordering, PartialEq}};
+pub use std::rc::Rc;
 
-pub use yansi::Paint;   // Color, Style
-//pub use itertools::Itertools;
-pub use std::collections::HashSet;
-//pub use rustc_hash::FxHashSet as HashSet;
+use std::collections::HashSet;
+//use rustc_hash::FxHashSet as HashSet;
 // faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
+
+//use itertools::Itertools;
+use yansi::Paint;   // Color, Style
 
 #[derive(Debug)]
 pub struct Rational(i32, i32);
@@ -72,15 +74,17 @@ impl PartialOrd for Rational {
     }
 }
 
-//enum Oper { Add(char), Sub(char), Mul(char), Div(char), }
 #[derive(Clone, Copy)]  // low cost
-pub struct Oper(char);  // newtype idiom
+struct Oper(char);  // newtype idiom
+//enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
 //type Oper = char;       // type alias
 
 //#[derive(Debug)]
 //enum Value { Void, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
+//#[repr(align(4))]
+//#[repr(packed(2))]
 //#[derive(Debug)]
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
@@ -157,30 +161,27 @@ impl Expr {
             }
 
             // swap sub-expr. for order mattered (different values) operators
-            if a != b && (op.0 == '/' &&  a.v.0 != 0 ||     // skip invalid expr.
-                          op.0 == '-' && !is_subn_expr(a)) {
+            if op.0 == '/' && a.v.0 != 0 || op.0 == '-'/* && !is_subn_expr(a)*/ {
                 func(Rc::new(Self::new(b, *op, a)));
             }
 
-            // keep (a - b) * x / y - B for negative goal?
-            // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
-            if op.0 == '/' && b.v.0 == 0 ||     // skip invalid expr.
-               op.0 == '-' && is_subn_expr(b) { return }
+            // prefer (b - a) than (a - b) when a < b
+            if op.0 == '/' && b.v.0 == 0 || op.0 == '-'/* &&  is_subn_expr(b)*/ { return }
             func(Rc::new(Self::new(a, *op, b)));
         });
 
-        #[inline(always)]
+        /*#[inline(always)]
         fn is_subn_expr(e: &Expr) -> bool {
             if let Some((a, op, b)) = &e.m {
                 if matches!(op.0, '*' | '/') { return is_subn_expr(a) || is_subn_expr(b) }
                 if op.0 == '-' && a.v < b.v  { return true }
                 // find ((a - b) * x / y) where a < b
             }   false
-        }
+        }*/
     }
 }
 
-//impl Drop for Expr { fn drop(&mut self) { eprintln!("Dropping: {self}"); } }
+//impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl core::convert::From<Rational> for Expr {
     fn from(r: Rational) -> Self { Self { v: r, m: None } }
@@ -232,7 +233,7 @@ impl std::hash::Hash for Expr {
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
-pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
     let pow = 1 << nums.len();   // size of powerset
     let mut vexp = Vec::with_capacity(pow);
@@ -254,23 +255,21 @@ pub fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
             si.iter().for_each(|a| sj.iter().for_each(|b| {
                 let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
                 if !hs.insert((a.clone(), b.clone())) { return }
-                //eprintln!("-> ({a}) ? ({b})");
+                //eprintln!(r"-> ({a}) ? ({b})");
 
                 Expr::form_expr_exec(a, b, |e|
                     if x + 1 != pow || e.v == *goal { exps.push(e) });
             }));
         }
-    }
-
-    vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
+    }   vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
 }
 
 //use crate::list::List;
 //use std::collections::LinkedList as List;     // both seems lower performance than Vec
 
 // divide and conque with numbers
-pub fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
-    let (pow, mut exps, mut hv) = (1 << nums.len(), Vec::new(), Vec::new());
+fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
+    let (pow, mut exps, mut hv) = (1u64 << nums.len(), Vec::new(), Vec::new());
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
@@ -295,22 +294,24 @@ pub fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
         if h1 != h0 { if hv.contains(&h1) { continue } else { hv.push(h1) } }
         //}
 
-        const R0: Rational = Rational(0, 0);
-        if 1 < ns0.len() { ns0 = comp24_splitset(&R0, &ns0); }
-        if 1 < ns1.len() { ns1 = comp24_splitset(&R0, &ns1); }
+        const IR: Rational = Rational(0, 0);
+        if 1 < ns0.len() { ns0 = comp24_splitset(&IR, &ns0, ia); }
+        if 1 < ns1.len() { ns1 = comp24_splitset(&IR, &ns1, ia); }
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
             Expr::form_expr_exec(a, b, |e|
-                if std::ptr::eq(goal, &R0) || e.v == *goal { exps.push(e) });
-            //eprintln!("-> ({a}) ? ({b})");
+                if std::ptr::eq(goal, &IR) /*|| e.v == *goal */{ exps.push(e) }
+                else if e.v == *goal { if ia {
+                    println!(r"{}", Paint::green(e)) } else { exps.push(e) }});
+            //eprintln!(r"-> ({a}) ? ({b})");
         }));
     }   exps
 }
 
 // construct expressions down up from numbers
-pub fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
+fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
     let mut hs = HashSet::new();
 
     // XXX: How to skip duplicates over different combination orders?
@@ -320,31 +321,31 @@ pub fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<R
             // traverse all expr. combinations, make (a, b) in ascending order
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
             if !hs.insert((a, b)) { return }    // skip exactly same combinations
-            //eprintln!("-> ({a}) ? ({b})");
+            //eprintln!(r"-> ({a}) ? ({b})");
 
             let nums = nums.iter().filter(|&e|
                 !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
-            Expr::form_expr_exec(a, b, |e| {
+            Expr::form_expr_exec(a, b, |e|
                 if nums.is_empty() && e.v == *goal { exps.insert(e); } else {
                     let mut nums = nums.to_vec();   nums.push(e);
                     comp24_construct(goal, &nums, exps);
-                }
-            });
+                });
         }));
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Comp24Algo { DynProg, SplitSet, Construct, }
+pub enum Comp24Algo { DynProg, SplitSet(bool), Construct, }
 pub  use Comp24Algo::*;
 
 #[inline(always)]
 pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { Vec::new() } }
+    debug_assert!(nums.len() < 64);     // XXX: limited by u64/usize
 
     match algo {
-        SplitSet => comp24_splitset(goal, nums),
+        SplitSet(ia) => comp24_splitset(goal, nums, ia),
         DynProg  => comp24_dynprog (goal, nums),
 
         Construct => {
@@ -355,22 +356,24 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
     }
 }
 
- fn comp24_helper<I, S>(goal: &Rational, nums: I, algo: Comp24Algo)
+ fn comp24_helper<I, S>(goal: &Rational, nums: I)
     where I: Iterator<Item = S>, S: AsRef<str> {
     let nums = nums.map(|str| str.as_ref().parse::<Rational>())
-        .inspect(|res| if let Err(why) = res { eprintln!("Error parsing data: {why}")})
+        .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
         .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
     //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
+    if nums.len() < 2 { return eprintln!(r"{}",
+        Paint::yellow(r"Needs two numbers at least!")) }
 
-    debug_assert!(nums.len() < 64);     // XXX: max u128 for bitmask
-    let exps = comp24_algo(goal, &nums, algo);
-        exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
+    comp24_algo(goal, &nums, SplitSet(true));
+    // XXX: how to transfer a mut closure into resursive function?
+    /*exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
 
-    let len = exps.len();
-    if  len < 1 && !nums.is_empty() {
-        eprintln!("{}", Paint::yellow("Found no expressions!")) } else if 50 < len {
-         println!("Got {} expressions!", Paint::cyan(len).bold());
-    }
+    let cnt = exps.len();
+    if  cnt < 1 && !nums.is_empty() {
+        eprintln!(r"{}", Paint::yellow(r"Found no expressions!")) } else if 9 < cnt {
+         println!(r"Got {} expressions!", Paint::cyan(cnt).bold());
+    }*/
 }
 
 pub fn comp24_main() {
@@ -383,32 +386,39 @@ pub fn comp24_main() {
             if let Some(gs) = &nums.next() {
                 match gs.parse::<Rational>() {
                     Ok(_goal) => goal = _goal,
-                    Err(e) => eprintln!("Error parsing GOAL: {e}"),
+                    Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }
-            } else { eprintln!("Lack parameter for GOAL!") }
-        }   comp24_helper(&goal, nums, SplitSet);
+            } else { eprintln!(r"Lack parameter for GOAL!") }
+        }   comp24_helper(&goal, nums);
     }
+
+    /* use std::mem::*;
+    println!("\nsize_of: Expr-{}, &Expr-{}, Rc<Expr>-{}, Oper-{}, Rational-{}",
+        size_of::<Expr>(), size_of::<&Expr>(), size_of::<Rc<Expr>>(),
+        size_of::<Oper>(), size_of::<Rational>()); */
+    // size_of_val(a)
 
     println!("\n### Solve {} computation ###", Paint::magenta(&goal).bold());
     loop {
-        print!("\n{}{}{}", Paint::white("Input integers/rationals for ").dimmed(),
+        print!("\n{}{}{}", Paint::white(r"Input integers/rationals for ").dimmed(),
             Paint::cyan(&goal), Paint::white(": ").dimmed());
 
+        use std::io::Write;
         let mut nums = String::new();
-        std::io::stdout().flush().expect("Failed to flush!"); //.unwrap();
-        std::io::stdin().read_line(&mut nums).expect("Failed to read!");
+        std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
+        std::io::stdin().read_line(&mut nums).expect(r"Failed to read!");
         let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
         if let Some(first) = nums.peek() {
             if first.starts_with(&['g', 'G']) {
                 match first[1..].parse::<Rational>() {
                     Ok(_goal) => {  goal = _goal;
-                        println!("### Reset GOAL to {} ###", Paint::magenta(&goal).bold());
+                        println!(r"### Reset GOAL to {} ###", Paint::magenta(&goal).bold());
                     }
-                    Err(e) => eprintln!("Error parsing GOAL: {e}"),
+                    Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("quit") { break }
-        }   comp24_helper(&goal, nums, SplitSet);
+        }   comp24_helper(&goal, nums);
     }
 }
 
@@ -427,7 +437,7 @@ mod tests {     // unit test
         ];
 
         cases.iter().for_each(|it| {
-            println!("Test rational display/parse: {}", it.0);
+            println!(r"Test rational display/parse: {}", it.0);
             assert_eq!(it.0.to_string(), it.1);
             assert_eq!(it.0, it.1.trim_start_matches('(').trim_end_matches(')')
                 .parse::<Rational>().unwrap()); });
@@ -450,33 +460,37 @@ mod tests {     // unit test
                                              "(17-13)*(14+15)-16"], 0),
             (  5, vec![ 1, 2, 3], vec!["1*(2+3)", "(2+3)/1", "2*3-1",
                                        "2+1*3", "2/1+3", "2+3/1", "1*2+3", ], 0),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 75),
-            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 304),
-            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 2054),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
+            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 299),
+            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 1832),
         ];
 
         cases.iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < *cnt { *cnt } else { res.len() };
-            println!("Test compute {} from {:?}, expect {} expr.",
+            println!(r"Test compute {} from {:?}, expect {} expr.",
                 Paint::cyan(goal), Paint::cyan(nums), Paint::cyan(cnt));
 
             let nums = nums.iter().map(|&n| Rc::new(n.into())).collect::<Vec<_>>();
             let goal = (*goal).into();
 
-            let assert_closure = |goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo| {
+            let assert_closure = |goal, nums, algo| {
+                use std::time::Instant;
+                let now = Instant::now();
                 let exps = comp24_algo(goal, nums, algo);
-
-                println!("  Got {} expr. by algo-{:?}:",
-                    Paint::magenta(exps.len()), Paint::magenta(algo));
+                let elapsed_time = now.elapsed();
 
                 exps.iter().for_each(|e| {
-                    println!("    {}", Paint::green(e));
+                    println!(r"    {}", Paint::green(e));
                     if !res.is_empty() { assert!(res.contains(&e.to_string().as_str())) }
-                }); assert!(exps.len() == cnt);
+                });
+
+                println!(r"  Got {} expr. in {}ms by algo-{:?}:", Paint::magenta(exps.len()),
+                    elapsed_time.as_millis(), Paint::magenta(algo));
+                assert!(exps.len() == cnt);
             };
 
-            assert_closure(&goal, &nums, SplitSet);
+            assert_closure(&goal, &nums, SplitSet(false));
 
             if 50 < cnt { return }  // XXX: skip slow test running
             assert_closure(&goal, &nums, DynProg);
@@ -496,13 +510,11 @@ mod tests {     // unit test
         // repeat ? times
         let (goal, nums) = (rng.sample(dst),
             rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-        println!("Benchmark compute {} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
+        println!(r"Benchmark compute {} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
         let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
         let goal = goal.into();
 
-        let _exps = comp24_algo(&goal, &nums, DynProg);
-        let _exps = comp24_algo(&goal, &nums, SplitSet);
-        let _exps = comp24_algo(&goal, &nums, Construct);
+        let _exps = comp24_algo(&goal, &nums, SplitSet(false));
 
         // TODO:
     }

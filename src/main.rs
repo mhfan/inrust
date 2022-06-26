@@ -9,6 +9,7 @@
 
 // https://cheats.rs
 // https://doc.rust-lang.org/book/
+// https://doc.rust-lang.org/reference/
 // https://doc.rust-lang.org/rust-by-example/index.html
 
 //#![allow(dead_code)]
@@ -25,14 +26,15 @@ use yansi::Paint;   // Color, Style
 
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
-    print!("{} v{}, args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
+    //println!("Build @ {}", BUILD_TIMESTAMP);  // TODO:
+    print!(r"{} v{}, args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
     env::args().skip(1).for_each(|it| print!(" {it:?}") );
     //println!(" {:?}", env::args().collect::<Vec<String>>());
-    print!("\n{}\n", env!("CARGO_PKG_AUTHORS"));
+    println!("\n{}", env!("CARGO_PKG_AUTHORS"));
 
     //env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
 
-    println!("Hello, world!");  //panic!("Test a panic.");
+    println!(r"Hello, world!");  //panic!("Test a panic.");
 
     //include!("relative_path");    // XXX:
 

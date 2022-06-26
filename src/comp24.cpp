@@ -124,14 +124,11 @@ void form_expr_exec(const auto a, const auto b, auto func) {
             op == b->op && (op == '-' || op == '/')) continue;
 
         // swap sub-expr. for order mattered (different values) operators
-        if (!(a->v == b->v) && (op == '/' && a->v.n != 0 ||
-                                op == '-' && !is_subn_expr(a))) {
+        if (op == '/' && a->v.n != 0 || op == '-'/* && !is_subn_expr(a)*/) {
             auto e = new Expr(b, op, a); func(e); coll.push_back(e);
         }
 
-        // keep (a - b) * x / y - B for negative goal?
-        // (A - (a - b) * x / y) => (A + (a - b) * x / y) if (a < b)
-        if ((op == '/' && b->v.n == 0 || op == '-' && is_subn_expr(b))) continue;
+        if (op == '/' && b->v.n == 0 || op == '-'/* &&  is_subn_expr(b)*/) continue;
             auto e = new Expr(a, op, b); func(e); coll.push_back(e);
     }
 }

@@ -31,13 +31,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let goal = goal.into();
 
-    let mut bench_closure = |algo: Comp24Algo| {
+    let mut bench_closure = |algo| {
         group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
             let _exps = comp24_algo(&goal, &nums, algo);
         }));
     };
 
-    bench_closure(SplitSet);
+    bench_closure(SplitSet(false));
     //bench_closure(DynProg);
     //bench_closure(Construct);
 
