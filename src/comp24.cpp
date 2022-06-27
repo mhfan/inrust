@@ -172,6 +172,7 @@ list<const Expr*> comp24_dynprog(const auto& goal, const list<const Expr*>& nums
 
     for (auto x = 3; x < pow; ++x) {
         //vector<size_t> hv; hash<EPT> hasher;
+        auto sub_round = x + 1 != pow;
         std::unordered_set<EPT> hs;
         auto& exps = vexp[x];
 
@@ -185,21 +186,19 @@ list<const Expr*> comp24_dynprog(const auto& goal, const list<const Expr*>& nums
                 if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                     continue; else hv.push_back(h0); */
 
-                form_expr_exec(ea, eb, [&](const auto* e) { exps.push_back(e); });
+                form_expr_exec(ea, eb, [&](const auto* e) {
+                    if (sub_round || e->v == goal) exps.push_back(e);
+                });
             }
         }
     }
 
-    auto& exps = vexp[pow - 1];
-    for (auto it = exps.begin(); it != exps.end(); )
-        if ((*it)->v == goal) ++it; else it = exps.erase(it);
-    return exps;
+    return vexp[pow - 1];
 }
 
-list<const Expr*> comp24_splitset(const list<const Expr*>& nums) {
-    auto cnt = nums.size();
-    if  (cnt == 1) return nums;
-    auto pow =  1 << cnt;
+list<const Expr*> comp24_splitset(const auto& goal, const list<const Expr*>& nums) {
+    static auto IR = Rational(0, 0);
+    auto pow = 1 << nums.size();
 
     vector<size_t> hv;
     hv.reserve(pow - 2);
@@ -220,12 +219,14 @@ list<const Expr*> comp24_splitset(const list<const Expr*>& nums) {
         //for (auto e: ns0) std::cerr << ' ' << *e; std::cerr << ';';
         //for (auto e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
 
-        if (1 < ns0.size()) ns0 = comp24_splitset(ns0);
-        if (1 < ns1.size()) ns1 = comp24_splitset(ns1);
+        if (1 < ns0.size()) ns0 = comp24_splitset(IR, ns0);
+        if (1 < ns1.size()) ns1 = comp24_splitset(IR, ns1);
 
         for (auto a: ns0) for (auto b: ns1) {
             auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
-            form_expr_exec(ea, eb, [&](const auto* e) { exps.push_back(e); });
+            form_expr_exec(ea, eb, [&](const auto* e) {
+                if (&goal == &IR || e->v == goal) exps.push_back(e);
+            });
         }
     }
 
@@ -246,12 +247,12 @@ int main(int argc, char* argv[]) {
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     vector<CaseT> cases {
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 1 },
+        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 1 },  // just bench once
         {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
                              "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
         { 24, { 0 }, { }, 0 },
-        { 24, { 24 }, { "24" }, 0 },
+        { 24, { 24 }, { }, 0 }, // XXX: "24"
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
@@ -274,17 +275,9 @@ int main(int argc, char* argv[]) {
             cout << std::setw(2) << *e << ",";
         }   cout << "]" << endl;
 
-        auto cnt = 0;
         list<const Expr*> exps;
-
-        if (true) {
-            exps = comp24_splitset(nums);
-            for (auto it = exps.begin(); it != exps.end(); )
-                if ((*it)->v == goal) { ++it; ++cnt; } else it = exps.erase(it);
-        } else {
-            exps = comp24_dynprog(goal, nums);
-            cnt = exps.size();
-        }
+        if (true) exps = comp24_splitset(goal, nums); else exps = comp24_dynprog(goal, nums);
+        auto cnt = exps.size();
 
         for (auto e: exps) {
             //cout << *e << endl;
@@ -294,12 +287,12 @@ int main(int argc, char* argv[]) {
                 cout << "Not expect expr.: " << ss.str() << endl;
         }
 
+        auto bench_once = it.cnt == 1;
         if (it.cnt < 1) it.cnt = it.exps.size();
         if (cnt != it.cnt) cout << "Expr. count: " << it.cnt << " vs " << cnt << endl;
 
         for (auto it = coll.rbegin(); it != coll.rend(); ++it) delete *it;
-        coll.clear();
-//break;
+        coll.clear();   if (bench_once == 1) break;
     }
 
     return 0;

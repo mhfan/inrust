@@ -241,6 +241,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
     for i in 0..nums.len() { vexp[1 << i].borrow_mut().push(nums[i].clone()); }
 
     for x in 3..pow {
+        let sub_round = x + 1 != pow;
         let mut exps = vexp[x].borrow_mut();
         let mut hs = HashSet::new();
 
@@ -258,7 +259,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
                 //eprintln!(r"-> ({a}) ? ({b})");
 
                 Expr::form_expr_exec(a, b, |e|
-                    if x + 1 != pow || e.v == *goal { exps.push(e) });
+                    if sub_round || e.v == *goal { exps.push(e) });
             }));
         }
     }   vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
@@ -270,6 +271,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 // divide and conque with numbers
 fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     let (pow, mut exps, mut hv) = (1u64 << nums.len(), Vec::new(), Vec::new());
+    const IR: Rational = Rational(0, 0);
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
@@ -294,7 +296,6 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         if h1 != h0 { if hv.contains(&h1) { continue } else { hv.push(h1) } }
         //}
 
-        const IR: Rational = Rational(0, 0);
         if 1 < ns0.len() { ns0 = comp24_splitset(&IR, &ns0, ia); }
         if 1 < ns1.len() { ns1 = comp24_splitset(&IR, &ns1, ia); }
 
@@ -381,15 +382,23 @@ pub fn comp24_main() {
     let mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
 
+    let mut want_exit = false;
     if let Some(opt) = nums.peek() {
-        if opt == "-g" {    nums.next();
+        if opt.eq_ignore_ascii_case("-g") {
+            if opt == "-G" { want_exit = true }
+            nums.next();
+
             if let Some(gs) = &nums.next() {
                 match gs.parse::<Rational>() {
                     Ok(_goal) => goal = _goal,
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }
             } else { eprintln!(r"Lack parameter for GOAL!") }
-        }   comp24_helper(&goal, nums);
+        }
+
+        use std::process::exit;
+        comp24_helper(&goal, nums);
+        if want_exit { exit(0) }
     }
 
     /* use std::mem::*;
@@ -467,7 +476,7 @@ mod tests {     // unit test
         cases.iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < *cnt { *cnt } else { res.len() };
-            println!(r"Test compute {:3} from {:?}, expect {:4} expr.",
+            println!(r"Test compute {:3} from {:?}, expect {} expr.",
                 Paint::cyan(goal), Paint::cyan(nums), Paint::cyan(cnt));
 
             let nums = nums.iter().map(|&n| Rc::new(n.into())).collect::<Vec<_>>();
@@ -481,7 +490,7 @@ mod tests {     // unit test
                     if !res.is_empty() { assert!(res.contains(&e.to_string().as_str())) }
                 });
 
-                println!(r"  Got {:4} expr. by algo-{:?}:",
+                println!(r"  Got {} expr. by algo-{:?}:",
                     Paint::magenta(exps.len()), Paint::magenta(algo));
                 assert!(exps.len() == cnt);
             };
@@ -496,9 +505,9 @@ mod tests {     // unit test
         });
     }
 
-    #[test]
+    //#[test]
     //#[bench]
-    fn test_bench() {
+    fn _test_bench() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 

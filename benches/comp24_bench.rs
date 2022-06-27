@@ -27,13 +27,15 @@ fn criterion_benchmark(c: &mut Criterion) {
     let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
     */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6]);
 
-    println!("Benchmark compute {goal} from {nums:?} ");
+    use yansi::Paint;
+    println!("Benchmark compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));
     let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let goal = goal.into();
 
+    let mut cnt = 0;
     let mut bench_closure = |algo| {
         group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
-            let _exps = comp24_algo(&goal, &nums, algo);
+            cnt = comp24_algo(&goal, &nums, algo).len();
         }));
     };
 
@@ -42,6 +44,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     //bench_closure(Construct);
 
     group.finish();
+    if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
 }
 
 criterion_group!(benches, criterion_benchmark);
