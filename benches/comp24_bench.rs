@@ -47,5 +47,6 @@ fn criterion_benchmark(c: &mut Criterion) {
     if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
 }
 
+// sudo cargo flamegraph --bench comp24_bench
 criterion_group!(benches, criterion_benchmark);
 criterion_main! (benches);

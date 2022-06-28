@@ -340,10 +340,18 @@ fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Ex
 pub enum Comp24Algo { DynProg, SplitSet(bool), Construct, }
 pub  use Comp24Algo::*;
 
+#[cfg(feature = "dhat-heap")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
+// cargo run --features dhat-heap
+
 #[inline(always)]
 pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { Vec::new() } }
     debug_assert!(nums.len() < 64);     // XXX: limited by u64/usize
+
+    #[cfg(feature = "dhat-heap")]
+    let _profiler = dhat::Profiler::new_heap();
 
     match algo {
         SplitSet(ia) => comp24_splitset(goal, nums, ia),

@@ -21,12 +21,16 @@ num-bigint = "0.4.*"
 #itertools = "0.10.*"
 #rustc-hash = "1.1.*"
 yansi = "0.5.*"
+#dhat = "0.3.*"
 #num = "0.4.*"
 
 [dev-dependencies]
 #pprof = { version = "0.9.*", features = ["flamegraph"] }
 criterion = "0.3.*"
 #bencher = "0.1.*"
+
+[features]
+dhat-heap = []
 
 [[bench]]
 name = "comp24_bench"
