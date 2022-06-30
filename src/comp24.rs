@@ -89,7 +89,6 @@ struct Oper(char);  // newtype idiom
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
 impl Expr {
-    #[inline(always)]
     fn new(a: &Rc<Self>, op: Oper, b: &Rc<Self>) -> Self {
         #[inline(always)]
         fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
@@ -106,8 +105,13 @@ impl Expr {
             }   val //Self::_simplify(&val)     // XXX:
         }
 
-        Self { v: operate(a, op, b),
-               m: Some((Rc::clone(a), op, Rc::clone(b))) }
+        Self { v: operate(a, op, b), m: Some((Rc::clone(a), op, Rc::clone(b))) }
+    }
+
+    fn _hash_combine(lhs: u32, rhs: u32) -> u32 {
+        //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
+        lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
+                                           .wrapping_add(lhs.wrapping_shr(2)))
     }
 
     fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
@@ -125,7 +129,6 @@ impl Expr {
         Rational(v.0 / gcd, v.1 / gcd)
     }
 
-    #[inline(always)]
     fn form_expr_exec<F: FnMut(Rc<Self>)>(a: &Rc<Self>, b: &Rc<Self>, mut func: F) {
         //const Add: Oper = Oper('+');
         //const Sub: Oper = Oper('-');
@@ -134,7 +137,7 @@ impl Expr {
         const OPS: [Oper; 4] = [ Oper('+'), Oper('-'), Oper('*'), Oper('/') ];
 
         OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
-            // keep human friendly expression form ONLY
+            // keep human friendly expr. form ONLY
             if let Some((_, aop, ..)) = &a.m {
                 // ((a . b) . B) => (a . (b . B))
                 if aop.0 == op.0 { return }
@@ -224,7 +227,7 @@ impl std::hash::Hash for Expr {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
         if let Some((a, op, b)) = &self.m {
-            a.hash(state);  op.0.hash(state);   b.hash(state);
+            a.hash(state);  op.0.hash(state); b.hash(state);
         } else { self.v.0.hash(state); self.v.1.hash(state); }
         // XXX: have recursions, yet occasionally collision
     }
@@ -255,7 +258,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
             //si.iter().cartesian_product(sj).for_each(|(&a, &b)| { });
             si.iter().for_each(|a| sj.iter().for_each(|b| {
                 let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
-                if !hs.insert((a.clone(), b.clone())) { return }
+                if !hs.insert((a.clone(), b.clone())) { return }    // XXX: use ref. instead?
                 //eprintln!(r"-> ({a}) ? ({b})");
 
                 Expr::form_expr_exec(a, b, |e|
@@ -268,7 +271,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
 //use crate::list::List;
 //use std::collections::LinkedList as List;     // both seems lower performance than Vec
 
-// divide and conque with numbers
+// divide and conque number set
 fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     let (pow, mut exps, mut hv) = (1u64 << nums.len(), Vec::new(), Vec::new());
     const IR: Rational = Rational(0, 0);
@@ -304,14 +307,14 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
             Expr::form_expr_exec(a, b, |e|
                 if std::ptr::eq(goal, &IR) /*|| e.v == *goal */{ exps.push(e) }
-                else if e.v == *goal { if ia {
-                    println!(r"{}", Paint::green(e)) } else { exps.push(e) }});
+                else if e.v == *goal { if ia { println!(r"{}", Paint::green(e)) }
+                                       else { exps.push(e) } });
             //eprintln!(r"-> ({a}) ? ({b})");
         }));
     }   exps
 }
 
-// construct expressions down up from numbers
+// construct expr. down up from numbers
 fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
     let mut hs = HashSet::new();
 
@@ -365,8 +368,7 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
     }
 }
 
-fn comp24_helper<I, S>(goal: &Rational, nums: I)
-    where I: Iterator<Item = S>, S: AsRef<str> {
+fn comp24_helper<I, S>(goal: &Rational, nums: I) where I: Iterator<Item = S>, S: AsRef<str> {
     let nums = nums.map(|str| str.as_ref().parse::<Rational>())
         .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
         .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
@@ -380,7 +382,7 @@ fn comp24_helper<I, S>(goal: &Rational, nums: I)
 
     let cnt = exps.len();
     if  cnt < 1 && !nums.is_empty() {
-        eprintln!(r"{}", Paint::yellow(r"Found no expressions!")) } else if 9 < cnt {
+        eprintln!(r"{}", Paint::yellow(r"Found no expression!")) } else if 9 < cnt {
          println!(r"Got {} expressions!", Paint::cyan(cnt).bold());
     }*/
 }
@@ -441,8 +443,7 @@ pub fn comp24_main() {
 
 //}
 
-#[cfg(test)]
-mod tests {     // unit test
+#[cfg(test)] mod tests {     // unit test
     use super::*;   // Need to import items from parent module, to access non-public members.
 
     #[test]

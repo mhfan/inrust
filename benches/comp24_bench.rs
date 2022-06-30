@@ -25,7 +25,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     /*use rand::{Rng, thread_rng, distributions::Uniform};
     let (mut rng, dst) = (thread_rng(), Uniform::new(1, 100));
     let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-    */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6]);
+    */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6, 7]);
 
     use yansi::Paint;
     println!("Benchmark compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));
@@ -44,7 +44,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     //bench_closure(Construct);
 
     group.finish();
-    if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
+    if 0 < cnt { println!(r"Got {} expressions", Paint::magenta(cnt)) }
 }
 
 // sudo cargo flamegraph --bench comp24_bench
