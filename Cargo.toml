@@ -1,33 +1,47 @@
 
+# https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [package]
 name = "hello-rust"
 version = "0.2.1"
 edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
 license = "MIT OR Apache-2.0"
 description = "Accumulate knowledge of my study on Rust language"
+#repository = "https://github.com/mhfan/hello-rust"
 authors = ["MeiHui FAN <mhfan@ustc.edu>"]
+#readme = "README.md"
+
 #exclude = ["tests", "benches"]
+#build = "build.rs"     # default
+#build = false
 
 [workspace]
 #members = [""]
 #exclude = ["hello-wasm"]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-# 'cargo tree', to visualize the dependency graph
-[dependencies]
+[dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8.*"
+#num  = "0.4.*"  # rational/complex/bigint/integer etc.
 num-bigint = "0.4.*"
 #itertools = "0.10.*"
 #rustc-hash = "1.1.*"
 yansi = "0.5.*"
 #dhat = "0.3.*"
-#num = "0.4.*"
+
+#syn = "1.0.*"
+#quote = "1.0.*"
+#chrono = "0.4.*"
+#proc_macro2 = "1.0.*"
 
 [dev-dependencies]
 #pprof = { version = "0.9.*", features = ["flamegraph"] }
 criterion = "0.3.*"
 #bencher = "0.1.*"
+
+[build-dependencies]
+#pkg-config = "0.3.*"
+#cxx = "1.*"
+cc = "1.*"
 
 [features]
 dhat-heap = []

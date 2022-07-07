@@ -8,9 +8,11 @@
  ****************************************************************/
 
 // https://cheats.rs
+// https://course.rs
 // https://doc.rust-lang.org/book/
 // https://doc.rust-lang.org/reference/
 // https://doc.rust-lang.org/rust-by-example/index.html
+// curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
 //#![allow(dead_code)]
 use std::{env, cmp::Ordering/*, error::Error*/};

@@ -11,36 +11,33 @@
 
 // https://changkun.de/modern-cpp/zh-cn/00-preface/
 
-#include <stdint.h>
+#include <cstdint>
+#include <cassert>
 
-#include <list>
 #include <vector>
+#include <memory>
 #include <string>
 #include <sstream>
-#include <cassert>
 #include <iomanip>
 #include <iostream>
 #include <algorithm>
-#include <unordered_set>
 
-using std::ostream;//, std::istream;
-using std::vector, std::list, std::hash;//, std::move;
+using std::ostream, std::vector, std::hash;//, std::move;
 
 struct Rational {
     int32_t n, d;
 
     Rational(auto n, int32_t d = 1): n(n), d(d) {}
 
-    auto operator+(const auto& rhs) const {
+    /*auto operator+(const auto& rhs) const {
         return Rational(n * rhs.d + d * rhs.n, d * rhs.d); }
     auto operator-(const auto& rhs) const {
         return Rational(n * rhs.d - d * rhs.n, d * rhs.d); }
     auto operator*(const auto& rhs) const { return Rational(n * rhs.n,  d * rhs.d); }
     auto operator/(const auto& rhs) const {
-        return 0 == rhs.d ? Rational(0, 0) : Rational(n * rhs.d,  d * rhs.n); }
+        return 0 == rhs.d ? Rational(0, 0) : Rational(n * rhs.d,  d * rhs.n); }*/
 
-    auto operator<(const auto& rhs) const {    return n * rhs.d < d * rhs.n; }
-
+    auto operator< (const auto& rhs) const {   return n * rhs.d < d * rhs.n; }
     auto operator==(const auto& rhs) const {
         return d != 0 && rhs.d != 0 && n * rhs.d == d * rhs.n;
     }
@@ -56,22 +53,30 @@ struct Rational {
 //typedef char Oper;
 enum Oper { Num, Add = '+', Sub = '-', Mul = '*', Div = '/' };
 
+struct Expr;
+typedef std::shared_ptr<const Expr> PtrE;
+
 struct Expr {
     Rational v;
-    struct { Oper op; const Expr *a, *b; }; // anonymous structure
+    struct { Oper op; PtrE a, b; };     // anonymous structure
 
-    Expr(auto n): Expr(Rational(n)) {}   // Constructor delegation
-    Expr(const Rational& r, Oper op = Num, const Expr *a = 0, const Expr *b = 0):
-        v(r), op(op), a(a), b(b) {}
+    Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
+    Expr(const Rational& r, Oper op = Num,
+        PtrE a = nullptr, PtrE b = nullptr): v(r), op(op), a(a), b(b) {}
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
 
     Expr(auto a, auto op, auto b): v(0), op(op), a(a), b(b) {
         switch (op) {
-            case '+': v = a->v + b->v; break;
-            case '-': v = a->v - b->v; break;
-            case '*': v = a->v * b->v; break;
-            case '/': v = a->v / b->v; break;
+            case '+': //v = a->v + b->v; break;
+                v.n = a->v.n * b->v.d + a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
+            case '-': //v = a->v - b->v; break;
+                v.n = a->v.n * b->v.d - a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
+            case '*': //v = a->v * b->v; break;
+                v.n = a->v.n * b->v.n, v.d = a->v.d * b->v.d;  break;
+            case '/': //v = a->v / b->v; break;
+                0 == b->v.d ? (v.d = 0) :
+               (v.n = a->v.n * b->v.d, v.d = a->v.d * b->v.n); break;
             default: ;
         }
     }
@@ -89,20 +94,18 @@ struct Expr {
         if ((e.a->op == '+' || e.a->op == '-') && (e.op == '*' || e.op == '/'))
             os << '(' << *e.a << ')'; else os << *e.a;  os << char(e.op);
 
-        if (e.op == '/' && (e.b->op == '*' || e.b->op == '/') ||
-            e.op != '+' && (e.b->op == '+' || e.b->op == '-'))
+        if ((e.op == '/' && (e.b->op == '*' || e.b->op == '/')) ||
+            (e.op != '+' && (e.b->op == '+' || e.b->op == '-')))
             os << '(' << *e.b << ')'; else os << *e.b;  return os;
     }
 };
-
-vector<const Expr*> coll;
 
 bool is_subn_expr(const auto& e) {
     if (e->op == '*' || e->op == '/') return is_subn_expr(e->a) || is_subn_expr(e->b);
     return e->op == '-' && e->a->v < e->b->v;
 }
 
-void form_expr_exec(const auto a, const auto b, auto func) {
+void form_expr(const auto a, const auto b, auto func) {
     const Oper OPS[] = { Add, Sub, Mul, Div };
     for (auto op: OPS) {
         // ((a . b) . B) => (a . (b . B)
@@ -110,7 +113,7 @@ void form_expr_exec(const auto a, const auto b, auto func) {
 
         // ((a - b) + B) => ((a + B) - b)
         // ((a / b) * B) => ((a * B) / b)
-        if (a->op == '-' && op == '+' || a->op == '/' && op == '*') continue;
+        if ((a->op == '-' && op == '+') || (a->op == '/' && op == '*')) continue;
 
         // (A + (a + b)) => (a + (A + b)) if a < A
         // (A * (a * b)) => (a * (A * b)) if a < A
@@ -120,22 +123,17 @@ void form_expr_exec(const auto a, const auto b, auto func) {
         // (A * (a / b)) => ((A * a) / b)
         // (A - (a - b)) => ((A + b) - a)
         // (A / (a / b)) => ((A * b) / a)
-        if (op == '+' && b->op == '-' || op == '*' && b->op == '/' ||
-            op == b->op && (op == '-' || op == '/')) continue;
+        if ((op == '+' && b->op == '-') || (op == '*' && b->op == '/') ||
+            (op == b->op && (op == '-'  ||  op == '/'))) continue;
 
         // swap sub-expr. for order mattered (different values) operators
-        if (op == '/' && a->v.n != 0 || op == '-'/* && !is_subn_expr(a)*/) {
-            auto e = new Expr(b, op, a); func(e); coll.push_back(e);
+        if ((op == '/' && a->v.n != 0) || (op == '-'/* && !is_subn_expr(a)*/)) {
+            auto e = std::make_shared<Expr>(b, op, a); func(e);
         }
 
-        if (op == '/' && b->v.n == 0 || op == '-'/* &&  is_subn_expr(b)*/) continue;
-            auto e = new Expr(a, op, b); func(e); coll.push_back(e);
+        if ((op == '/' && b->v.n == 0) || (op == '-'/* &&  is_subn_expr(b)*/)) continue;
+            auto e = std::make_shared<Expr>(a, op, b); func(e);
     }
-}
-
-typedef std::pair<const Expr*, const Expr*> EPT;
-bool operator==(const EPT& e1, const EPT& e2) {
-    return e1.first->v == e2.first->v && e1.second->v == e2.second->v;
 }
 
 inline size_t hash_combine(size_t lhs, size_t rhs) {
@@ -143,50 +141,47 @@ inline size_t hash_combine(size_t lhs, size_t rhs) {
 }
 
 template <> struct hash<Expr> {
-    size_t operator()(Expr const& e) const noexcept {  hash<Expr> hasher;
-        if (e.op == Num) return hash_combine(hash<int32_t>{}(e.v.n), hash<int32_t>{}(e.v.d));
-        return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (hash<char>{}(char(e.op)) << 16);
+    size_t operator()(Expr const& e) const noexcept {
+        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  hash<Expr> hasher;
+            return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (char(e.op) << 13);
+        }
     }
 };
 
-template <> struct hash<EPT> {
-    size_t operator()(EPT const& ep) const noexcept {  hash<Expr> hasher;
-        return hash_combine(hasher(*ep.first), hasher(*ep.second));
-    }
-};
+#ifdef USE_LIST
+#include <list>
+using std::list;
+#else
+#define list vector // XXX:
+#endif
 
-template <> struct hash<list<const Expr*>> {
-    size_t operator()(const auto& exps) const noexcept {
-        size_t hs = 0; for (auto e: exps) hs = hash_combine(hs, hash<Expr>{}(*e)); return hs;
-    }
-};
+list<PtrE> comp24_dynprog(const auto& goal, const list<PtrE>& nums) {
+    auto pow = 1 << nums.size();
 
-list<const Expr*> comp24_dynprog(const auto& goal, const list<const Expr*>& nums) {
-    vector<list<const Expr*>> vexp;
-    auto cnt = nums.size();
-    auto pow = 1 << cnt;
-    vexp.reserve(pow);
-
-    for (auto i = 0; i < pow; ++i) vexp.push_back(list<const Expr*>());
+    vector<list<PtrE>> vexp; vexp.reserve(pow);
+    for (auto i = 0; i < pow; ++i) vexp.push_back(list<PtrE>());
     auto i = 0; for (auto e: nums) vexp[1 << i++].push_back(e);
 
+    vector<size_t> hv; hv.reserve(pow - 2);
     for (auto x = 3; x < pow; ++x) {
-        //vector<size_t> hv; hash<EPT> hasher;
-        auto sub_round = x + 1 != pow;
-        std::unordered_set<EPT> hs;
+         auto sub_round = x + 1 != pow;
+        if   (sub_round) {
+            size_t h0 = 0;  auto i = 0;
+            for (auto e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<Expr>{}(*e));
+            //for (auto n = 1, i = 0; n < x; n <<= 1, ++i)
+            //    if (n & x) h0 = hash_combine(h0, hash<Expr>{}(*nums[i]));
+
+            if (std::find(hv.begin(), hv.end(), h0) != hv.end())
+                continue; else hv.push_back(h0);
+        }
+
         auto& exps = vexp[x];
-
         for (auto i = 1; i < (x+1)/2; ++i) {
-            if ((x & i) != i) continue;  auto j = x - i;
+            if ((x & i) != i) continue;
 
-            for (auto a: vexp[i]) for (auto b: vexp[j]) {
-                auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
-                if (!hs.insert(std::make_pair(ea, eb)).second) continue;
-                /* auto h0 = hasher(std::make_pair(ea, eb));
-                if (std::find(hv.begin(), hv.end(), h0) != hv.end())
-                    continue; else hv.push_back(h0); */
-
-                form_expr_exec(ea, eb, [&](const auto* e) {
+            for (auto a: vexp[i]) for (auto b: vexp[x - i]) {
+                 auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
+                form_expr(ea, eb, [&](auto e) {
                     if (sub_round || e->v == goal) exps.push_back(e);
                 });
             }
@@ -196,19 +191,19 @@ list<const Expr*> comp24_dynprog(const auto& goal, const list<const Expr*>& nums
     return vexp[pow - 1];
 }
 
-list<const Expr*> comp24_splitset(const auto& goal, const list<const Expr*>& nums) {
+list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
     static auto IR = Rational(0, 0);
     auto pow = 1 << nums.size();
+    list<PtrE> exps;
 
-    vector<size_t> hv;
-    hv.reserve(pow - 2);
-    list<const Expr*> exps;
-    hash<list<const Expr*>> hasher;
-    for (auto mask = 1; mask < pow/2; ++mask) {
-        list<const Expr*> ns0, ns1; auto i = 0;
-        for (auto e: nums) if ((1 << i++) & mask) ns0.push_back(e); else ns1.push_back(e);
+    vector<size_t> hv; hv.reserve(pow - 2);
+    for (auto x = 1; x < pow/2; ++x) {
+        list<PtrE> ns0, ns1; auto i = 0;
+        for (auto e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
-        auto h0 = hasher(ns0), h1 = hasher(ns1);
+        auto h0 = 0, h1 = 0;   hash<Expr> hasher;
+        for (auto e: ns0) h0 = hash_combine(h0, hasher(*e));
+        for (auto e: ns1) h1 = hash_combine(h1, hasher(*e));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
         if (h1 != h0) {
@@ -223,8 +218,8 @@ list<const Expr*> comp24_splitset(const auto& goal, const list<const Expr*>& num
         if (1 < ns1.size()) ns1 = comp24_splitset(IR, ns1);
 
         for (auto a: ns0) for (auto b: ns1) {
-            auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
-            form_expr_exec(ea, eb, [&](const auto* e) {
+             auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
+            form_expr(ea, eb, [&](auto e) {
                 if (&goal == &IR || e->v == goal) exps.push_back(e);
             });
         }
@@ -233,6 +228,7 @@ list<const Expr*> comp24_splitset(const auto& goal, const list<const Expr*>& num
     return exps;
 }
 
+#ifdef RUN_TEST
 int main(int argc, char* argv[]) {
     using std::cout, std::endl, std::string;
 
@@ -247,12 +243,13 @@ int main(int argc, char* argv[]) {
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     vector<CaseT> cases {
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 1 },  // just bench once
+        {100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
+        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34303 },
         {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
                              "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
-        { 24, { 0 }, { }, 0 },
-        { 24, { 24 }, { }, 0 }, // XXX: "24"
+        //{ 24, { 0 }, { }, 0 },
+        //{ 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
@@ -267,16 +264,15 @@ int main(int argc, char* argv[]) {
         cout << "Test compute " << std::setw(3) << it.goal << " from [";
 
         Rational goal(it.goal);
-        list<const Expr*> nums;
+        list<PtrE> nums;
         for (auto n: it.nums) {
-            auto e = new Expr(n);
-            coll.push_back(e);
+             auto e = std::make_shared<Expr>(n);
             nums.push_back(e);
             cout << std::setw(2) << *e << ",";
         }   cout << "]" << endl;
 
-        list<const Expr*> exps;
-        if (true) exps = comp24_splitset(goal, nums); else exps = comp24_dynprog(goal, nums);
+        list<PtrE> exps;
+        if (true) exps = comp24_dynprog(goal, nums); else exps = comp24_splitset(goal, nums);
         auto cnt = exps.size();
 
         for (auto e: exps) {
@@ -284,18 +280,16 @@ int main(int argc, char* argv[]) {
             ss.str(""); ss << *e;
             if (it.cnt < 1 && std::find(it.exps.begin(),
                 it.exps.end(), ss.str()) == it.exps.end())
-                cout << "Not expect expr.: " << ss.str() << endl;
+                cout << "  Not expect expr.: " << ss.str() << endl;
         }
 
-        auto bench_once = it.cnt == 1;
         if (it.cnt < 1) it.cnt = it.exps.size();
-        if (cnt != it.cnt) cout << "Expr. count: " << it.cnt << " vs " << cnt << endl;
-
-        for (auto it = coll.rbegin(); it != coll.rend(); ++it) delete *it;
-        coll.clear();   if (bench_once == 1) break;
+        if (cnt != it.cnt) cout << "  Expr. count: " << it.cnt << " vs " << cnt << endl;
+//break;
     }
 
     return 0;
 }
+#endif
 
 // vim:sts=4 ts=8 sw=4 noet

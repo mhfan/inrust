@@ -39,8 +39,8 @@ fn criterion_benchmark(c: &mut Criterion) {
         }));
     };
 
+    bench_closure(DynProg (false));
     bench_closure(SplitSet(false));
-    //bench_closure(DynProg);
     //bench_closure(Construct);
 
     group.finish();

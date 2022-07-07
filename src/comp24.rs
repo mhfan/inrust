@@ -13,10 +13,6 @@
 use std::{fmt, cmp::{Ordering, PartialEq}};
 pub use std::rc::Rc;
 
-use std::collections::HashSet;
-//use rustc_hash::FxHashSet as HashSet;
-// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
-
 //use itertools::Itertools;
 use yansi::Paint;   // Color, Style
 
@@ -83,8 +79,7 @@ struct Oper(char);  // newtype idiom
 //enum Value { Void, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
-//#[repr(align(4))]
-//#[repr(packed(2))]
+//#[repr(packed(2))]    //#[repr(align(4))]
 //#[derive(Debug)]
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
@@ -129,7 +124,7 @@ impl Expr {
         Rational(v.0 / gcd, v.1 / gcd)
     }
 
-    fn form_expr_exec<F: FnMut(Rc<Self>)>(a: &Rc<Self>, b: &Rc<Self>, mut func: F) {
+    fn form_expr<F: FnMut(Rc<Self>)>(a: &Rc<Self>, b: &Rc<Self>, mut func: F) {
         //const Add: Oper = Oper('+');
         //const Sub: Oper = Oper('-');
         //const Mul: Oper = Oper('*');
@@ -151,7 +146,7 @@ impl Expr {
                 match (op.0, bop.0) {
                     // (A + (a + b)) => (a + (A + b)) if a < A
                     // (A * (a * b)) => (a * (A * b)) if a < A
-                    ('+', '+') | ('*', '*') => if ba.v < a.v { return }
+                    ('+', '+') | ('*', '*') if ba.v < a.v => return,
 
                     // (A + (a - b)) => ((A + a) - b)
                     // (A * (a / b)) => ((A * a) / b)
@@ -223,72 +218,84 @@ impl PartialEq for Expr { fn eq(&self, rhs: &Self) -> bool { self.v == rhs.v } }
                 la == ra && lop.0 == rop.0 && lb == rb //&& self.v == rhs.v,
         } */
 
-impl std::hash::Hash for Expr {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl Hash for Expr {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
         if let Some((a, op, b)) = &self.m {
             a.hash(state);  op.0.hash(state); b.hash(state);
+            // XXX: have recursions, yet occasionally collision
         } else { self.v.0.hash(state); self.v.1.hash(state); }
-        // XXX: have recursions, yet occasionally collision
     }
 }
+
+use std::collections::HashSet;
+//use rustc_hash::FxHashSet as HashSet;
+// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
+//use rustc_hash::FxHasher as DefaultHasher;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+//use crate::list::List;
+//use std::collections::LinkedList as List;     // both seems lower performance than Vec
 
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
-fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>]) -> Vec<Rc<Expr>> {
+fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
     let pow = 1 << nums.len();   // size of powerset
     let mut vexp = Vec::with_capacity(pow);
     (0..pow).for_each(|_| { vexp.push(RefCell::new(Vec::new())) });
-    for i in 0..nums.len() { vexp[1 << i].borrow_mut().push(nums[i].clone()); }
+    for i in 0..nums.len() { vexp[1 << i].borrow_mut().push(nums[i].clone()) }
+    let mut hv = Vec::with_capacity(pow - 2);
 
     for x in 3..pow {
         let sub_round = x + 1 != pow;
+
+        if  sub_round {     // skip duplicate combinations over different 'x'
+            let mut hasher = DefaultHasher::default();
+            let (mut n, mut i) = (1, 0);
+            while  n < x {
+                if n & x != 0 { nums[i].hash(&mut hasher) }
+                n <<= 1;    i += 1;
+            }   let h0 = hasher.finish();
+            if hv.contains(&h0) { continue } else { hv.push(h0) }
+        }
+
         let mut exps = vexp[x].borrow_mut();
-        let mut hs = HashSet::new();
-
-        // XXX: How to skip duplicate combinations over different 'x'
         for i in 1..(x+1)/2 {
-            if x & i != i { continue }  let j = x - i;
-            //if j < i { continue }   // skip symmetric computation
-
-            let (si, sj) = (vexp[i].borrow(), vexp[j].borrow());
+            if x & i != i { continue }
+            let (si, sj) = (vexp[i].borrow(), vexp[x - i].borrow());
 
             //si.iter().cartesian_product(sj).for_each(|(&a, &b)| { });
             si.iter().for_each(|a| sj.iter().for_each(|b| {
                 let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
-                if !hs.insert((a.clone(), b.clone())) { return }    // XXX: use ref. instead?
+                Expr::form_expr(a, b, |e|  // XXX: same code pieces
+                    if sub_round /*|| e.v == *goal */{ exps.push(e) }
+                    else if e.v == *goal { if ia { println!(r"{}", Paint::green(e)) }
+                                           else { exps.push(e) }});
                 //eprintln!(r"-> ({a}) ? ({b})");
-
-                Expr::form_expr_exec(a, b, |e|
-                    if sub_round || e.v == *goal { exps.push(e) });
             }));
         }
     }   vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
 }
 
-//use crate::list::List;
-//use std::collections::LinkedList as List;     // both seems lower performance than Vec
-
 // divide and conque number set
 fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
-    let (pow, mut exps, mut hv) = (1u64 << nums.len(), Vec::new(), Vec::new());
+    let (pow, mut exps) = (1 << nums.len(), Vec::new());
+    let mut hv = Vec::with_capacity(pow - 2);
+    let sub_round = std::ptr::eq(goal, &IR);
     const IR: Rational = Rational(0, 0);
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
 
-    for mask in 1..pow/2 {
+    for x in 1..pow/2 {
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
         nums.iter().enumerate().for_each(|(i, e)|
-            if (1 << i) & mask != 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
+            if (1 << i) & x == 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
 
         //if !all_unique {      // no gain no penality for performance
-        //use rustc_hash::FxHasher as DefaultHasher;
-        use std::collections::hash_map::DefaultHasher;
-        use std::hash::{Hash, Hasher};
-
         // skip duplicate (ns0, ns1)
         let mut hasher = DefaultHasher::default();
         ns0.hash(&mut hasher);   let h0 = hasher.finish();
@@ -305,8 +312,8 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
-            Expr::form_expr_exec(a, b, |e|
-                if std::ptr::eq(goal, &IR) /*|| e.v == *goal */{ exps.push(e) }
+            Expr::form_expr(a, b, |e|  // XXX: same code pieces
+                if sub_round /*|| e.v == *goal */{ exps.push(e) }
                 else if e.v == *goal { if ia { println!(r"{}", Paint::green(e)) }
                                        else { exps.push(e) } });
             //eprintln!(r"-> ({a}) ? ({b})");
@@ -331,16 +338,15 @@ fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Ex
                 !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
-            Expr::form_expr_exec(a, b, |e|
+            Expr::form_expr(a, b, |e|
                 if nums.is_empty() && e.v == *goal { exps.insert(e); } else {
                     let mut nums = nums.to_vec();   nums.push(e);
-                    comp24_construct(goal, &nums, exps);
-                });
+                    comp24_construct(goal, &nums, exps); });
         }));
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Comp24Algo { DynProg, SplitSet(bool), Construct, }
+pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Construct, }
 pub  use Comp24Algo::*;
 
 #[cfg(feature = "dhat-heap")]
@@ -350,7 +356,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 
 #[inline(always)]
 pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
-    if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { Vec::new() } }
+    if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
     debug_assert!(nums.len() < 64);     // XXX: limited by u64/usize
 
     #[cfg(feature = "dhat-heap")]
@@ -358,7 +364,7 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
 
     match algo {
         SplitSet(ia) => comp24_splitset(goal, nums, ia),
-        DynProg  => comp24_dynprog (goal, nums),
+        DynProg (ia) => comp24_dynprog (goal, nums, ia),
 
         Construct => {
             let mut exps = HashSet::default();
@@ -376,8 +382,10 @@ fn comp24_helper<I, S>(goal: &Rational, nums: I) where I: Iterator<Item = S>, S:
     if nums.len() < 2 { return eprintln!(r"{}",
         Paint::yellow(r"Needs two numbers at least!")) }
 
+    //comp24_algo(goal, &nums, DynProg (true));
     comp24_algo(goal, &nums, SplitSet(true));
     // XXX: how to transfer a mut closure into resursive function?
+
     /*exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
 
     let cnt = exps.len();
@@ -480,6 +488,8 @@ pub fn comp24_main() {
             ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
             (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 299),
             ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 1832),
+            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 5504),
+            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 34303),
         ];
 
         cases.iter().for_each(|it| {
@@ -504,10 +514,16 @@ pub fn comp24_main() {
                 assert!(exps.len() == cnt);
             };
 
+            /*unsafe {
+                extern {
+                    //fn comp24_splitset(const auto& goal, const list<const Expr*>& nums) -> list<const Expr*>;
+                }
+            }*/
+
             assert_closure(&goal, &nums, SplitSet(false));
 
             if 50 < cnt { return }  // XXX: skip slow test running
-            assert_closure(&goal, &nums, DynProg);
+            assert_closure(&goal, &nums, DynProg (false));
 
             if  5 < cnt { return }  // XXX: skip incorrect caused by hash collision
             assert_closure(&goal, &nums, Construct);
