@@ -279,7 +279,8 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
                 //eprintln!(r"-> ({a}) ? ({b})");
             }));
         }
-    }   vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
+    }   if pow == 2 { return Vec::new() }
+    vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
 }
 
 // divide and conque number set
@@ -528,8 +529,7 @@ pub fn comp24_main() {
 
             assert_closure(&goal, &nums, DynProg (false));
             assert_closure(&goal, &nums, SplitSet(false));
-
-            if  5 < cnt { return }  // XXX: skip incorrect caused by hash collision
+            if 10 < cnt { return }  // XXX: skip incorrect caused by hash collision
             assert_closure(&goal, &nums, Construct);
         });
     }
