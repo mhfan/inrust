@@ -222,7 +222,7 @@ impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
         if let Some((a, op, b)) = &self.m {
-            a.hash(state);  op.0.hash(state); b.hash(state);
+            a.hash(state);  b.hash(state); op.0.hash(state);
             // XXX: have recursions, yet occasionally collision
         } else { self.v.0.hash(state); self.v.1.hash(state); }
     }
@@ -250,10 +250,13 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
     let mut hv = Vec::with_capacity(pow - 2);
 
     for x in 3..pow {
-        let sub_round = x + 1 != pow;
+        if x & (x - 1) == 0 { continue }
+        let sub_round = x != pow - 1;
 
         if  sub_round {     // skip duplicate combinations over different 'x'
             let mut hasher = DefaultHasher::default();
+            //nums.iter().enumerate().for_each(|(i, e)| {
+            //    if (1 << i) & x != 0 { e.hash(&mut hasher) } });
             let (mut n, mut i) = (1, 0);
             while  n < x {
                 if n & x != 0 { nums[i].hash(&mut hasher) }
@@ -271,9 +274,8 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
             si.iter().for_each(|a| sj.iter().for_each(|b| {
                 let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
                 Expr::form_expr(a, b, |e|  // XXX: same code pieces
-                    if sub_round /*|| e.v == *goal */{ exps.push(e) }
-                    else if e.v == *goal { if ia { println!(r"{}", Paint::green(e)) }
-                                           else { exps.push(e) }});
+                    if sub_round { exps.push(e) } else if e.v == *goal {
+                        if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }});
                 //eprintln!(r"-> ({a}) ? ({b})");
             }));
         }
@@ -313,9 +315,8 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
             let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
             Expr::form_expr(a, b, |e|  // XXX: same code pieces
-                if sub_round /*|| e.v == *goal */{ exps.push(e) }
-                else if e.v == *goal { if ia { println!(r"{}", Paint::green(e)) }
-                                       else { exps.push(e) } });
+                if sub_round { exps.push(e) } else if e.v == *goal {
+                    if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) } });
             //eprintln!(r"-> ({a}) ? ({b})");
         }));
     }   exps
@@ -324,6 +325,7 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
 // construct expr. down up from numbers
 fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
     let mut hs = HashSet::new();
+    let ia = false;
 
     // XXX: How to skip duplicates over different combination orders?
     //nums.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
@@ -334,14 +336,13 @@ fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Ex
             if !hs.insert((a, b)) { return }    // skip exactly same combinations
             //eprintln!(r"-> ({a}) ? ({b})");
 
-            let nums = nums.iter().filter(|&e|
+            let mut nums = nums.iter().filter(|&e|
                 !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
-            Expr::form_expr(a, b, |e|
-                if nums.is_empty() && e.v == *goal { exps.insert(e); } else {
-                    let mut nums = nums.to_vec();   nums.push(e);
-                    comp24_construct(goal, &nums, exps); });
+            Expr::form_expr(a, b, |e| if nums.is_empty() && e.v == *goal {
+                    if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }
+                } else { nums.push(e); comp24_construct(goal, &nums, exps); nums.pop(); });
         }));
 }
 
@@ -382,8 +383,9 @@ fn comp24_helper<I, S>(goal: &Rational, nums: I) where I: Iterator<Item = S>, S:
     if nums.len() < 2 { return eprintln!(r"{}",
         Paint::yellow(r"Needs two numbers at least!")) }
 
-    //comp24_algo(goal, &nums, DynProg (true));
-    comp24_algo(goal, &nums, SplitSet(true));
+    comp24_algo(goal, &nums, DynProg (true));
+    //comp24_algo(goal, &nums, SplitSet(true));
+    //comp24_algo(goal, &nums, Construct);
     // XXX: how to transfer a mut closure into resursive function?
 
     /*exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
@@ -506,8 +508,10 @@ pub fn comp24_main() {
 
                 exps.iter().for_each(|e| {
                     //println!(r"    {}", Paint::green(e));
-                    if !res.is_empty() { assert!(res.contains(&e.to_string().as_str())) }
-                });
+                    if !res.is_empty() {
+                        assert!(res.contains(&e.to_string().as_str()),
+                            "  Unexpected expr.: {}", Paint::yellow(e))
+                    }});
 
                 println!(r"  Got {} expr. by algo-{:?}:",
                     Paint::magenta(exps.len()), Paint::magenta(algo));
@@ -520,10 +524,8 @@ pub fn comp24_main() {
                 }
             }*/
 
-            assert_closure(&goal, &nums, SplitSet(false));
-
-            if 50 < cnt { return }  // XXX: skip slow test running
             assert_closure(&goal, &nums, DynProg (false));
+            assert_closure(&goal, &nums, SplitSet(false));
 
             if  5 < cnt { return }  // XXX: skip incorrect caused by hash collision
             assert_closure(&goal, &nums, Construct);
@@ -536,24 +538,23 @@ pub fn comp24_main() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 
-        let mut total_time = Duration::from_millis(0);
-        for _ in 0..50 {
+        let (cnt, mut total_time) = (50, Duration::from_millis(0));
+        for _ in 0..cnt {
             let (mut rng, dst) = (thread_rng(), Uniform::new(1, 20));
 
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-            println!(r"Bench compute {:2} from {:?}",
-                Paint::cyan(goal), Paint::cyan(&nums));
+            println!(r"Bench compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
             let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
-            let goal = goal.into();
+            let (goal, now) = (goal.into(), Instant::now());
 
-            let now = Instant::now();
-            comp24_algo(&goal, &nums, SplitSet(false));
+            comp24_algo(&goal, &nums, DynProg (false));
+            //comp24_algo(&goal, &nums, SplitSet(false));
             total_time += now.elapsed();
         }
 
-        println!(r"Total computation time: {}s",
-            Paint::magenta(total_time.as_millis() as f32 / 1000.0));
+        println!(r"Totally {}s for {} iterations.",
+            Paint::magenta(total_time.as_millis() as f32 / 1000.0), Paint::magenta(cnt));
         assert!(total_time.as_secs() < 8);
     }
 

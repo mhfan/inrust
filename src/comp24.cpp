@@ -164,12 +164,14 @@ list<PtrE> comp24_dynprog(const auto& goal, const list<PtrE>& nums) {
 
     vector<size_t> hv; hv.reserve(pow - 2);
     for (auto x = 3; x < pow; ++x) {
-         auto sub_round = x + 1 != pow;
+        if (!(x & (x - 1))) continue;
+         auto sub_round = x != pow - 1;
+
         if   (sub_round) {
-            size_t h0 = 0;  auto i = 0;
-            for (auto e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<Expr>{}(*e));
-            //for (auto n = 1, i = 0; n < x; n <<= 1, ++i)
+            size_t h0 = (i = 0);
+            //for (auto n = 1; n < x; n <<= 1, ++i) // XXX: for vector only
             //    if (n & x) h0 = hash_combine(h0, hash<Expr>{}(*nums[i]));
+            for (auto e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<Expr>{}(*e));
 
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
@@ -243,8 +245,7 @@ int main(int argc, char* argv[]) {
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     vector<CaseT> cases {
-        {100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
-        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34303 },
+        { 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34303 },
         {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
                              "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
@@ -258,6 +259,7 @@ int main(int argc, char* argv[]) {
         { 24, { 1, 2, 3, 4, 5 }, { }, 78 },
         {100, { 1, 2, 3, 4, 5, 6 }, { }, 299 },
         { 24, { 1, 2, 3, 4, 5, 6 }, { }, 1832 },
+        {100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
     };
 
     for (auto it: cases) {

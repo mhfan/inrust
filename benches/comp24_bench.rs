@@ -32,19 +32,17 @@ fn criterion_benchmark(c: &mut Criterion) {
     let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let goal = goal.into();
 
-    let mut cnt = 0;
     let mut bench_closure = |algo| {
-        group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
-            cnt = comp24_algo(&goal, &nums, algo).len();
-        }));
+        let mut cnt = 0;
+        group.bench_function(format!("{algo:?}"), |b|
+            b.iter(|| { cnt = comp24_algo(&goal, &nums, algo).len(); }));
+        if 0 < cnt { println!(r"Got {} expressions", Paint::magenta(cnt)) }
     };
 
     bench_closure(DynProg (false));
     bench_closure(SplitSet(false));
     //bench_closure(Construct);
-
     group.finish();
-    if 0 < cnt { println!(r"Got {} expressions", Paint::magenta(cnt)) }
 }
 
 // sudo cargo flamegraph --bench comp24_bench
