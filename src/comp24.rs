@@ -70,7 +70,7 @@ impl PartialOrd for Rational {
     }
 }
 
-#[derive(Clone, Copy)]  // low cost
+#[derive(Clone, Copy/*, Debug*/)]  // low cost
 struct Oper(char);  // newtype idiom
 //enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
 //type Oper = char;       // type alias
@@ -272,7 +272,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
 
             //si.iter().cartesian_product(sj).for_each(|(&a, &b)| { });
             si.iter().for_each(|a| sj.iter().for_each(|b| {
-                let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
+                let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                 Expr::form_expr(a, b, |e|  // XXX: same code pieces
                     if sub_round { exps.push(e) } else if e.v == *goal {
                         if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }});
@@ -295,7 +295,9 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
     for x in 1..pow/2 {
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
         nums.iter().enumerate().for_each(|(i, e)|
-            if (1 << i) & x == 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
+            if (1 << i) & x != 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
+        //ns0.iter().for_each(|e| eprint!("{e} ")); eprint!("; ");
+        //ns1.iter().for_each(|e| eprint!("{e} ")); eprintln!();
 
         //if !all_unique {      // no gain no penality for performance
         // skip duplicate (ns0, ns1)
@@ -313,7 +315,7 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
-            let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
+            let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
             Expr::form_expr(a, b, |e|  // XXX: same code pieces
                 if sub_round { exps.push(e) } else if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) } });
@@ -332,7 +334,7 @@ fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Ex
     nums.iter().enumerate().for_each(|(i, a)|
         nums.iter().skip(i+1).for_each(|b| {
             // traverse all expr. combinations, make (a, b) in ascending order
-            let (a, b) = if a.v < b.v { (a, b) } else { (b, a) };
+            let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
             if !hs.insert((a, b)) { return }    // skip exactly same combinations
             //eprintln!(r"-> ({a}) ? ({b})");
 
