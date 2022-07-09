@@ -89,6 +89,28 @@ struct Expr {
     //auto operator*(const auto& rhs) const { return Expr(v * rhs.v, Mul, this, &rhs); }
     //auto operator/(const auto& rhs) const { return Expr(v / rhs.v, Div, this, &rhs); }
 
+    auto operator< (const auto& rhs) const {
+        if (v  < rhs.v) return true;
+        if (v == rhs.v) {
+            if (rhs.op != Num) {
+                if (op == Num) return true;
+                if (*a < *rhs.a) return true;
+                if (a->v == rhs.a->v) {
+                    if (a->op  < rhs.a->op) return true;
+                    if (a->op == rhs.a->op) {
+                        if (*b < *rhs.b) return true;
+                    }
+                }
+            }
+        }   return false;
+    }
+
+    auto operator==(const auto& rhs) const {
+        if (op == Num && rhs.op == Num) return  v == rhs.v;
+        if (op != Num && rhs.op != Num) return op == rhs.op && a == rhs.a && b == rhs.b;
+        return false;
+    }
+
     friend ostream& operator<<(ostream& os, const auto& e) {
         if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
@@ -101,10 +123,10 @@ struct Expr {
     }
 };
 
-bool is_subn_expr(const auto& e) {
+/*bool is_subn_expr(const auto& e) {
     if (e->op == '*' || e->op == '/') return is_subn_expr(e->a) || is_subn_expr(e->b);
     return e->op == '-' && e->a->v < e->b->v;
-}
+}*/
 
 void form_expr(const auto a, const auto b, auto func) {
     const Oper OPS[] = { Add, Sub, Mul, Div };
@@ -153,12 +175,7 @@ template <> struct hash<PtrE> {
     size_t operator()(PtrE const& e) const noexcept { return hash<Expr>{}(*e); }
 };
 
-bool operator==(const PtrE& lhs, const PtrE& rhs) noexcept {
-    if (lhs->op == Num && rhs->op == Num) return lhs->v == rhs->v;
-    if (lhs->op != Num && rhs->op != Num)
-        return lhs->op == rhs->op && lhs->a == rhs->a && lhs->b == rhs->b;
-    return false;
-}
+bool operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
 
 #ifdef USE_LIST
 #include <list>
@@ -194,7 +211,7 @@ list<PtrE> comp24_dynprog(const auto& goal, const list<PtrE>& nums) {
             if ((x & i) != i) continue;
 
             for (auto a: vexp[i]) for (auto b: vexp[x - i]) {
-                 auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
+                 auto ea = a, eb = b; if (*b < *a) ea = b, eb = a;   // swap for ordering
                 form_expr(ea, eb, [&](auto e) {
                     if (sub_round || e->v == goal) exps.push_back(e);
                 });
@@ -210,12 +227,12 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
     auto pow = 1 << nums.size();
     list<PtrE> exps;
 
-    vector<size_t> hv; hv.reserve(pow - 2);
+    hash<Expr> hasher; vector<size_t> hv; hv.reserve(pow - 2);
     for (auto x = 1; x < pow/2; ++x) {
         list<PtrE> ns0, ns1; auto i = 0;
         for (auto e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
-        auto h0 = 0, h1 = 0;   hash<Expr> hasher;
+        auto h0 = 0, h1 = 0;
         for (auto e: ns0) h0 = hash_combine(h0, hasher(*e));
         for (auto e: ns1) h1 = hash_combine(h1, hasher(*e));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
@@ -232,7 +249,7 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
         if (1 < ns1.size()) ns1 = comp24_splitset(IR, ns1);
 
         for (auto a: ns0) for (auto b: ns1) {
-             auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
+             auto ea = a, eb = b; if (*b < *a) ea = b, eb = a;   // swap for ordering
             form_expr(ea, eb, [&](auto e) {
                 if (&goal == &IR || e->v == goal) exps.push_back(e);
             });
@@ -243,11 +260,17 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
 }
 
 void comp24_construct(const auto& goal, vector<PtrE>& nums, const auto n, std::unordered_set<PtrE>& exps) {
+    hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
     for (auto i = 0; i < n; ++i) {
-         auto a = nums[i];
+        const auto a = nums[i];
         for (auto j = i + 1; j < n; ++j) {
-             auto b = nums[j];   nums[j] = nums[n - 1];
-             auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
+            const auto b = nums[j];
+            auto ea = a, eb = b; if (*b < *a) ea = b, eb = a;   // swap for ordering
+            size_t h0 = hash_combine(hasher(*ea), hasher(*eb));
+            if (std::find(hv.begin(), hv.end(), h0) != hv.end())
+                continue; else hv.push_back(h0);
+
+                    nums[j] = nums[n - 1];
             form_expr(ea, eb, [&](auto e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
                     nums[i] = e; comp24_construct(goal, nums, n - 1, exps);
@@ -272,7 +295,6 @@ int main(int argc, char* argv[]) {
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     vector<CaseT> cases {
-        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34303 },
         {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
                              "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
@@ -286,7 +308,8 @@ int main(int argc, char* argv[]) {
         { 24, { 1, 2, 3, 4, 5 }, { }, 78 },
         {100, { 1, 2, 3, 4, 5, 6 }, { }, 299 },
         { 24, { 1, 2, 3, 4, 5, 6 }, { }, 1832 },
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
+        {100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
+        { 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34301 },
     };
 
     for (auto it: cases) {
