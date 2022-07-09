@@ -21,6 +21,7 @@
 #include <iomanip>
 #include <iostream>
 #include <algorithm>
+#include <unordered_set>
 
 using std::ostream, std::vector, std::hash;//, std::move;
 
@@ -128,11 +129,11 @@ void form_expr(const auto a, const auto b, auto func) {
 
         // swap sub-expr. for order mattered (different values) operators
         if ((op == '/' && a->v.n != 0) || (op == '-'/* && !is_subn_expr(a)*/)) {
-            auto e = std::make_shared<Expr>(b, op, a); func(e);
+            auto e = std::make_shared<const Expr>(b, op, a); func(e);
         }
 
         if ((op == '/' && b->v.n == 0) || (op == '-'/* &&  is_subn_expr(b)*/)) continue;
-            auto e = std::make_shared<Expr>(a, op, b); func(e);
+            auto e = std::make_shared<const Expr>(a, op, b); func(e);
     }
 }
 
@@ -147,6 +148,17 @@ template <> struct hash<Expr> {
         }
     }
 };
+
+template <> struct hash<PtrE> {
+    size_t operator()(PtrE const& e) const noexcept { return hash<Expr>{}(*e); }
+};
+
+bool operator==(const PtrE& lhs, const PtrE& rhs) noexcept {
+    if (lhs->op == Num && rhs->op == Num) return lhs->v == rhs->v;
+    if (lhs->op != Num && rhs->op != Num)
+        return lhs->op == rhs->op && lhs->a == rhs->a && lhs->b == rhs->b;
+    return false;
+}
 
 #ifdef USE_LIST
 #include <list>
@@ -230,6 +242,21 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
     return exps;
 }
 
+void comp24_construct(const auto& goal, vector<PtrE>& nums, const auto n, std::unordered_set<PtrE>& exps) {
+    for (auto i = 0; i < n; ++i) {
+         auto a = nums[i];
+        for (auto j = i + 1; j < n; ++j) {
+             auto b = nums[j];   nums[j] = nums[n - 1];
+             auto ea = a, eb = b; if (b->v < a->v) ea = b, eb = a;   // swap for ordering
+            form_expr(ea, eb, [&](auto e) {
+                if (n == 2) { if (e->v == goal) exps.insert(e); } else {
+                    nums[i] = e; comp24_construct(goal, nums, n - 1, exps);
+                }
+            });     nums[i] = a; nums[j] = b;
+        }
+    }
+}
+
 #ifdef RUN_TEST
 int main(int argc, char* argv[]) {
     using std::cout, std::endl, std::string;
@@ -268,15 +295,20 @@ int main(int argc, char* argv[]) {
         Rational goal(it.goal);
         list<PtrE> nums;
         for (auto n: it.nums) {
-             auto e = std::make_shared<Expr>(n);
+             auto e = std::make_shared<const Expr>(n);
             nums.push_back(e);
             cout << std::setw(2) << *e << ",";
         }   cout << "]" << endl;
 
+#if 0
+        std::unordered_set<PtrE> exps;
+        comp24_construct(goal, nums, nums.size(), exps);
+#else
         list<PtrE> exps;
         if (true) exps = comp24_dynprog(goal, nums); else exps = comp24_splitset(goal, nums);
-        auto cnt = exps.size();
+#endif
 
+        auto cnt = exps.size();
         for (auto e: exps) {
             //cout << *e << endl;
             ss.str(""); ss << *e;
