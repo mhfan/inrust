@@ -354,39 +354,35 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
 }
 
 // construct expr. inplace down up from numbers
-fn comp24_inplace(goal: &Rational, n: usize, nums: &mut Vec<Rc<Expr>>,
-    exps: &mut HashSet<Rc<Expr>>) {
+fn comp24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
+    exps: &'a mut HashSet<Rc<Expr>>) -> &'a HashSet<Rc<Expr>> {
+    let (n, mut i, ia) = (nums.len(), 0, false);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
-    let (mut i, ia) = (0, false);
     while i < n {   let mut j = i + 1;
-        while j < n {
-            let (a, b) = (&nums[i], &nums[j]);
+        let ta = nums[i].clone();
 
-            let (a, b) = if b < a { (b, a) } else { (a, b) };
+        while j < n {
+            let tb = nums[j].clone();
+            let (a, b) = if tb < ta { (&tb, &ta) } else { (&ta, &tb) };
+
             let mut hasher = DefaultHasher::default();
             a.hash(&mut hasher);    b.hash(&mut hasher);
             let h0 = hasher.finish();
-            if hv.contains(&h0) { continue } else { hv.push(h0) }
+            if hv.contains(&h0) { j += 1; continue } else { hv.push(h0) }
             //eprintln!(r"-> ({a}) ? ({b})");
 
-            //nums[j] = nums[n - 1];    // FIXME:
+            nums[j] = nums[n - 1].clone();
             Expr::form_expr(a, b, |e| if n == 2 { if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
-                } else {
-                    //nums[i] = e;
-                    //comp24_inplace(goal, nums, n - 1);
-                });
-
-            comp24_inplace(goal, n - 1, nums, exps);
-            //nums[i] = ta; //nums[j] = tb;
-
-            j += 1;
-        }   i += 1;
-    }
+                } else { nums[i] = e; comp24_inplace(goal, &mut nums[..n-1], exps); });
+            nums[j] = tb;   j += 1;
+        }   nums[i] = ta;   i += 1;
+    }   exps
 }
 
-fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Expr>>) {
+fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
+    exps: &'a mut HashSet<Rc<Expr>>) -> &'a HashSet<Rc<Expr>> {
     let (n, ia) = (nums.len(), false);  // XXX: bad in interactive
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
@@ -409,11 +405,11 @@ fn comp24_construct(goal: &Rational, nums: &[Rc<Expr>], exps: &mut HashSet<Rc<Ex
             Expr::form_expr(a, b, |e| if nums.is_empty() && e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }
                 } else { nums.push(e); comp24_construct(goal, &nums, exps); nums.pop(); });
-        }));
+        }));    exps
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Construct, Inplace, }
+pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
 pub  use Comp24Algo::*;
 
 #[cfg(feature = "dhat-heap")]
@@ -433,16 +429,15 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
         SplitSet(ia) => comp24_splitset(goal, nums, ia),
         DynProg (ia) => comp24_dynprog (goal, nums, ia),
 
-        Construct => {
+        Inplace => {
             let mut exps = HashSet::default();
-            comp24_construct(goal, nums, &mut exps);
+            comp24_inplace(goal, &mut nums.to_vec(), &mut exps);
             exps.into_iter().collect::<Vec<_>>()
         }
 
-        Inplace => {
-            let mut nums = nums.to_vec();
+        Construct => {
             let mut exps = HashSet::default();
-            comp24_inplace(goal, nums.len(), &mut nums, &mut exps);
+            comp24_construct(goal, nums, &mut exps);
             exps.into_iter().collect::<Vec<_>>()
         }
     }
@@ -460,7 +455,8 @@ fn comp24_helper<I, S>(goal: &Rational, nums: I) where I: Iterator<Item = S>, S:
     comp24_algo(goal, &nums, DynProg (true));
     //comp24_algo(goal, &nums, SplitSet(true));
 
-    /*let exps = comp24_algo(goal, &nums, Construct);
+    /*let exps = comp24_algo(goal, &nums, Inplace);
+    //let exps = comp24_algo(goal, &nums, Construct);
     exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
     let cnt = exps.len();
 
@@ -603,6 +599,7 @@ pub fn comp24_main() {
             assert_closure(&goal, &nums, DynProg (false));
             assert_closure(&goal, &nums, SplitSet(false));
             if 100 < cnt { return }     // XXX: regarding speed
+            assert_closure(&goal, &nums, Inplace);
             assert_closure(&goal, &nums, Construct);
         });
     }
@@ -625,6 +622,7 @@ pub fn comp24_main() {
 
             comp24_algo(&goal, &nums, DynProg (false));
             //comp24_algo(&goal, &nums, SplitSet(false));
+            //comp24_algo(&goal, &nums, Inplace);
             //comp24_algo(&goal, &nums, Construct);
             total_time += now.elapsed();
         }

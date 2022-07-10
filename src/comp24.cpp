@@ -210,9 +210,9 @@ list<PtrE> comp24_dynprog(const auto& goal, const list<PtrE>& nums) {
         for (auto i = 1; i < (x+1)/2; ++i) {
             if ((x & i) != i) continue;
 
-            for (auto a: vexp[i]) for (auto b: vexp[x - i]) {
-                 auto ea = a, eb = b; if (*b < *a) ea = b, eb = a;   // swap for ordering
-                form_expr(ea, eb, [&](auto e) {
+            for (auto ta: vexp[i]) for (auto tb: vexp[x - i]) {
+                 auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
+                form_expr(a, b, [&](auto e) {
                     if (sub_round || e->v == goal) exps.push_back(e);
                 });
             }
@@ -248,9 +248,9 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
         if (1 < ns0.size()) ns0 = comp24_splitset(IR, ns0);
         if (1 < ns1.size()) ns1 = comp24_splitset(IR, ns1);
 
-        for (auto a: ns0) for (auto b: ns1) {
-             auto ea = a, eb = b; if (*b < *a) ea = b, eb = a;   // swap for ordering
-            form_expr(ea, eb, [&](auto e) {
+        for (auto ta: ns0) for (auto tb: ns1) {
+             auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
+            form_expr(a, b, [&](auto e) {
                 if (&goal == &IR || e->v == goal) exps.push_back(e);
             });
         }
@@ -259,24 +259,27 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
     return exps;
 }
 
-void comp24_construct(const auto& goal, vector<PtrE>& nums, const auto n, std::unordered_set<PtrE>& exps) {
+void comp24_construct(const auto& goal, const auto n,
+    vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
+
     for (auto i = 0; i < n; ++i) {
-        const auto a = nums[i];
+        const auto ta = nums[i];
         for (auto j = i + 1; j < n; ++j) {
-            const auto b = nums[j];
-            auto ea = a, eb = b; if (*b < *a) ea = b, eb = a;   // swap for ordering
-            size_t h0 = hash_combine(hasher(*ea), hasher(*eb));
+            const auto tb = nums[j];
+            auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
+
+            size_t h0 = hash_combine(hasher(*a), hasher(*b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
-                    nums[j] = nums[n - 1];
-            form_expr(ea, eb, [&](auto e) {
+            nums[j] = nums[n - 1];
+            form_expr(a, b, [&](auto e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                    nums[i] = e; comp24_construct(goal, nums, n - 1, exps);
+                    nums[i] = e; comp24_construct(goal, n - 1, nums, exps);
                 }
-            });     nums[i] = a; nums[j] = b;
-        }
+            });     nums[j] = tb;
+        }           nums[i] = ta;
     }
 }
 
@@ -325,10 +328,11 @@ int main(int argc, char* argv[]) {
 
 #if 0
         std::unordered_set<PtrE> exps;
-        comp24_construct(goal, nums, nums.size(), exps);
+        comp24_construct(goal, nums.size(), nums, exps);
 #else
         list<PtrE> exps;
-        if (true) exps = comp24_dynprog(goal, nums); else exps = comp24_splitset(goal, nums);
+        if (true) exps = comp24_dynprog (goal, nums); else
+                  exps = comp24_splitset(goal, nums);
 #endif
 
         auto cnt = exps.size();
