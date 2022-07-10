@@ -14,7 +14,8 @@
 // https://doc.rust-lang.org/rust-by-example/index.html
 // curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
-//#![allow(dead_code)]
+#![allow(dead_code)]
+
 use std::{env, cmp::Ordering/*, error::Error*/};
 use std::io::prelude::*;
 //pub use A::B::C as D;
@@ -50,7 +51,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //for i in _a { println!("{i:?}") }
     //for i in (1..5).rev() { println!("{i:?}") }
 
-    /* // way of recursive closure:
+    /* way of recursive closure:
     struct Fact<'s> { f: &'s dyn Fn(&Fact, u32) -> u32 }
     let fact = Fact { f: &|fact, x| if x == 0 {1} else {x * (fact.f)(fact, x - 1)} };
     println!("{}", (fact.f)(&fact, 5)); */
@@ -59,13 +60,13 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     comp24_main();
 
     //guess_number();
-    //_calc_pi();
+    //calc_pi();
 
     //Ok(())
 }
 
 // https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
-fn _shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
+pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
     use std::process::{Command, Stdio};
     //use std::io::prelude::*;
 
@@ -93,7 +94,7 @@ fn _shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
  * as a bitmask, selecting only the members of the original slice whose corresponding
  * positional bits are flipped on in each mask.
  */
-pub fn _powerset<T>(slice: &[T]) -> Vec<Vec<&T>> {
+pub fn powerset<T>(slice: &[T]) -> Vec<Vec<&T>> {
     debug_assert!(slice.len() < std::mem::size_of::<usize>() * 8);
     let n = (1 << slice.len()) as usize;
     let mut psv = Vec::with_capacity(n);
@@ -107,6 +108,14 @@ pub fn _powerset<T>(slice: &[T]) -> Vec<Vec<&T>> {
             ss.push(&slice[idx]);  bits &= bits - 1;   // zero the trailing bit
         }  psv.push(ss);
     }      psv
+}
+
+pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
+    let mut largest = &list[0];
+
+    // for &item in list {}
+    for item in list { if  largest < item { largest = item } }
+    largest
 }
 
 fn guess_number() {    // interactive function
@@ -149,16 +158,7 @@ fn guess_number() {    // interactive function
     };
 }
 
-#[allow(dead_code)]
-pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
-    let mut largest = &list[0];
-
-    // for &item in list {}
-    for item in list { if  largest < item { largest = item } }
-    largest
-}
-
-fn _calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.org/wiki/Pi
+fn calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.org/wiki/Pi
     use num_bigint::BigInt;
     let mut first = true;
 
@@ -175,17 +175,12 @@ fn _calc_pi() {    // a streaming/spigot algorithm     // https://rosettacode.or
             if first { print!("."); first = false; }
             let nr = (&r - &n * &t) * 10;
             n = (&q * 3 + &r) * 10 / &t - &n * 10;
-            q *= 10;
-            r = nr;
+            q *= 10;    r = nr;
         } else {
             let nr = (&q * 2 + &r) * &l;
             let nn = (&q * &k * 7 + 2 + &r * &l) / (&t * &l);
-            q *= &k;
-            t *= &l;
-            l += 2;
-            k += 1;
-            n = nn;
-            r = nr;
+            q *= &k;    k += 1;     n = nn;
+            t *= &l;    l += 2;     r = nr;
         }
     }
 }

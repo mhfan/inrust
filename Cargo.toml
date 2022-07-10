@@ -4,6 +4,7 @@
 [package]
 name = "hello-rust"
 version = "0.2.1"
+
 edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
 license = "MIT OR Apache-2.0"
 description = "Accumulate knowledge of my study on Rust language"

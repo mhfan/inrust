@@ -43,6 +43,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     //bench_closure(SplitSet(false));
     //bench_closure(Inplace);
     //bench_closure(Construct);
+
     group.finish();
 }
 

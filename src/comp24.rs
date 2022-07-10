@@ -113,7 +113,7 @@ impl Expr {
 
     fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
         // Calculate the greatest common denominator for two numbers
-        fn _gcd(a: i32, b: i32) -> i32 {
+        fn gcd(a: i32, b: i32) -> i32 {
             let (mut m, mut n) = (a, b);
             while m != 0 {  // Use Euclid's algorithm
                 let temp = m;
@@ -122,7 +122,7 @@ impl Expr {
             }   n.abs()
         }
 
-        let gcd = _gcd(v.0, v.1);
+        let gcd = gcd(v.0, v.1);
         Rational(v.0 / gcd, v.1 / gcd)
     }
 
@@ -307,7 +307,9 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
                 //eprintln!(r"-> ({a}) ? ({b})");
             }));
         }
-    }   if pow == 2 { return Vec::new() }
+    }
+
+    if pow == 2 { return Vec::new() }
     vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
 }
 
@@ -376,6 +378,7 @@ fn comp24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
             Expr::form_expr(a, b, |e| if n == 2 { if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
                 } else { nums[i] = e; comp24_inplace(goal, &mut nums[..n-1], exps); });
+
             nums[j] = tb;   j += 1;
         }   nums[i] = ta;   i += 1;
     }   exps
@@ -624,6 +627,7 @@ pub fn comp24_main() {
             //comp24_algo(&goal, &nums, SplitSet(false));
             //comp24_algo(&goal, &nums, Inplace);
             //comp24_algo(&goal, &nums, Construct);
+
             total_time += now.elapsed();
         }
 
