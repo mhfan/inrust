@@ -420,7 +420,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 #[inline(always)]
 pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
-    debug_assert!(nums.len() < 64);     // XXX: limited by u64/usize
+    debug_assert!(nums.len() < std::mem::size_of::<usize>() * 8);
 
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();

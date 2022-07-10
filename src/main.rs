@@ -57,7 +57,8 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
 
     use hello_rust::comp24::*;
     comp24_main();
-    guess_number();
+
+    //guess_number();
     //_calc_pi();
 
     //Ok(())
@@ -92,20 +93,20 @@ fn _shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
  * as a bitmask, selecting only the members of the original slice whose corresponding
  * positional bits are flipped on in each mask.
  */
-pub fn _powerset<T: Clone>(slice: &[T]) -> Vec<Vec<T>> {
-    let mut v = Vec::new();
-    for mask in 0..(1 << slice.len()) as u128 {
-        assert!(slice.len() < 128);
+pub fn _powerset<T>(slice: &[T]) -> Vec<Vec<&T>> {
+    debug_assert!(slice.len() < std::mem::size_of::<usize>() * 8);
+    let n = (1 << slice.len()) as usize;
+    let mut psv = Vec::with_capacity(n);
+    for mask in 0..n {
         let (mut ss, mut bits) = (vec![], mask);
         while 0 < bits {
             // isolate the rightmost bit to select one item
             let rightmost = bits & !(bits - 1);
             // turn the isolated bit into an array index
             let idx = rightmost.trailing_zeros() as usize;
-            let item = (*slice.get(idx).unwrap()).clone();
-            ss.push(item);  bits &= bits - 1;   // zero the trailing bit
-        }   v.push(ss);
-    }       v
+            ss.push(&slice[idx]);  bits &= bits - 1;   // zero the trailing bit
+        }  psv.push(ss);
+    }      psv
 }
 
 fn guess_number() {    // interactive function
