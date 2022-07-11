@@ -16,18 +16,16 @@ pub use std::rc::Rc;
 //use itertools::Itertools;
 use yansi::Paint;   // Color, Style
 
-#[derive(Debug)]
-pub struct Rational(i32, i32);
-//pub struct Rational { n: i32, d: i32 }
+#[derive(Debug/*, Clone, Copy*/)] pub struct Rational(i32, i32);
+//#[repr(C)] pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
 
-#[derive(Clone, Copy/*, Debug*/)]  // low cost
+//#[derive(/*Debug, */Clone, Copy)]
 struct Oper(char);  // newtype idiom
 //enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
 //type Oper = char;       // type alias
 
-//#[derive(Debug)]
-//enum Value { Void, Valid, R(Rational) }
+//#[derive(Debug)] enum Value { Void, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
 //#[repr(packed(2))]    //#[repr(align(4))]
@@ -44,7 +42,7 @@ impl core::convert::From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1
 
 impl fmt::Display for Rational {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        //Expr::_simplify(&self);   // XXX:
+        //_simplify(&self);
         if self.1 == 0 { write!(f, r"(INV)")? } else {
             let braket = self.0 * self.1 < 0 || self.1 != 1;
             if  braket { write!(f, r"(")? }     write!(f, r"{}", self.0)?;
@@ -85,10 +83,24 @@ impl PartialEq for Rational {
     }
 }
 
+fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
+    // Calculate the greatest common denominator for two numbers
+    fn gcd(a: i32, b: i32) -> i32 {
+        let (mut m, mut n) = (a, b);
+        while m != 0 {  // Use Euclid's algorithm
+            let temp = m;
+            m = n % temp;
+            n = temp;
+        }   n.abs()
+    }
+
+    let gcd = gcd(v.0, v.1);
+    Rational(v.0 / gcd, v.1 / gcd)
+}
+
 impl Expr {
-    fn new(a: &Rc<Self>, op: Oper, b: &Rc<Self>) -> Self {
-        #[inline(always)]
-        fn operate(a: &Expr, op: Oper, b: &Expr) -> Rational {
+    fn new(a: &Rc<Self>, op: &Oper, b: &Rc<Self>) -> Self {
+        #[inline(always)] fn operate(a: &Expr, op: &Oper, b: &Expr) -> Rational {
             let mut val = Rational(0, 0);
             match op.0 {
                 '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
@@ -99,86 +111,65 @@ impl Expr {
                 } else { val.1 = 0; }  // invalidation
 
                 _ => unimplemented!("operator '{}'", op.0)
-            }   val //Self::_simplify(&val)     // XXX:
+            }   val //_simplify(&val)
         }
 
-        Self { v: operate(a, op, b), m: Some((Rc::clone(a), op, Rc::clone(b))) }
+        Self { v: operate(a, op, b),
+               m: Some((Rc::clone(a), Oper(op.0), Rc::clone(b))) }
     }
+}
 
-    fn _hash_combine(lhs: u32, rhs: u32) -> u32 {
-        //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
-        lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
-                                           .wrapping_add(lhs.wrapping_shr(2)))
-    }
+fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
+    //const Add: Oper = Oper('+');
+    //const Sub: Oper = Oper('-');
+    //const Mul: Oper = Oper('*');
+    //const Div: Oper = Oper('/');
+    const OPS: [Oper; 4] = [ Oper('+'), Oper('-'), Oper('*'), Oper('/') ];
 
-    fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
-        // Calculate the greatest common denominator for two numbers
-        fn gcd(a: i32, b: i32) -> i32 {
-            let (mut m, mut n) = (a, b);
-            while m != 0 {  // Use Euclid's algorithm
-                let temp = m;
-                m = n % temp;
-                n = temp;
-            }   n.abs()
+    OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
+        // keep human friendly expr. form ONLY
+        if let Some((_, aop, ..)) = &a.m {
+            // ((a . b) . B) => (a . (b . B))
+            if aop.0 == op.0 { return }
+
+            // ((a - b) + B) => ((a + B) - b)
+            // ((a / b) * B) => ((a * B) / b)
+            match (aop.0, op.0) { ('-', '+') | ('/', '*') => return, _ => () }
         }
 
-        let gcd = gcd(v.0, v.1);
-        Rational(v.0 / gcd, v.1 / gcd)
-    }
+        if let Some((ba, bop, ..)) = &b.m {
+            match (op.0, bop.0) {
+                // (A + (a + b)) => (a + (A + b)) if a < A
+                // (A * (a * b)) => (a * (A * b)) if a < A
+                ('+', '+') | ('*', '*') if ba.v < a.v => return,
 
-    fn form_expr<F: FnMut(Rc<Self>)>(a: &Rc<Self>, b: &Rc<Self>, mut func: F) {
-        //const Add: Oper = Oper('+');
-        //const Sub: Oper = Oper('-');
-        //const Mul: Oper = Oper('*');
-        //const Div: Oper = Oper('/');
-        const OPS: [Oper; 4] = [ Oper('+'), Oper('-'), Oper('*'), Oper('/') ];
+                // (A + (a - b)) => ((A + a) - b)
+                // (A * (a / b)) => ((A * a) / b)
+                // (A - (a - b)) => ((A + b) - a)
+                // (A / (a / b)) => ((A * b) / a)
+                ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return,
 
-        OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
-            // keep human friendly expr. form ONLY
-            if let Some((_, aop, ..)) = &a.m {
-                // ((a . b) . B) => (a . (b . B))
-                if aop.0 == op.0 { return }
-
-                // ((a - b) + B) => ((a + B) - b)
-                // ((a / b) * B) => ((a * B) / b)
-                match (aop.0, op.0) { ('-', '+') | ('/', '*') => return, _ => () }
+                _ => ()
             }
+        }
 
-            if let Some((ba, bop, ..)) = &b.m {
-                match (op.0, bop.0) {
-                    // (A + (a + b)) => (a + (A + b)) if a < A
-                    // (A * (a * b)) => (a * (A * b)) if a < A
-                    ('+', '+') | ('*', '*') if ba.v < a.v => return,
+        // swap sub-expr. for order mattered (different values) operators
+        if op.0 == '/' && a.v.0 != 0 || op.0 == '-'/* && !is_subn_expr(a)*/ {
+            func(Rc::new(Expr::new(b, op, a)));
+        }
 
-                    // (A + (a - b)) => ((A + a) - b)
-                    // (A * (a / b)) => ((A * a) / b)
-                    // (A - (a - b)) => ((A + b) - a)
-                    // (A / (a / b)) => ((A * b) / a)
-                    ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return,
+        // prefer (b - a) than (a - b) when a < b
+        if op.0 == '/' && b.v.0 == 0 || op.0 == '-'/* &&  is_subn_expr(b)*/ { return }
+        func(Rc::new(Expr::new(a, op, b)));
+    });
 
-                    _ => ()
-                }
-            }
-
-            // swap sub-expr. for order mattered (different values) operators
-            if op.0 == '/' && a.v.0 != 0 || op.0 == '-'/* && !is_subn_expr(a)*/ {
-                func(Rc::new(Self::new(b, *op, a)));
-            }
-
-            // prefer (b - a) than (a - b) when a < b
-            if op.0 == '/' && b.v.0 == 0 || op.0 == '-'/* &&  is_subn_expr(b)*/ { return }
-            func(Rc::new(Self::new(a, *op, b)));
-        });
-
-        /*#[inline(always)]
-        fn is_subn_expr(e: &Expr) -> bool {
-            if let Some((a, op, b)) = &e.m {
-                if matches!(op.0, '*' | '/') { return is_subn_expr(a) || is_subn_expr(b) }
-                if op.0 == '-' && a.v < b.v  { return true }
-                // find ((a - b) * x / y) where a < b
-            }   false
-        }*/
-    }
+    /* #[inline(always)] fn is_subn_expr(e: &Expr) -> bool {
+        if let Some((a, op, b)) = &e.m {    // recursive
+            if matches!(op.0, '*' | '/') { return is_subn_expr(a) || is_subn_expr(b) }
+            if op.0 == '-' && a.v < b.v  { return true }
+            // find ((a - b) * x / y) where a < b
+        }   false
+    } */
 }
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
@@ -222,11 +213,11 @@ impl PartialOrd for Expr {
             (Some(_), None) => Some(Ordering::Greater),
 
             (Some((la, lop, lb)), Some((ra, rop, rb))) => {
-                let ord = la.partial_cmp(ra);
+                let ord = la.partial_cmp(ra);   // recursive
                 if  ord != Some(Ordering::Equal) { return ord }
                 let ord = lop.0.partial_cmp(&rop.0);
                 if  ord != Some(Ordering::Equal) { return ord }
-                let ord = lb.partial_cmp(rb);
+                let ord = lb.partial_cmp(rb);   // recursive
                 if  ord != Some(Ordering::Equal) { return ord }  ord
             }
         }
@@ -239,19 +230,24 @@ impl PartialEq for Expr {
         /* match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
             (Some((la, lop, lb)), Some((ra, rop, rb))) =>
-                la == ra && lop.0 == rop.0 && lb == rb,
+                la == ra && lop.0 == rop.0 && lb == rb,     // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v */
         self.partial_cmp(rhs) == Some(Ordering::Equal)
     }
 }
 
+fn _hash_combine(lhs: u32, rhs: u32) -> u32 {
+    //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
+    lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
+                                       .wrapping_add(lhs.wrapping_shr(2)))
+}
+
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
         if let Some((a, op, b)) = &self.m {
-            a.hash(state);  b.hash(state); op.0.hash(state);
-            // XXX: have recursions, yet occasionally collision
+            a.hash(state);  b.hash(state); op.0.hash(state);    // recursive
         } else { self.v.0.hash(state); self.v.1.hash(state); }
     }
 }
@@ -301,7 +297,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
             //si.iter().cartesian_product(sj).for_each(|(&a, &b)| { });
             si.iter().for_each(|a| sj.iter().for_each(|b| {
                 let (a, b) = if b < a { (b, a) } else { (a, b) };
-                Expr::form_expr(a, b, |e|  // XXX: same code pieces
+                form_expr(a, b, |e|
                     if sub_round { exps.push(e) } else if e.v == *goal {
                         if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }});
                 //eprintln!(r"-> ({a}) ? ({b})");
@@ -347,7 +343,7 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
             let (a, b) = if b < a { (b, a) } else { (a, b) };
-            Expr::form_expr(a, b, |e|  // XXX: same code pieces
+            form_expr(a, b, |e|
                 if sub_round { exps.push(e) } else if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) } });
             //eprintln!(r"-> ({a}) ? ({b})");
@@ -375,7 +371,7 @@ fn comp24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
             //eprintln!(r"-> ({a}) ? ({b})");
 
             nums[j] = nums[n - 1].clone();
-            Expr::form_expr(a, b, |e| if n == 2 { if e.v == *goal {
+            form_expr(a, b, |e| if n == 2 { if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
                 } else { nums[i] = e; comp24_inplace(goal, &mut nums[..n-1], exps); });
 
@@ -386,7 +382,7 @@ fn comp24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
 
 fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
     exps: &'a mut HashSet<Rc<Expr>>) -> &'a HashSet<Rc<Expr>> {
-    let (n, ia) = (nums.len(), false);  // XXX: bad in interactive
+    let (n, ia) = (nums.len(), false);  // got duplicates in interactive
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
     // XXX: How to skip duplicates over different combination orders?
@@ -405,7 +401,7 @@ fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
                 !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
-            Expr::form_expr(a, b, |e| if nums.is_empty() && e.v == *goal {
+            form_expr(a, b, |e| if nums.is_empty() && e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }
                 } else { nums.push(e); comp24_construct(goal, &nums, exps); nums.pop(); });
         }));    exps
@@ -420,9 +416,8 @@ pub  use Comp24Algo::*;
 static ALLOC: dhat::Alloc = dhat::Alloc;
 // cargo run --features dhat-heap
 
-#[inline(always)]
-//pub fn comp24_algo(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> Vec<Rc<Expr>> { }
-pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
+#[inline(always)] pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>],
+    algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
     debug_assert!(nums.len() < std::mem::size_of::<usize>() * 8);
 
@@ -447,9 +442,15 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
     }
 }
 
+/* #[inline(always)] pub fn comp24_algo2(goal: &Rational, nums: &[Rational],
+    algo: Comp24Algo) -> Vec<Expr> {
+    let nums = nums.iter().map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>();
+    comp24_algo(goal, &nums, algo).into_iter().map(|e| *e).collect::<Vec<_>>()
+} */
+
 pub fn comp24_main() {
     fn comp24_helper<I, S>(goal: &Rational, nums: I)
-        where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: convert to closure?
+        where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
         let nums = nums.map(|str| str.as_ref().parse::<Rational>())
             .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
             .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
