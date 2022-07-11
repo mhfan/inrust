@@ -11,122 +11,99 @@
 
 // https://changkun.de/modern-cpp/zh-cn/00-preface/
 
-#include <cstdint>
 #include <cassert>
 
-#include <vector>
-#include <memory>
 #include <string>
 #include <sstream>
 #include <iomanip>
 #include <iostream>
 #include <algorithm>
-#include <unordered_set>
+using std::hash;
 
-using std::ostream, std::vector, std::hash;//, std::move;
+#include "comp24.h"
 
-struct Rational {
-    int32_t n, d;
+/* inline auto operator+(const Rational& lhs, const auto& rhs) noexcept {
+    return Rational(lhs.n * rhs.d + lhs.d * rhs.n, lhs.d * rhs.d); }
+inline auto operator-(const Rational& lhs, const auto& rhs) noexcept {
+    return Rational(lhs.n * rhs.d - lhs.d * rhs.n, lhs.d * rhs.d); }
+inline auto operator*(const Rational& lhs, const auto& rhs) noexcept {
+    return Rational(lhs.n * rhs.n,  lhs.d * rhs.d); }
+inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
+    return 0 == rhs.d ? Rational(0, 0) : Rational(lhs.n * rhs.d,  lhs.d * rhs.n); } */
 
-    Rational(auto n, int32_t d = 1): n(n), d(d) {}
+inline auto operator< (const Rational& lhs, const auto& rhs) noexcept {
+    return lhs.n * rhs.d < lhs.d * rhs.n; }
+inline auto operator==(const Rational& lhs, const auto& rhs) noexcept {
+    return lhs.d != 0 && rhs.d != 0 && lhs.n * rhs.d == lhs.d * rhs.n;
+}
 
-    /*auto operator+(const auto& rhs) const {
-        return Rational(n * rhs.d + d * rhs.n, d * rhs.d); }
-    auto operator-(const auto& rhs) const {
-        return Rational(n * rhs.d - d * rhs.n, d * rhs.d); }
-    auto operator*(const auto& rhs) const { return Rational(n * rhs.n,  d * rhs.d); }
-    auto operator/(const auto& rhs) const {
-        return 0 == rhs.d ? Rational(0, 0) : Rational(n * rhs.d,  d * rhs.n); }*/
+/* inline auto operator+(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v + rhs.v, Add, &lhs, &rhs); }
+inline auto operator-(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v - rhs.v, Sub, &lhs, &rhs); }
+inline auto operator*(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v * rhs.v, Mul, &lhs, &rhs); }
+inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); } */
 
-    auto operator< (const auto& rhs) const {   return n * rhs.d < d * rhs.n; }
-    auto operator==(const auto& rhs) const {
-        return d != 0 && rhs.d != 0 && n * rhs.d == d * rhs.n;
-    }
+auto operator< (const Expr& lhs, const auto& rhs) noexcept {
+    if (lhs.v  < rhs.v) return true;
+    if (lhs.v == rhs.v) {
+        if (rhs.op != Num) {
+            if (lhs.op == Num) return true;
+            if (*lhs.a < *rhs.a) return true;
+            if (lhs.a->v == rhs.a->v) {
+                if (lhs.a->op  < rhs.a->op) return true;
+                if (lhs.a->op == rhs.a->op) { if (*lhs.b < *rhs.b) return true; }
+            }
+        }
+    }   return false;
+}
 
-    friend ostream& operator<<(ostream& os, const Rational& r) {
-        if (1 == r.d && 0 <= r.n) return os << r.n;
-        return os << '(' <<  r.n << '/' << r.d << ')';
-    }
+inline auto operator==(const PtrE& lhs, const auto& rhs) noexcept { return *lhs == *rhs; }
+inline auto operator==(const Expr& lhs, const auto& rhs) noexcept {
+    if (lhs.op == Num && rhs.op == Num) return  lhs.v == rhs.v;
+    if (lhs.op != Num && rhs.op != Num)
+        return lhs.op == rhs.op && lhs.a == rhs.a && lhs.b == rhs.b;
+    return false;
+}
 
-    //friend istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
-};
+//inline istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
+inline std::ostream& operator<<(std::ostream& os, const Rational& r) {
+    return (1 == r.d && 0 <= r.n) ? os << r.n : os << '(' <<  r.n << '/' << r.d << ')';
+}
 
-//typedef char Oper;
-enum Oper { Num, Add = '+', Sub = '-', Mul = '*', Div = '/' };
+std::ostream& operator<<(std::ostream& os, const Expr& e) {
+    if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
-struct Expr;
-typedef std::shared_ptr<const Expr> PtrE;
+    if ((e.a->op == '+' || e.a->op == '-') && (e.op == '*' || e.op == '/'))
+        os << '(' << *e.a << ')'; else os << *e.a;  os << char(e.op);
 
-struct Expr {
-    Rational v;
-    struct { Oper op; PtrE a, b; };     // anonymous structure
+    if ((e.op == '/' && (e.b->op == '*' || e.b->op == '/')) ||
+        (e.op != '+' && (e.b->op == '+' || e.b->op == '-')))
+        os << '(' << *e.b << ')'; else os << *e.b;  return os;
+}
 
-    Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
-    Expr(const Rational& r, Oper op = Num,
-        PtrE a = nullptr, PtrE b = nullptr): v(r), op(op), a(a), b(b) {}
-    //Expr(): Expr(Rational(0, 0)) {}
-    //Expr(const Expr&) = delete;
+inline auto hash_combine(size_t lhs, auto rhs) {
+  return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
+}
 
-    Expr(auto a, auto op, auto b): v(0), op(op), a(a), b(b) {
-        switch (op) {
-            case '+': //v = a->v + b->v; break;
-                v.n = a->v.n * b->v.d + a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
-            case '-': //v = a->v - b->v; break;
-                v.n = a->v.n * b->v.d - a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
-            case '*': //v = a->v * b->v; break;
-                v.n = a->v.n * b->v.n, v.d = a->v.d * b->v.d;  break;
-            case '/': //v = a->v / b->v; break;
-                0 == b->v.d ? (v.d = 0) :
-               (v.n = a->v.n * b->v.d, v.d = a->v.d * b->v.n); break;
-            default: ;
+template <> struct hash<Expr> {
+    size_t operator()(Expr const& e) const noexcept {
+        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  hash<Expr> hasher;
+            return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (char(e.op) << 13);
         }
     }
-
-    //~Expr() { std::cerr << "Destruct: " << *this << std::endl; }
-
-    //auto operator+(const auto& rhs) const { return Expr(v + rhs.v, Add, this, &rhs); }
-    //auto operator-(const auto& rhs) const { return Expr(v - rhs.v, Sub, this, &rhs); }
-    //auto operator*(const auto& rhs) const { return Expr(v * rhs.v, Mul, this, &rhs); }
-    //auto operator/(const auto& rhs) const { return Expr(v / rhs.v, Div, this, &rhs); }
-
-    auto operator< (const auto& rhs) const {
-        if (v  < rhs.v) return true;
-        if (v == rhs.v) {
-            if (rhs.op != Num) {
-                if (op == Num) return true;
-                if (*a < *rhs.a) return true;
-                if (a->v == rhs.a->v) {
-                    if (a->op  < rhs.a->op) return true;
-                    if (a->op == rhs.a->op) {
-                        if (*b < *rhs.b) return true;
-                    }
-                }
-            }
-        }   return false;
-    }
-
-    auto operator==(const auto& rhs) const {
-        if (op == Num && rhs.op == Num) return  v == rhs.v;
-        if (op != Num && rhs.op != Num) return op == rhs.op && a == rhs.a && b == rhs.b;
-        return false;
-    }
-
-    friend ostream& operator<<(ostream& os, const auto& e) {
-        if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
-
-        if ((e.a->op == '+' || e.a->op == '-') && (e.op == '*' || e.op == '/'))
-            os << '(' << *e.a << ')'; else os << *e.a;  os << char(e.op);
-
-        if ((e.op == '/' && (e.b->op == '*' || e.b->op == '/')) ||
-            (e.op != '+' && (e.b->op == '+' || e.b->op == '-')))
-            os << '(' << *e.b << ')'; else os << *e.b;  return os;
-    }
 };
 
-/*bool is_subn_expr(const auto& e) {
+template <> struct hash<PtrE> {
+    size_t operator()(PtrE const& e) const noexcept { return hash<Expr>{}(*e); }
+};
+
+/* bool is_subn_expr(const auto& e) {
     if (e->op == '*' || e->op == '/') return is_subn_expr(e->a) || is_subn_expr(e->b);
     return e->op == '-' && e->a->v < e->b->v;
-}*/
+} */
 
 void form_expr(const auto a, const auto b, auto func) {
     const Oper OPS[] = { Add, Sub, Mul, Div };
@@ -159,32 +136,7 @@ void form_expr(const auto a, const auto b, auto func) {
     }
 }
 
-inline size_t hash_combine(size_t lhs, size_t rhs) {
-  return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
-}
-
-template <> struct hash<Expr> {
-    size_t operator()(Expr const& e) const noexcept {
-        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  hash<Expr> hasher;
-            return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (char(e.op) << 13);
-        }
-    }
-};
-
-template <> struct hash<PtrE> {
-    size_t operator()(PtrE const& e) const noexcept { return hash<Expr>{}(*e); }
-};
-
-bool operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
-
-#ifdef USE_LIST
-#include <list>
-using std::list;
-#else
-#define list vector // XXX:
-#endif
-
-list<PtrE> comp24_dynprog(const auto& goal, const list<PtrE>& nums) {
+list<PtrE> comp24_dynprog (const Rational& goal, const list<PtrE>& nums) {
     auto pow = 1 << nums.size();
 
     vector<list<PtrE>> vexp; vexp.reserve(pow);
@@ -222,7 +174,7 @@ list<PtrE> comp24_dynprog(const auto& goal, const list<PtrE>& nums) {
     return vexp[pow - 1];
 }
 
-list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
+list<PtrE> comp24_splitset(const Rational& goal, const list<PtrE>& nums) {
     static auto IR = Rational(0, 0);
     auto pow = 1 << nums.size();
     list<PtrE> exps;
@@ -259,7 +211,7 @@ list<PtrE> comp24_splitset(const auto& goal, const list<PtrE>& nums) {
     return exps;
 }
 
-void comp24_construct(const auto& goal, const auto n,
+void comp24_construct(const Rational& goal, const auto n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
@@ -276,8 +228,7 @@ void comp24_construct(const auto& goal, const auto n,
             nums[j] = nums[n - 1];
             form_expr(a, b, [&](auto e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                    nums[i] = e; comp24_construct(goal, n - 1, nums, exps);
-                }
+                    nums[i] = e;    comp24_construct(goal, n - 1, nums, exps); }
             });     nums[j] = tb;
         }           nums[i] = ta;
     }
