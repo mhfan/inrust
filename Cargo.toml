@@ -28,6 +28,7 @@ num-bigint = "0.4.*"
 #rustc-hash = "1.1.*"
 yansi = "0.5.*"
 #dhat = "0.3.*"
+cxx = "1.*"
 
 #syn = "1.0.*"
 #quote = "1.0.*"
@@ -41,7 +42,7 @@ criterion = "0.3.*"
 
 [build-dependencies]
 #pkg-config = "0.3.*"
-#cxx = "1.*"
+cxx-build = "1.*"
 cc = "1.*"
 
 [features]
@@ -60,7 +61,7 @@ harness = false
 [profile.release]
 incremental = true
 panic = 'abort'
-#opt-level = 3
+#opt-level = 3   # default level
 #strip = true    # Automatically strip symbols from the binary.
 debug = true    # for flamegraph
 #lto = true

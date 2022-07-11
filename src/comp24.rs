@@ -18,8 +18,21 @@ use yansi::Paint;   // Color, Style
 
 #[derive(Debug)]
 pub struct Rational(i32, i32);
-//struct Rational { n: i32, d: i32 }
+//pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
+
+#[derive(Clone, Copy/*, Debug*/)]  // low cost
+struct Oper(char);  // newtype idiom
+//enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
+//type Oper = char;       // type alias
+
+//#[derive(Debug)]
+//enum Value { Void, Valid, R(Rational) }
+//type Value = Option<Rational>;
+
+//#[repr(packed(2))]    //#[repr(align(4))]
+//#[derive(Debug)]
+pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
 //std::ops::{Add, Sub, Mul, Div}
 /* impl std::ops::Add for Rational {
@@ -51,9 +64,9 @@ impl std::str::FromStr for Rational {
     }
 }
 
-/*impl std::cmp::Ord for Rational {
+/* impl std::cmp::Ord for Rational {
     fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
-}*/
+} */
 
 impl PartialOrd for Rational {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
@@ -71,19 +84,6 @@ impl PartialEq for Rational {
         //self.1 != 0 && rhs.1 != 0 && self.0 * rhs.1 == self.1 * rhs.0
     }
 }
-
-#[derive(Clone, Copy/*, Debug*/)]  // low cost
-struct Oper(char);  // newtype idiom
-//enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
-//type Oper = char;       // type alias
-
-//#[derive(Debug)]
-//enum Value { Void, Valid, R(Rational) }
-//type Value = Option<Rational>;
-
-//#[repr(packed(2))]    //#[repr(align(4))]
-//#[derive(Debug)]
-pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
 impl Expr {
     fn new(a: &Rc<Self>, op: Oper, b: &Rc<Self>) -> Self {
@@ -236,12 +236,12 @@ impl PartialOrd for Expr {
 impl std::cmp::Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool {
-        /*match (&self.m, &rhs.m) {
+        /* match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
             (Some((la, lop, lb)), Some((ra, rop, rb))) =>
                 la == ra && lop.0 == rop.0 && lb == rb,
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
-        }*/   //self.v == rhs.v
+        }   //self.v == rhs.v */
         self.partial_cmp(rhs) == Some(Ordering::Equal)
     }
 }
@@ -421,6 +421,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 // cargo run --features dhat-heap
 
 #[inline(always)]
+//pub fn comp24_algo(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> Vec<Rc<Expr>> { }
 pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
     debug_assert!(nums.len() < std::mem::size_of::<usize>() * 8);
@@ -446,30 +447,31 @@ pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>], algo: Comp24Algo) -> Vec<
     }
 }
 
-fn comp24_helper<I, S>(goal: &Rational, nums: I) where I: Iterator<Item = S>, S: AsRef<str> {
-    let nums = nums.map(|str| str.as_ref().parse::<Rational>())
-        .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
-        .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
-    //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
-    if nums.len() < 2 { return eprintln!(r"{}",
-        Paint::yellow(r"Needs two numbers at least!")) }
-
-    // XXX: how to transfer a mut closure into resursive function?
-    comp24_algo(goal, &nums, DynProg (true));
-    //comp24_algo(goal, &nums, SplitSet(true));
-
-    /*let exps = comp24_algo(goal, &nums, Inplace);
-    //let exps = comp24_algo(goal, &nums, Construct);
-    exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
-    let cnt = exps.len();
-
-    if  cnt < 1 && !nums.is_empty() {
-        eprintln!(r"{}", Paint::yellow(r"Found no expression!")) } else if 9 < cnt {
-         println!(r"Got {} expressions!", Paint::cyan(cnt).bold());
-    }*/
-}
-
 pub fn comp24_main() {
+    fn comp24_helper<I, S>(goal: &Rational, nums: I)
+        where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: convert to closure?
+        let nums = nums.map(|str| str.as_ref().parse::<Rational>())
+            .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
+            .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
+        //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
+        if  nums.len() < 2 { return eprintln!(r"{}",
+            Paint::yellow(r"Needs two numbers at least!")) }
+
+        // XXX: how to transfer a mut closure into resursive function?
+        comp24_algo(goal, &nums, DynProg (true));
+        //comp24_algo(goal, &nums, SplitSet(true));
+
+        /* let exps = comp24_algo(goal, &nums, Inplace);
+        //let exps = comp24_algo(goal, &nums, Construct);
+        exps.iter().for_each(|e| println!(r"{}", Paint::green(e)));
+        let cnt = exps.len();
+
+        if  cnt < 1 && !nums.is_empty() {
+            eprintln!(r"{}", Paint::yellow(r"Found no expression!")) } else if 9 < cnt {
+            println!(r"Got {} expressions!", Paint::cyan(cnt).bold());
+        } */
+    }
+
     let mut goal = 24.into();
     let mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
@@ -520,6 +522,25 @@ pub fn comp24_main() {
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("quit") { break }
         }   comp24_helper(&goal, nums);
+    }
+}
+
+//use cxx::CxxVector as vector;
+
+#[cxx::bridge] mod ffi {    // TODO:
+    extern "Rust" { }
+
+    unsafe extern "C++" {
+        include!("comp24.h");
+
+        type Rational;
+        type Oper;
+        type Expr;
+        type PtrE;
+        //type PtrE = cxx::SharedPtr<Expr>;
+
+        //fn comp24_dynprog (goal: &Rational, nums: &vector<PtrE>) -> vector<PtrE>;
+        //fn comp24_splitset(goal: &Rational, nums: &vector<PtrE>) -> vector<PtrE>;
     }
 }
 
@@ -592,12 +613,6 @@ pub fn comp24_main() {
                 assert!(exps.len() == cnt, r"expr. count {} != {} by algo-{:?}",
                     Paint::red(exps.len()), Paint::cyan(cnt), Paint::red(algo));
             };
-
-            /*unsafe {
-                extern {    // TODO:
-                    //fn comp24_splitset(const auto& goal, const list<const Expr*>& nums) -> list<const Expr*>;
-                }
-            }*/
 
             assert_closure(&goal, &nums, DynProg (false));
             assert_closure(&goal, &nums, SplitSet(false));
