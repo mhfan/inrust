@@ -60,13 +60,14 @@ auto operator< (const Expr& lhs, const auto& rhs) noexcept {
     }   return false;
 }
 
-inline auto operator==(const PtrE& lhs, const auto& rhs) noexcept { return *lhs == *rhs; }
 inline auto operator==(const Expr& lhs, const auto& rhs) noexcept {
     if (lhs.op == Num && rhs.op == Num) return  lhs.v == rhs.v;
     if (lhs.op != Num && rhs.op != Num)
-        return lhs.op == rhs.op && lhs.a == rhs.a && lhs.b == rhs.b;
+        return lhs.op == rhs.op && *lhs.a == *rhs.a && *lhs.b == *rhs.b;
     return false;
 }
+
+inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
 
 //inline istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
 inline std::ostream& operator<<(std::ostream& os, const Rational& r) {
@@ -136,10 +137,10 @@ void form_expr(const auto a, const auto b, auto func) {
     }
 }
 
-list<PtrE> comp24_dynprog (const Rational& goal, const list<PtrE>& nums) {
+list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
     auto pow = 1 << nums.size();
 
-    vector<list<PtrE>> vexp; vexp.reserve(pow);
+    vector<list<PtrE>> vexp;       vexp.reserve(pow);
     for (auto i = 0; i < pow; ++i) vexp.push_back(list<PtrE>());
     auto i = 0; for (auto e: nums) vexp[1 << i++].push_back(e);
 
@@ -169,19 +170,21 @@ list<PtrE> comp24_dynprog (const Rational& goal, const list<PtrE>& nums) {
                 });
             }
         }
-    }
-
-    return vexp[pow - 1];
+    }   return vexp[pow - 1];
 }
 
-list<PtrE> comp24_splitset(const Rational& goal, const list<PtrE>& nums) {
+list<PtrE> comp24_splitset(const Rational& goal, const vector<PtrE>& nums) {
     static auto IR = Rational(0, 0);
-    auto pow = 1 << nums.size();
+    auto n = nums.size();
+    auto pow = 1 << n;
     list<PtrE> exps;
 
+    vector<PtrE> ns0, ns1;
+    ns0.reserve(n - 1);   ns1.reserve(n - 1);
     hash<Expr> hasher; vector<size_t> hv; hv.reserve(pow - 2);
+
     for (auto x = 1; x < pow/2; ++x) {
-        list<PtrE> ns0, ns1; auto i = 0;
+        ns0.clear();    ns1.clear();    auto i = 0;
         for (auto e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
         auto h0 = 0, h1 = 0;
@@ -206,18 +209,16 @@ list<PtrE> comp24_splitset(const Rational& goal, const list<PtrE>& nums) {
                 if (&goal == &IR || e->v == goal) exps.push_back(e);
             });
         }
-    }
-
-    return exps;
+    }   return exps;
 }
 
-void comp24_construct(const Rational& goal, const auto n,
+void comp24_construct(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
-    for (auto i = 0; i < n; ++i) {
+    for (size_t i = 0; i < n; ++i) {
         const auto ta = nums[i];
-        for (auto j = i + 1; j < n; ++j) {
+        for (size_t j = i + 1; j < n; ++j) {
             const auto tb = nums[j];
             auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
 
@@ -234,9 +235,8 @@ void comp24_construct(const Rational& goal, const auto n,
     }
 }
 
-#ifdef RUN_TEST
-int main(int argc, char* argv[]) {
-    using std::cout, std::endl, std::string;
+void test_comp24() {
+    using std::cout, std::cerr, std::endl, std::string;
 
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
     cout << "Test format rational/expression: "
@@ -248,7 +248,7 @@ int main(int argc, char* argv[]) {
     //ss.str(""); ss << e; assert(ss.str() == "1*(2-1/2)+2");
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
-    vector<CaseT> cases {
+    const vector<CaseT> cases {
         {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
                              "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
@@ -269,37 +269,51 @@ int main(int argc, char* argv[]) {
     for (auto it: cases) {
         cout << "Test compute " << std::setw(3) << it.goal << " from [";
 
+        vector<PtrE> nums;
         Rational goal(it.goal);
-        list<PtrE> nums;
         for (auto n: it.nums) {
              auto e = std::make_shared<const Expr>(n);
             nums.push_back(e);
             cout << std::setw(2) << *e << ",";
         }   cout << "]" << endl;
 
-#if 0
-        std::unordered_set<PtrE> exps;
-        comp24_construct(goal, nums.size(), nums, exps);
-#else
         list<PtrE> exps;
-        if (true) exps = comp24_dynprog (goal, nums); else
-                  exps = comp24_splitset(goal, nums);
-#endif
+        auto check = [&](const char* algo) {
+            for (auto e: exps) {
+                //cout << *e << endl;
+                ss.str(""); ss << *e;
+                if (it.cnt < 1 && std::find(it.exps.begin(),
+                    it.exps.end(), ss.str()) == it.exps.end()) {
+                    cerr << "Unexpect expr. by algo-" << algo << ": "
+                         << ss.str() << endl;   abort();
+                }
+            }
 
-        auto cnt = exps.size();
-        for (auto e: exps) {
-            //cout << *e << endl;
-            ss.str(""); ss << *e;
-            if (it.cnt < 1 && std::find(it.exps.begin(),
-                it.exps.end(), ss.str()) == it.exps.end())
-                cout << "  Not expect expr.: " << ss.str() << endl;
-        }
+            auto n = exps.size(), cnt = it.cnt;
+            cout << "  Got " << n << " expr. by algo-" << algo << endl;
 
-        if (it.cnt < 1) it.cnt = it.exps.size();
-        if (cnt != it.cnt) cout << "  Expr. count: " << it.cnt << " vs " << cnt << endl;
+            if (cnt < 1) cnt = it.exps.size();
+            if (n != cnt) {
+                cerr << "Unexpect count by algo-" << algo << ": "
+                     << n << " != " << cnt << endl;     abort();
+            }
+        };
+
+        exps = comp24_dynprog (goal, nums);     check("DynProg");
+        exps = comp24_splitset(goal, nums);     check("SplitSet");
+
+        if (100 < it.cnt) continue;
+        std::unordered_set<PtrE> eset;  exps.clear();
+        comp24_construct(goal, nums.size(), nums, eset);
+        for (auto e: eset) exps.push_back(e);   check("Construct");
 //break;
     }
+}
 
+#ifdef RUN_TEST
+int main(int argc, char* argv[]) {
+    (void)argc;     (void)argv;
+    test_comp24();
     return 0;
 }
 #endif

@@ -14,8 +14,8 @@
 #include <cstdint>
 #include <memory>
 
-struct Rational {    int32_t n, d;
-    Rational(auto n, int32_t d = 1): n(n), d(d) {}
+struct Rational {       int32_t n, d;
+    Rational(int32_t n, int32_t d = 1): n(n), d(d) {}
 };
 
 //typedef char Oper;
@@ -61,11 +61,11 @@ using std::list;
 #define list vector // XXX:
 #endif
 
-list<PtrE> comp24_dynprog (const Rational& goal, const list<PtrE>& nums);
-list<PtrE> comp24_splitset(const Rational& goal, const list<PtrE>& nums);
+list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums);
+list<PtrE> comp24_splitset(const Rational& goal, const vector<PtrE>& nums);
 
 #include <unordered_set>
-void comp24_construct(const Rational& goal, const auto n,
+void comp24_construct(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps);
 
 #endif
