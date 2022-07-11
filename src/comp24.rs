@@ -540,8 +540,10 @@ pub fn comp24_main() {
         type PtrE;
         //type PtrE = cxx::SharedPtr<Expr>;
 
-        //fn comp24_dynprog (goal: &Rational, nums: &vector<PtrE>) -> vector<PtrE>;
-        //fn comp24_splitset(goal: &Rational, nums: &vector<PtrE>) -> vector<PtrE>;
+        fn comp24_dynprog (goal: &Rational, nums: &CxxVector<PtrE>) ->
+            UniquePtr<CxxVector<PtrE>>;     // XXX:
+        fn comp24_splitset(goal: &Rational, nums: &CxxVector<PtrE>) ->
+            UniquePtr<CxxVector<PtrE>>;
     }
 }
 
@@ -603,16 +605,15 @@ pub fn comp24_main() {
 
                 exps.iter().for_each(|e| {
                     //println!(r"  {}", Paint::green(e));
-                    if !res.is_empty() {
-                        assert!(res.contains(&e.to_string().as_str()),
-                            r"wrong expr. {} by algo-{:?}",
-                            Paint::red(e), Paint::red(algo));
-                    }});
+                    if res.is_empty() { return }
+                    assert!(res.contains(&e.to_string().as_str()),
+                        r"Unexpect expr. by algo-{:?}: {}", Paint::magenta(algo), Paint::red(e));
+                });
 
                 println!(r"  Got {} expr. by algo-{:?}",
-                    Paint::magenta(exps.len()), Paint::magenta(algo));
-                assert!(exps.len() == cnt, r"expr. count {} != {} by algo-{:?}",
-                    Paint::red(exps.len()), Paint::cyan(cnt), Paint::red(algo));
+                    Paint::green(exps.len()), Paint::green(algo));
+                assert!(exps.len() == cnt, r"Unexpect count by algo-{:?}: {} != {}",
+                    Paint::magenta(algo), Paint::red(exps.len()), Paint::cyan(cnt));
             };
 
             assert_closure(&goal, &nums, DynProg (false));
