@@ -235,7 +235,7 @@ void comp24_construct(const Rational& goal, const size_t n,
     }
 }
 
-void test_comp24() {
+extern "C" void test_comp24() {
     using std::cout, std::cerr, std::endl, std::string;
 
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;

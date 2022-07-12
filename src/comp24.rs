@@ -529,6 +529,8 @@ pub fn comp24_main() {
 //use cxx::CxxVector as vector;
 
 #[cxx::bridge] mod ffi {    // TODO:
+    // shared types
+
     extern "Rust" { }
 
     unsafe extern "C++" {
@@ -622,6 +624,14 @@ pub fn comp24_main() {
             assert_closure(&goal, &nums, Inplace);
             assert_closure(&goal, &nums, Construct);
         });
+    }
+
+    #[test]
+    fn test_comp24_cxx() {
+        //#[link(name = "comp24")]
+        extern "C" { fn test_comp24(); }
+
+        unsafe { test_comp24(); }
     }
 
     //#[test]
