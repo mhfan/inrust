@@ -99,10 +99,19 @@ pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
  * positional bits are flipped on in each mask.
  */
 pub fn powerset<T>(slice: &[T]) -> Vec<Vec<&T>> {
-    debug_assert!(slice.len() < std::mem::size_of::<usize>() * 8);
-    let n = (1 << slice.len()) as usize;
+    let m = slice.len();
+    debug_assert!(m < std::mem::size_of::<usize>() * 8);
+    let n = (1 << m) as usize;
     let mut psv = Vec::with_capacity(n);
-    for mask in 0..n {
+
+    for x in 0..n/2 {
+        let (mut s0, mut s1) = (Vec::with_capacity(m), Vec::with_capacity(m));
+        slice.iter().enumerate().for_each(|(i, e)|
+            if (1 << i) & x != 0 { s0.push(e) } else { s1.push(e) });
+        psv.push(s0);   psv.push(s1);
+    }   psv
+
+    /* for mask in 0..n {
         let (mut ss, mut bits) = (vec![], mask);
         while 0 < bits {
             // isolate the rightmost bit to select one item
@@ -111,15 +120,12 @@ pub fn powerset<T>(slice: &[T]) -> Vec<Vec<&T>> {
             let idx = rightmost.trailing_zeros() as usize;
             ss.push(&slice[idx]);  bits &= bits - 1;   // zero the trailing bit
         }  psv.push(ss);
-    }      psv
+    }      psv */
 }
 
 pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
-    let mut largest = &list[0];
-
-    // for &item in list {}
-    for item in list { if  largest < item { largest = item } }
-    largest
+    let mut largest = &list[0];     // for &item in list {}
+    for item in list { if  largest < item { largest = item } }  largest
 }
 
 fn guess_number() {    // interactive function

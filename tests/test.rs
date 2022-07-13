@@ -9,4 +9,3 @@ fn sample_test() {
     // Integration tests (and benchmarks) 'depend' to the crate
     // like a 3rd party would. Hence, they only see public items.
 }
-

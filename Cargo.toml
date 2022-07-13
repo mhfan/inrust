@@ -64,7 +64,7 @@ incremental = true
 panic = 'abort'
 #opt-level = 3   # default level
 #strip = true    # Automatically strip symbols from the binary.
-debug = true    # for flamegraph
+#debug = true    # for flamegraph
 #lto = true
 
 #[profile.release-lto]
