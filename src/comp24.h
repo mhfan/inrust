@@ -12,10 +12,10 @@
 #define COMP24_H
 
 #include <cstdint>
-#include <memory>
+#include <memory>   // shared_ptr
 
-struct Rational {       int32_t n, d;
-    Rational(int32_t n, int32_t d = 1): n(n), d(d) {}
+struct Rational {    int32_t n, d;
+    Rational(auto n, int32_t d = 1): n(n), d(d) {}
 };
 
 //typedef char Oper;
@@ -51,22 +51,21 @@ struct Expr {   Rational v;
     }
 };
 
-#include <vector>
-using std::vector;
+typedef   enum Comp24Algo { DynProg, SplitSet, Inplace, Construct } Comp24Algo;
+typedef struct Comp24 {
+    union { const Comp24Algo algo; bool ia; };
 
-#ifdef  USE_LIST
-#include <list>
-using std::list;
-#else
-#define list vector // XXX:
-#endif
+    const Rational goal;
+    const Rational* const nums;
+    const size_t ncnt;
 
-list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums);
-list<PtrE> comp24_splitset(const Rational& goal, const vector<PtrE>& nums);
+    size_t ecnt;
+    const char* *exps;
+    //const PtrE* const exps;
+    //const Expr* const exps;
+}   Comp24;
 
-#include <unordered_set>
-void comp24_construct(const Rational& goal, const size_t n,
-    vector<PtrE>& nums, std::unordered_set<PtrE>& exps);
+extern "C" void comp24_algo(Comp24* comp24);
 
 #endif
 

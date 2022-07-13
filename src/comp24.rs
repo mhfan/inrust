@@ -10,26 +10,27 @@
 //pub mod comp24 {
 
 //use std::io::prelude::*;
-use std::{fmt, cmp::{Ordering, PartialEq}};
+use std::{fmt::{Display,Formatter}, cmp::{Eq, /*Ord, */Ordering, PartialEq}};
+use core::convert::From;
 pub use std::rc::Rc;
 
 //use itertools::Itertools;
 use yansi::Paint;   // Color, Style
 
-#[derive(Debug/*, Clone, Copy*/)] pub struct Rational(i32, i32);
+#[derive(Debug/*, Clone, Copy*/)] #[repr(C)] pub struct Rational(i32, i32);
 //#[repr(C)] pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
 
 //#[derive(/*Debug, */Clone, Copy)]
 struct Oper(char);  // newtype idiom
-//enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
-//type Oper = char;       // type alias
+//#[repr(C, i32)] enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
+//type Oper = char;   // type alias
 
 //#[derive(Debug)] enum Value { Void, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
-//#[repr(packed(2))]    //#[repr(align(4))]
 //#[derive(Debug)]
+//#[repr(packed(4)/*, align(4)*/)]
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
 //std::ops::{Add, Sub, Mul, Div}
@@ -38,10 +39,10 @@ pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
     fn add(self, rhs: Self) -> Self::Output { todo!() }
 } */
 
-impl core::convert::From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
+impl From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
 
-impl fmt::Display for Rational {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Rational {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         //_simplify(&self);
         if self.1 == 0 { write!(f, r"(INV)")? } else {
             let braket = self.0 * self.1 < 0 || self.1 != 1;
@@ -75,7 +76,7 @@ impl PartialOrd for Rational {
     }
 }
 
-//impl std::cmp::Eq for Rational { /*fn assert_receiver_is_total_eq(&self) { }*/ }
+//impl Eq for Rational { /*fn assert_receiver_is_total_eq(&self) { }*/ }
 impl PartialEq for Rational {
     fn eq(&self, rhs: &Self) -> bool {
         self.partial_cmp(rhs) == Some(Ordering::Equal)
@@ -120,10 +121,9 @@ impl Expr {
 }
 
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    //const Add: Oper = Oper('+');
-    //const Sub: Oper = Oper('-');
-    //const Mul: Oper = Oper('*');
-    //const Div: Oper = Oper('/');
+    //const Add: Oper = Oper('+');  const Sub: Oper = Oper('-');
+    //const Mul: Oper = Oper('*');  const Div: Oper = Oper('/');
+    //const OPS: [Oper; 4] = [ Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/') ];
     const OPS: [Oper; 4] = [ Oper('+'), Oper('-'), Oper('*'), Oper('/') ];
 
     OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
@@ -174,16 +174,16 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
-impl core::convert::From<Rational> for Expr {
+impl From<Rational> for Expr {
     fn from(r: Rational) -> Self { Self { v: r, m: None } }
 }
 
-impl core::convert::From<i32> for Expr {
+impl From<i32> for Expr {
     fn from(n: i32) -> Self { Rational::from(n).into() }
 }
 
-impl fmt::Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some((a, op, b)) = &self.m {
             //#[allow(clippy::logic_bug)]
             let braket = if let Some((_, aop, ..)) = &a.m { //true ||
@@ -224,16 +224,16 @@ impl PartialOrd for Expr {
     }
 }
 
-impl std::cmp::Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
+impl Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool {
-        /* match (&self.m, &rhs.m) {
+        match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
             (Some((la, lop, lb)), Some((ra, rop, rb))) =>
                 la == ra && lop.0 == rop.0 && lb == rb,     // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
-        }   //self.v == rhs.v */
-        self.partial_cmp(rhs) == Some(Ordering::Equal)
+        }   //self.v == rhs.v
+        //self.partial_cmp(rhs) == Some(Ordering::Equal)
     }
 }
 
@@ -408,7 +408,7 @@ fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
+#[repr(C, u16)] pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
 pub  use Comp24Algo::*;
 
 #[cfg(feature = "dhat-heap")]
@@ -441,12 +441,6 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
         }
     }
 }
-
-/* #[inline(always)] pub fn comp24_algo2(goal: &Rational, nums: &[Rational],
-    algo: Comp24Algo) -> Vec<Expr> {
-    let nums = nums.iter().map(|n| Rc::new(Expr::from(*n))).collect::<Vec<_>>();
-    comp24_algo(goal, &nums, algo).into_iter().map(|e| *e).collect::<Vec<_>>()
-} */
 
 pub fn comp24_main() {
     fn comp24_helper<I, S>(goal: &Rational, nums: I)
@@ -491,16 +485,14 @@ pub fn comp24_main() {
             } else { eprintln!(r"Lack parameter for GOAL!") }
         }
 
-        use std::process::exit;
         comp24_helper(&goal, nums);
-        if want_exit { exit(0) }
+        if want_exit { std::process::exit(0) }
     }
 
-    /* use std::mem::*;
+    /* use std::mem::size_of;   // size_of_val(a)
     println!("\nsize_of: Expr-{}, &Expr-{}, Rc<Expr>-{}, Oper-{}, Rational-{}",
         size_of::<Expr>(), size_of::<&Expr>(), size_of::<Rc<Expr>>(),
         size_of::<Oper>(), size_of::<Rational>()); */
-    // size_of_val(a)
 
     println!("\n### Solve {} computation ###", Paint::magenta(&goal).bold());
     loop {
@@ -526,26 +518,41 @@ pub fn comp24_main() {
     }
 }
 
-//use cxx::CxxVector as vector;
+#[inline(always)] pub fn comp24_algo_cxx(_goal: &Rational, _nums: &[Rational],
+    _algo: Comp24Algo) {    // TODO:
+    use std::os::raw::c_char;
+    #[repr(C)] struct Comp24 {
+        algo: Comp24Algo, ia: bool,
 
-#[cxx::bridge] mod ffi {    // TODO:
-    // shared types
+        goal: Rational,
+        nums: *const Rational,
+        ncnt: usize,
+
+        ecnt: usize,
+        exps: *mut *const c_char,
+        //exps: *mut SharedPtr<Expr>,
+        //exps: *mut Expr,
+    }
+}
+
+#[cxx::bridge] mod ffi_cxx {    // TODO:
+    struct Rational { n: i32, d: i32 }
+    #[repr(i32)] enum Oper { Num, Add, Sub, Mul, Div, }
+    struct Expr { v: Rational, op: Oper, a: SharedPtr<Expr>, b: SharedPtr<Expr> }
+    #[repr(u16)] enum Comp24Algo { DynProg, SplitSet, Inplace, Construct }
 
     extern "Rust" { }
 
     unsafe extern "C++" {
         include!("comp24.h");
 
-        type Rational;
-        type Oper;
-        type Expr;
-        type PtrE;
-        //type PtrE = cxx::SharedPtr<Expr>;
+        //type PtrE;// = cxx::SharedPtr<Expr>;
 
-        fn comp24_dynprog (goal: &Rational, nums: &CxxVector<PtrE>) ->
-            UniquePtr<CxxVector<PtrE>>;     // XXX:
-        fn comp24_splitset(goal: &Rational, nums: &CxxVector<PtrE>) ->
-            UniquePtr<CxxVector<PtrE>>;
+        /* CxxVector cannot hold SharePtr<_>
+        fn comp24_dynprog (goal: &Rational, nums: &CxxVector<SharedPtr<Expr>>) ->
+            UniquePtr<CxxVector<SharedPtr<Expr>>>;
+        fn comp24_splitset(goal: &Rational, nums: &CxxVector<SharedPtr<Expr>>) ->
+            UniquePtr<CxxVector<SharedPtr<Expr>>>; */
     }
 }
 
@@ -623,6 +630,23 @@ pub fn comp24_main() {
             if 100 < cnt { return }     // XXX: regarding speed
             assert_closure(&goal, &nums, Inplace);
             assert_closure(&goal, &nums, Construct);
+
+            use std::mem::transmute;
+            use cxx::{/*CxxVector, */memory::SharedPtr};
+
+            impl From<Rational> for ffi_cxx::Rational {
+                fn from(r: Rational) -> Self { Self { n: r.0, d: r.1 } }
+            }
+
+            impl From<Expr> for ffi_cxx::Expr {
+                fn from(e: Expr) -> Self { Self {
+                    v: unsafe { transmute::<Rational, ffi_cxx::Rational>(e.v) },
+                    op: ffi_cxx::Oper::Num, a: SharedPtr::null(), b: SharedPtr::null() }
+                }
+            }
+
+            //let goal = unsafe { transmute::<Rational, ffi_cxx::Rational>(goal) };
+            //ffi_cxx::comp24_dynprog(&goal, &nums);    // FIXME:
         });
     }
 
@@ -630,7 +654,6 @@ pub fn comp24_main() {
     fn test_comp24_cxx() {
         //#[link(name = "comp24")]
         extern "C" { fn test_comp24(); }
-
         unsafe { test_comp24(); }
     }
 

@@ -11,14 +11,9 @@
 
 // https://changkun.de/modern-cpp/zh-cn/00-preface/
 
-#include <cassert>
-
 #include <string>
-#include <sstream>
-#include <iomanip>
+#include <cassert>
 #include <iostream>
-#include <algorithm>
-using std::hash;
 
 #include "comp24.h"
 
@@ -69,12 +64,15 @@ inline auto operator==(const Expr& lhs, const auto& rhs) noexcept {
 
 inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
 
+#include <sstream>
+using std::ostream;
+
 //inline istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
-inline std::ostream& operator<<(std::ostream& os, const Rational& r) {
+inline ostream& operator<<(ostream& os, const Rational& r) {
     return (1 == r.d && 0 <= r.n) ? os << r.n : os << '(' <<  r.n << '/' << r.d << ')';
 }
 
-std::ostream& operator<<(std::ostream& os, const Expr& e) {
+ostream& operator<<(ostream& os, const Expr& e) {
     if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
     if ((e.a->op == '+' || e.a->op == '-') && (e.op == '*' || e.op == '/'))
@@ -89,8 +87,10 @@ inline auto hash_combine(size_t lhs, auto rhs) {
   return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
 }
 
+using std::hash; // #include <functional>
+
 template <> struct hash<Expr> {
-    size_t operator()(Expr const& e) const noexcept {
+    size_t operator()(const Expr& e) const noexcept {
         if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  hash<Expr> hasher;
             return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (char(e.op) << 13);
         }
@@ -98,7 +98,7 @@ template <> struct hash<Expr> {
 };
 
 template <> struct hash<PtrE> {
-    size_t operator()(PtrE const& e) const noexcept { return hash<Expr>{}(*e); }
+    size_t operator()(const PtrE& e) const noexcept { return hash<Expr>{}(*e); }
 };
 
 /* bool is_subn_expr(const auto& e) {
@@ -137,6 +137,16 @@ void form_expr(const auto a, const auto b, auto func) {
     }
 }
 
+#include <vector>
+using std::vector;
+
+#ifdef  USE_LIST
+#include <list>
+using std::list;
+#else// list seems worse performance than vector
+#define list vector
+#endif
+
 list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
     auto pow = 1 << nums.size();
 
@@ -173,7 +183,7 @@ list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
     }   return vexp[pow - 1];
 }
 
-list<PtrE> comp24_splitset(const Rational& goal, const vector<PtrE>& nums) {
+list<PtrE> comp24_splitset(const Rational& goal, const   list<PtrE>& nums) {
     static auto IR = Rational(0, 0);
     auto n = nums.size();
     auto pow = 1 << n;
@@ -212,6 +222,7 @@ list<PtrE> comp24_splitset(const Rational& goal, const vector<PtrE>& nums) {
     }   return exps;
 }
 
+#include <unordered_set>
 void comp24_construct(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
@@ -234,6 +245,18 @@ void comp24_construct(const Rational& goal, const size_t n,
         }           nums[i] = ta;
     }
 }
+
+void comp24_algo(Comp24* comp24) {  // TODO:
+    switch (comp24->algo) {
+        case Comp24Algo::DynProg:  break;
+        case Comp24Algo::SplitSet: break;
+        //case Comp24Algo::Construct:
+        case Comp24Algo::Inplace:  break;
+        default: ;
+    }
+}
+
+#include <iomanip>
 
 extern "C" void test_comp24() {
     using std::cout, std::cerr, std::endl, std::string;
@@ -273,8 +296,8 @@ extern "C" void test_comp24() {
         Rational goal(it.goal);
         for (auto n: it.nums) {
              auto e = std::make_shared<const Expr>(n);
-            nums.push_back(e);
             cout << std::setw(2) << *e << ",";
+            nums.push_back(e);
         }   cout << "]" << endl;
 
         list<PtrE> exps;
@@ -310,7 +333,7 @@ extern "C" void test_comp24() {
     }
 }
 
-#ifdef RUN_TEST
+#ifdef  RUN_TEST
 int main(int argc, char* argv[]) {
     (void)argc;     (void)argv;
     test_comp24();
