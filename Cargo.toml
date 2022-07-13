@@ -27,6 +27,7 @@ num-bigint = "0.4.*"
 #itertools = "0.10.*"
 #rustc-hash = "1.1.*"
 yansi = "0.5.*"
+atty = "0.2.*"
 #dhat = "0.3.*"
 cxx = "1.*"
 

@@ -27,6 +27,7 @@ use yansi::Paint;   // Color, Style
 
 //std::any::type_name::<T>()
 
+//#![no_main]
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //println!("Build @ {}", BUILD_TIMESTAMP);  // TODO:
@@ -36,6 +37,9 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     println!("\n{}", env!("CARGO_PKG_AUTHORS"));
 
     //env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
+
+    if !atty::is(atty::Stream::Stdout) { Paint::disable() }
+    if cfg!(windows) && !Paint::enable_windows_ascii() { Paint::disable() }
 
     println!(r"Hello, world!");  //panic!("Test a panic.");
 
