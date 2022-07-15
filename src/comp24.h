@@ -32,8 +32,7 @@ struct Expr {   Rational v;
         PtrE a = nullptr, PtrE b = nullptr): v(r), op(op), a(a), b(b) {}
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
-
-    //~Expr() { std::cerr << "Destruct: " << *this << std::endl; }
+    //~Expr();
 
     Expr(auto a, auto op, auto b): v(0), op(op), a(a), b(b) {
         switch (op) {
@@ -51,18 +50,19 @@ struct Expr {   Rational v;
     }
 };
 
-typedef   enum Comp24Algo { DynProg, SplitSet, Inplace, Construct } Comp24Algo;
-typedef struct Comp24 {
-    union { const Comp24Algo algo; bool ia; };
+#include <vector>
+using std::vector;
 
-    const Rational goal;
-    const Rational* const nums;
+typedef   enum Comp24Algo: uint8_t { DynProg, SplitSet, Inplace, Construct } Comp24Algo;
+typedef struct Comp24 {
+    const Comp24Algo algo; bool ia;
+    const Rational goal, *const nums;
     const size_t ncnt;
 
     size_t ecnt;
     const char* *exps;
-    //const PtrE* const exps;
-    //const Expr* const exps;
+    //const PtrE const *exps;
+    //const Expr* const *exps;
 }   Comp24;
 
 extern "C" void comp24_algo(Comp24* comp24);

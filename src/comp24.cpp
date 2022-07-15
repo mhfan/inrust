@@ -83,6 +83,8 @@ ostream& operator<<(ostream& os, const Expr& e) {
         os << '(' << *e.b << ')'; else os << *e.b;  return os;
 }
 
+//Expr::~Expr() { std::cerr << "Destruct: " << *this << std::endl; }
+
 inline auto hash_combine(size_t lhs, auto rhs) {
   return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
 }
@@ -136,9 +138,6 @@ void form_expr(const auto a, const auto b, auto func) {
             auto e = std::make_shared<const Expr>(a, op, b); func(e);
     }
 }
-
-#include <vector>
-using std::vector;
 
 #ifdef  USE_LIST
 #include <list>
@@ -246,14 +245,40 @@ void comp24_construct(const Rational& goal, const size_t n,
     }
 }
 
-void comp24_algo(Comp24* comp24) {  // TODO:
-    switch (comp24->algo) {
-        case Comp24Algo::DynProg:  break;
-        case Comp24Algo::SplitSet: break;
-        //case Comp24Algo::Construct:
-        case Comp24Algo::Inplace:  break;
-        default: ;
+list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) {
+    list<PtrE> exps;
+    if (nums.size() == 1) { auto e = nums.front();
+         if (e->v == goal) exps.push_back(e);
+        return exps;
     }
+
+    switch (algo) {
+        case DynProg:  exps = comp24_dynprog (goal, nums); break;
+        case SplitSet: exps = comp24_splitset(goal, nums); break;
+
+        //case Construct:
+        case Inplace: {
+            std::unordered_set<PtrE> eset;
+            comp24_construct(goal, nums.size(), nums, eset);
+            for (auto e: eset) exps.push_back(e);
+        }   break;
+
+        default: ;
+    }   return exps;
+}
+
+void comp24_algo(Comp24* comp24) {
+    /*assert(sizeof(comp24->algo == 1 && sizeof(bool) == 1);
+    std::cerr << "algo: " << comp24->algo << ", ia: " << comp24->ia
+            << ", goal: " << comp24->goal << ", nums: [";
+    for (auto i = 0u; i < comp24->ncnt; ++i) std::cerr << comp24->nums[i] << ", ";
+    std::cerr << "]\n"; */
+
+    vector<PtrE> nums;
+    for (auto i = 0u; i < comp24->ncnt; ++i)
+        nums.push_back(std::make_shared<const Expr>(comp24->nums[i]));
+    list<PtrE> exps = comp24_algo(comp24->goal, nums, comp24->algo);
+    comp24->ecnt = exps.size();     // TODO:
 }
 
 #include <iomanip>
@@ -272,63 +297,59 @@ extern "C" void test_comp24() {
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {
-        {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
-                             "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
-        { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
-        //{ 24, { 0 }, { }, 0 },
-        //{ 24, { 24 }, { "24" }, 0 },
+        { 24, { 0 }, { }, 0 },
+        { 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
         { 24, {10, 9, 7, 7 }, { "10+(9-7)*7" }, 0 },
+        {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
+                             "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
+        { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
         { 24, { 1, 2, 3, 4, 5 }, { }, 78 },
         {100, { 1, 2, 3, 4, 5, 6 }, { }, 299 },
         { 24, { 1, 2, 3, 4, 5, 6 }, { }, 1832 },
-        {100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
-        { 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34301 },
+        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
+        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34301 },
     };
 
     for (auto it: cases) {
         cout << "Test compute " << std::setw(3) << it.goal << " from [";
+        for (auto n: it.nums) cout << std::setw(2) << n << ",";
+        cout << "]" << endl;
 
         vector<PtrE> nums;
         Rational goal(it.goal);
-        for (auto n: it.nums) {
-             auto e = std::make_shared<const Expr>(n);
-            cout << std::setw(2) << *e << ",";
-            nums.push_back(e);
-        }   cout << "]" << endl;
+        for (auto n: it.nums) nums.push_back(std::make_shared<const Expr>(n));
 
-        list<PtrE> exps;
-        auto check = [&](const char* algo) {
+        auto assert_closure = [&](auto algo, auto algs) {
+            list<PtrE> exps = comp24_algo(goal, nums, algo);
+
             for (auto e: exps) {
-                //cout << *e << endl;
-                ss.str(""); ss << *e;
+                ss.str(""); ss << *e;   //cout << *e << endl;
                 if (it.cnt < 1 && std::find(it.exps.begin(),
                     it.exps.end(), ss.str()) == it.exps.end()) {
-                    cerr << "Unexpect expr. by algo-" << algo << ": "
+                    cerr << "Unexpect expr. by algo-" << algs << ": "
                          << ss.str() << endl;   abort();
                 }
             }
 
             auto n = exps.size(), cnt = it.cnt;
-            cout << "  Got " << n << " expr. by algo-" << algo << endl;
+            cout << "  Got " << n << " expr. by algo-" << algs << endl;
 
             if (cnt < 1) cnt = it.exps.size();
             if (n != cnt) {
-                cerr << "Unexpect count by algo-" << algo << ": "
+                cerr << "Unexpect count by algo-" << algs << ": "
                      << n << " != " << cnt << endl;     abort();
             }
         };
 
-        exps = comp24_dynprog (goal, nums);     check("DynProg");
-        exps = comp24_splitset(goal, nums);     check("SplitSet");
-
+#define ASSERT_CLOSURE(algo) assert_closure(algo, #algo)
+        ASSERT_CLOSURE(DynProg);
+        ASSERT_CLOSURE(SplitSet);
         if (100 < it.cnt) continue;
-        std::unordered_set<PtrE> eset;  exps.clear();
-        comp24_construct(goal, nums.size(), nums, eset);
-        for (auto e: eset) exps.push_back(e);   check("Construct");
+        ASSERT_CLOSURE(Inplace);
 //break;
     }
 }

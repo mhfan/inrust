@@ -29,11 +29,21 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     use yansi::Paint;
     println!("Benchmark compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));
-    let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
-    let goal = goal.into();
+    let (mut cnt, goal) = (0, goal.into());
 
+    let nums = nums.iter().map(|&n| Rational::from(n)).collect::<Vec<_>>();
+    let mut bench_cxx = |algo| {
+        group.bench_function(format!("Cxx{:?}", algo), |b|
+            b.iter(|| { cnt = comp24_algo_cxx(&goal, &nums, algo); }));
+        if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
+    };
+
+    bench_cxx(DynProg (false));
+    //bench_cxx(SplitSet(false));
+    //bench_cxx(Inplace);
+
+    let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let mut bench_closure = |algo| {
-        let mut cnt = 0;
         group.bench_function(format!("{algo:?}"), |b|
             b.iter(|| { cnt = comp24_algo(&goal, &nums, algo).len(); }));
         if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }

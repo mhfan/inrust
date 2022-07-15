@@ -313,7 +313,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
 fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     let (pow, mut exps) = (1 << nums.len(), Vec::new());
     let mut hv = Vec::with_capacity(pow - 2);
-    let sub_round = std::ptr::eq(goal, &IR);
+    let sub_round = core::ptr::eq(goal, &IR);
     const IR: Rational = Rational(0, 0);
 
     //let mut used = HashSet::default();
@@ -398,7 +398,7 @@ fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
             //eprintln!(r"-> ({a}) ? ({b})");
 
             let mut nums = nums.iter().filter(|&e|
-                !std::ptr::eq(e, a) && !std::ptr::eq(e, b))
+                !core::ptr::eq(e, a) && !core::ptr::eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
             form_expr(a, b, |e| if nums.is_empty() && e.v == *goal {
@@ -408,7 +408,7 @@ fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
 }
 
 #[derive(Debug, Clone, Copy)]
-#[repr(C, u16)] pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
+#[repr(C, u8)] pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
 pub  use Comp24Algo::*;
 
 #[cfg(feature = "dhat-heap")]
@@ -419,7 +419,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 #[inline(always)] pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>],
     algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
-    debug_assert!(nums.len() < std::mem::size_of::<usize>() * 8);
+    debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
 
     #[cfg(feature = "dhat-heap")]
     let _profiler = dhat::Profiler::new_heap();
@@ -489,7 +489,7 @@ pub fn comp24_main() {
         if want_exit { std::process::exit(0) }
     }
 
-    /* use std::mem::size_of;   // size_of_val(a)
+    /* use core::mem::size_of;   // size_of_val(a)
     println!("\nsize_of: Expr-{}, &Expr-{}, Rc<Expr>-{}, Oper-{}, Rational-{}",
         size_of::<Expr>(), size_of::<&Expr>(), size_of::<Rc<Expr>>(),
         size_of::<Oper>(), size_of::<Rational>()); */
@@ -518,21 +518,35 @@ pub fn comp24_main() {
     }
 }
 
-#[inline(always)] pub fn comp24_algo_cxx(_goal: &Rational, _nums: &[Rational],
-    _algo: Comp24Algo) {    // TODO:
-    use std::os::raw::c_char;
+#[inline(always)] pub fn comp24_algo_cxx(goal: &Rational, nums: &[Rational],
+    algo: Comp24Algo) -> usize {
     #[repr(C)] struct Comp24 {
-        algo: Comp24Algo, ia: bool,
+        algo: Comp24Algo, //ia: bool,
+        goal: Rational, //nums: &[Rational],
+        nums: *const Rational, ncnt: usize,
 
-        goal: Rational,
-        nums: *const Rational,
-        ncnt: usize,
-
-        ecnt: usize,
-        exps: *mut *const c_char,
-        //exps: *mut SharedPtr<Expr>,
-        //exps: *mut Expr,
+        ecnt: usize, //core::ffi::c_size_t,
+        exps: *mut *const std::os::raw::c_char,
+        //exps: *mut *const SharedPtr<Expr>,
+        //exps: *mut *const Expr,
     }
+
+    let mut comp24 = Comp24 {
+        algo, goal: Rational(goal.0, goal.1),
+        //goal: unsafe { core::mem::transmute(goal) },
+        nums: nums.as_ptr(), ncnt: nums.len(),
+        ecnt: 0, exps: core::ptr::null_mut(),
+    };
+
+    //debug_assert!(core::mem::size_of::<bool>() == 1);
+    //eprintln!("algo: {:?}, goal: {}, ncnt: {}", comp24.algo, comp24.goal, comp24.ncnt);
+    debug_assert!(core::mem::size_of_val(&comp24.algo) == 2);
+    extern "C" { fn comp24_algo(comp24: *mut Comp24); }
+
+    unsafe { comp24_algo(&mut comp24);  // TODO:
+        //let exps = core::slice::from_raw_parts(comp24.exps, comp24.ecnt).iter().map(|es|
+        //    std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
+    }   comp24.ecnt
 }
 
 #[cxx::bridge] mod ffi_cxx {    // TODO:
@@ -597,20 +611,33 @@ pub fn comp24_main() {
             ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
             (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 299),
             ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 1832),
-            (100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 5504),
-            ( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 34301),
+            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 5504),
+            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 34301),
         ];
 
         cases.iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < *cnt { *cnt } else { res.len() };
             println!(r"Test compute {:3} from {:?}", Paint::cyan(goal), Paint::cyan(nums));
-
-            let nums = nums.iter().map(|&n| Rc::new(n.into())).collect::<Vec<_>>();
             let goal = (*goal).into();
 
-            let assert_closure = |goal, nums, algo| {
-                let exps = comp24_algo(goal, nums, algo);
+            let nums = nums.iter().map(|&n| Rational::from(n)).collect::<Vec<_>>();
+
+            let assert_cxx = |algo| {
+                let elen = comp24_algo_cxx(&goal, &nums, algo);
+                println!(r"  Got {} expr. by algo-Cxx{:?}",
+                    Paint::green(elen), Paint::green(algo));
+                assert!(elen == cnt, r"Unexpect count by algo-Cxx{:?}: {} != {}",
+                    Paint::magenta(algo), Paint::red(elen), Paint::cyan(cnt));
+            };
+
+            assert_cxx(DynProg (false));
+            assert_cxx(SplitSet(false));
+            if cnt < 100 { assert_cxx(Inplace); }
+
+            let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
+            let assert_closure = |algo| {
+                let exps = comp24_algo(&goal, &nums, algo);
 
                 exps.iter().for_each(|e| {
                     //println!(r"  {}", Paint::green(e));
@@ -625,33 +652,30 @@ pub fn comp24_main() {
                     Paint::magenta(algo), Paint::red(exps.len()), Paint::cyan(cnt));
             };
 
-            assert_closure(&goal, &nums, DynProg (false));
-            assert_closure(&goal, &nums, SplitSet(false));
+            assert_closure(DynProg (false));
+            assert_closure(SplitSet(false));
             if 100 < cnt { return }     // XXX: regarding speed
-            assert_closure(&goal, &nums, Inplace);
-            assert_closure(&goal, &nums, Construct);
-
-            use std::mem::transmute;
-            use cxx::{/*CxxVector, */memory::SharedPtr};
+            assert_closure(Inplace);
+            assert_closure(Construct);
 
             impl From<Rational> for ffi_cxx::Rational {
                 fn from(r: Rational) -> Self { Self { n: r.0, d: r.1 } }
             }
 
+            use cxx::{/*CxxVector, */memory::SharedPtr};
             impl From<Expr> for ffi_cxx::Expr {
-                fn from(e: Expr) -> Self { Self {
-                    v: unsafe { transmute::<Rational, ffi_cxx::Rational>(e.v) },
+                fn from(e: Expr) -> Self { Self { v: unsafe { core::mem::transmute(e.v) },
                     op: ffi_cxx::Oper::Num, a: SharedPtr::null(), b: SharedPtr::null() }
                 }
             }
 
-            //let goal = unsafe { transmute::<Rational, ffi_cxx::Rational>(goal) };
+            //let goal: Rational = unsafe { core::mem::transmute(goal) };
             //ffi_cxx::comp24_dynprog(&goal, &nums);    // FIXME:
         });
     }
 
-    #[test]
-    fn test_comp24_cxx() {
+    //#[test]
+    fn _test_comp24_cxx() {
         //#[link(name = "comp24")]
         extern "C" { fn test_comp24(); }
         unsafe { test_comp24(); }
@@ -659,7 +683,7 @@ pub fn comp24_main() {
 
     //#[test]
     //#[bench]
-    fn _test_bench() {
+    fn _bench_comp24() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 
