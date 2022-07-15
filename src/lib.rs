@@ -16,8 +16,7 @@ mod m {
 //#![feature(test)]
 //extern crate test;
 
-#[cfg(test)]
-mod tests { // unit test sample
+#[cfg(test)] mod tests {    // unit test sample
     //use test::Bencher;
     // Need to import items from parent module. Has access to non-public members.
     use super::*;

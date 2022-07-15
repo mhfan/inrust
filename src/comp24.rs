@@ -544,8 +544,9 @@ pub fn comp24_main() {
     extern "C" { fn comp24_algo(comp24: *mut Comp24); }
 
     unsafe { comp24_algo(&mut comp24);  // TODO:
-        //let exps = core::slice::from_raw_parts(comp24.exps, comp24.ecnt).iter().map(|es|
-        //    std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
+        /* assert!(!comp24.exps.is_null());
+        let exps = core::slice::from_raw_parts(comp24.exps, comp24.ecnt).iter().map(|es|
+            std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>(); */
     }   comp24.ecnt
 }
 
@@ -575,8 +576,7 @@ pub fn comp24_main() {
 #[cfg(test)] mod tests {     // unit test
     use super::*;   // Need to import items from parent module, to access non-public members.
 
-    #[test]
-    fn test_rational() {
+    #[test] fn test_rational() {
         use super::*;
 
         let cases = [
@@ -593,8 +593,7 @@ pub fn comp24_main() {
         });
     }
 
-    #[test]
-    fn test_comp24() {
+    #[test] fn test_comp24() {
         let cases = [
             ( 24, vec![ 0], vec![], 0),
             ( 24, vec![24], vec!["24"], 0),
@@ -674,16 +673,13 @@ pub fn comp24_main() {
         });
     }
 
-    //#[test]
-    fn _test_comp24_cxx() {
+    /*#[test] */fn _test_comp24_cxx() {
         //#[link(name = "comp24")]
         extern "C" { fn test_comp24(); }
         unsafe { test_comp24(); }
     }
 
-    //#[test]
-    //#[bench]
-    fn _bench_comp24() {
+    /*#[test] #[bench] */fn _bench_comp24() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 

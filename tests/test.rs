@@ -3,9 +3,9 @@
 
 //mod common;   // subdirectory module
 
-#[test]
-fn sample_test() {
+#[test] fn sample_test() {
     assert_eq!(hello_rust::f(), 0);
     // Integration tests (and benchmarks) 'depend' to the crate
     // like a 3rd party would. Hence, they only see public items.
 }
+
