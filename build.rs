@@ -6,8 +6,7 @@ fn main() {
     println!("cargo:rerun-if-changed={comp24_cpp}");
     println!("cargo:rerun-if-changed=src/comp24.h");
 
-    #[cfg(feature = "cc")]
-    cc::Build::new().cpp(true).flag("-std=c++20").opt_level(2)
-        //.define("USE_LIST", None)//.define("RUN_TEST", None)
-        .file(comp24_cpp).compile("comp24");   // output libcomp24.a indeed
+    #[cfg(feature = "cc")] cc::Build::new().cpp(true).flag("-std=c++20").opt_level(2)
+        .define("NDEBUG", None) //.define("USE_LIST", None)//.define("RUN_TEST", None)
+        .file(comp24_cpp).compile("comp24");   // libcomp24.a
 }

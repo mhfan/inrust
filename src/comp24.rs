@@ -42,8 +42,7 @@ pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 impl From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
 
 impl Display for Rational {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        //_simplify(&self);
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { //simplify(&self);
         if self.1 == 0 { write!(f, r"(INV)")? } else {
             let braket = self.0 * self.1 < 0 || self.1 != 1;
             if  braket { write!(f, r"(")? }     write!(f, r"{}", self.0)?;
@@ -69,9 +68,8 @@ impl std::str::FromStr for Rational {
 
 impl PartialOrd for Rational {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        if self.1 == 0 || rhs.1 == 0 { None } else {
+        if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
             (self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
-            //Some(self.cmp(rhs))
         }
     }
 }
@@ -84,7 +82,7 @@ impl PartialEq for Rational {
     }
 }
 
-fn _simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
+#[allow(dead_code)] fn simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
     // Calculate the greatest common denominator for two numbers
     fn gcd(a: i32, b: i32) -> i32 {
         let (mut m, mut n) = (a, b);
@@ -112,7 +110,7 @@ impl Expr {
                 } else { val.1 = 0; }  // invalidation
 
                 _ => unimplemented!("operator '{}'", op.0)
-            }   val //_simplify(&val)
+            }   val //simplify(&val)
         }
 
         Self { v: operate(a, op, b),
@@ -143,10 +141,8 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
                 // (A * (a * b)) => (a * (A * b)) if a < A
                 ('+', '+') | ('*', '*') if ba.v < a.v => return,
 
-                // (A + (a - b)) => ((A + a) - b)
-                // (A * (a / b)) => ((A * a) / b)
-                // (A - (a - b)) => ((A + b) - a)
-                // (A / (a / b)) => ((A * b) / a)
+                // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
+                // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
                 ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return,
 
                 _ => ()
@@ -174,9 +170,7 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
-impl From<Rational> for Expr {
-    fn from(r: Rational) -> Self { Self { v: r, m: None } }
-}
+impl From<Rational> for Expr { fn from(r: Rational) -> Self { Self { v: r, m: None } } }
 
 impl From<i32> for Expr {
     fn from(n: i32) -> Self { Rational::from(n).into() }
@@ -226,14 +220,13 @@ impl PartialOrd for Expr {
 
 impl Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl PartialEq for Expr {
-    fn eq(&self, rhs: &Self) -> bool {
+    fn eq(&self, rhs: &Self) -> bool { //self.partial_cmp(rhs) == Some(Ordering::Equal)
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
             (Some((la, lop, lb)), Some((ra, rop, rb))) =>
                 la == ra && lop.0 == rop.0 && lb == rb,     // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v
-        //self.partial_cmp(rhs) == Some(Ordering::Equal)
     }
 }
 
