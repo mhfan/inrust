@@ -72,5 +72,5 @@ panic = 'abort'
 #debug = true    # for flamegraph
 #lto = true
 
-#[profile.release-lto]
+#[profile.release-lto]  # customized profile
 #inherits = "release"

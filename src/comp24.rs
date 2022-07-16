@@ -685,9 +685,8 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
         });
     }
 
-    /*#[test] */fn _comp24_c() {
-        //#[link(name = "comp24")]
-        extern "C" { fn test_comp24(); }
+    #[cfg(feature = "cc")] /*#[test] */fn _comp24_c() {
+        /*#[link(name = "comp24")] */extern "C" { fn test_comp24(); }
         unsafe { test_comp24(); }
     }
 
