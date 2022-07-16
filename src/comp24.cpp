@@ -122,8 +122,8 @@ void form_expr(const auto a, const auto b, auto func) {
         // (A * (a * b)) => (a * (A * b)) if a < A
         if (b->a && op == b->op && (op == '+' || op == '*') && b->a->v < a->v) continue;
 
-        // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
-        // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
+        // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b),
+        // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a),
         if ((op == '+' && b->op == '-') || (op == '*' && b->op == '/') ||
             (op == b->op && (op == '-'  ||  op == '/'))) continue;
 

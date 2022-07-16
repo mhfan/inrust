@@ -17,7 +17,8 @@ pub use std::rc::Rc;
 //use itertools::Itertools;
 use yansi::Paint;   // Color, Style
 
-#[derive(Debug/*, Clone, Copy*/)] #[repr(C)] pub struct Rational(i32, i32);
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
+#[derive(Debug)] #[repr(C)] pub struct Rational(pub i32, pub i32);
 //#[repr(C)] pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
 
@@ -42,11 +43,12 @@ pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 impl From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
 
 impl Display for Rational {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { //simplify(&self);
-        if self.1 == 0 { write!(f, r"(INV)")? } else {
-            let braket = self.0 * self.1 < 0 || self.1 != 1;
-            if  braket { write!(f, r"(")? }     write!(f, r"{}", self.0)?;
-            if  self.1 != 1 { write!(f, r"/{}", self.1)? }
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let srn = self; //.simplify();
+        if srn.1 == 0 { write!(f, r"(INV)")? } else {
+            let braket = srn.0 * srn.1 < 0 || srn.1 != 1;
+            if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
+            if  srn.1 != 1 { write!(f, r"/{}", srn.1)? }
             if  braket { write!(f, r")")? }
         }   Ok(())
     }
@@ -82,19 +84,20 @@ impl PartialEq for Rational {
     }
 }
 
-#[allow(dead_code)] fn simplify(v: &Rational) -> Rational {    // XXX: move to impl Rational?
-    // Calculate the greatest common denominator for two numbers
-    fn gcd(a: i32, b: i32) -> i32 {
-        let (mut m, mut n) = (a, b);
-        while m != 0 {  // Use Euclid's algorithm
-            let temp = m;
-            m = n % temp;
-            n = temp;
-        }   n.abs()
-    }
+impl Rational {
+    fn simplify(&self) -> Self {    // XXX: move to impl Rational?
+        fn gcd(a: i32, b: i32) -> i32 { // Greatest Common Denominator
+            let (mut m, mut n) = (a, b);
+            while m != 0 {  // Use Euclid's algorithm
+                let temp = m;
+                m = n % temp;
+                n = temp;
+            }   n //.abs()
+        }
 
-    let gcd = gcd(v.0, v.1);
-    Rational(v.0 / gcd, v.1 / gcd)
+        let gcd = gcd(self.0, self.1);
+        Self(self.0 / gcd, self.1 / gcd)  //*self
+    }
 }
 
 impl Expr {
@@ -110,7 +113,7 @@ impl Expr {
                 } else { val.1 = 0; }  // invalidation
 
                 _ => unimplemented!("operator '{}'", op.0)
-            }   val //simplify(&val)
+            }   val //.simplify()   // XXX: reduce probablity of computation overflow
         }
 
         Self { v: operate(a, op, b),
@@ -141,8 +144,8 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
                 // (A * (a * b)) => (a * (A * b)) if a < A
                 ('+', '+') | ('*', '*') if ba.v < a.v => return,
 
-                // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
-                // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
+                // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b),
+                // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a),
                 ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return,
 
                 _ => ()
@@ -170,11 +173,11 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
-impl From<Rational> for Expr { fn from(r: Rational) -> Self { Self { v: r, m: None } } }
-
-impl From<i32> for Expr {
-    fn from(n: i32) -> Self { Rational::from(n).into() }
+impl From<Rational> for Expr {
+    fn from(r: Rational) -> Self { Self { v: r.simplify(), m: None } }
 }
+
+impl From<i32> for Expr { fn from(n: i32) -> Self { Rational::from(n).into() } }
 
 impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -436,7 +439,10 @@ pub fn comp24_main() {
     fn comp24_helper<I, S>(goal: &Rational, nums: I)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
         let nums = nums.map(|str| str.as_ref().parse::<Rational>())
-            .inspect(|res| if let Err(why) = res { eprintln!(r"Error parsing data: {why}")})
+            .inspect(|res| match res {  // XXX: exit on error?
+                Err(why) => eprintln!(r"Error parsing rational: {}", Paint::red(why)),
+                Ok(rn) => if rn.1 == 0 {
+                    eprintln!(r"Invalid rational number: {}/{}", rn.0, Paint::red(rn.1)) }})
             .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
         //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
         if  nums.len() < 2 { return eprintln!(r"{}",
@@ -571,9 +577,7 @@ pub fn comp24_main() {
 #[cfg(test)] mod tests {     // unit test
     use super::*;   // Need to import items from parent module, to access non-public members.
 
-    #[test] fn rational() {
-        use super::*;
-
+    #[test] fn parse_disp_rn() {
         let cases = [
             (Rational::from(0), "0"), (Rational(1, 2), "(1/2)"),
             (Rational::from(1), "1"), (Rational::from(-1), "(-1)"),
@@ -585,6 +589,19 @@ pub fn comp24_main() {
             assert_eq!(it.1.trim_start_matches('(').trim_end_matches(')')
                 .parse::<Rational>().unwrap(),  it.0, r"parsing {} != {}",
                 Paint::red(&it.1), Paint::cyan(&it.0));
+        });
+    }
+
+    #[test] fn simplify_rn() {
+        let cases = [
+            (Rational(-1, -1), Rational(1, 1)),
+            (Rational(-4, -2), Rational(2, 1)),
+            (Rational( 6,  2), Rational(3, 1)),
+        ];
+
+        cases.iter().for_each(|(a, b)| {
+            let sa = a.simplify();
+            assert!(sa.0 == b.0 && sa.1 == b.1, "simplified rational: {sa}");
         });
     }
 
