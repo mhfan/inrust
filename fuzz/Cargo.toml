@@ -1,10 +1,13 @@
 
+# https://rust-fuzz.github.io/book/
+# cargo fuzz init
+
 [package]
+#authors = ["Automatically generated"]
 name = "hello-rust-fuzz"
-version = "0.0.0"
-authors = ["Automatically generated"]
-publish = false
+version = "0.0.1"
 edition = "2021"
+publish = false
 
 [package.metadata]
 cargo-fuzz = true
