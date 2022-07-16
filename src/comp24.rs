@@ -473,10 +473,10 @@ pub fn comp24_main() {
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }
             } else { eprintln!(r"Lack parameter for GOAL!") }
-        }
 
-        comp24_helper(&goal, nums);
-        if want_exit { std::process::exit(0) }
+            comp24_helper(&goal, nums);
+            if want_exit { std::process::exit(0) }
+        }
     }
 
     /* use core::mem::size_of;   // size_of_val(a)
@@ -571,7 +571,7 @@ pub fn comp24_main() {
 #[cfg(test)] mod tests {     // unit test
     use super::*;   // Need to import items from parent module, to access non-public members.
 
-    #[test] fn test_rational() {
+    #[test] fn rational() {
         use super::*;
 
         let cases = [
@@ -588,7 +588,7 @@ pub fn comp24_main() {
         });
     }
 
-    #[test] fn test_comp24() {
+    #[test] fn comp24() {
         let cases = [
             ( 24, vec![ 0], vec![], 0),
             ( 24, vec![24], vec!["24"], 0),
@@ -612,7 +612,7 @@ pub fn comp24_main() {
         cases.into_iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < cnt { cnt } else { res.len() };
-            println!(r"Test compute {:3} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
+            println!(r"Compute {:3} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
             let goal = goal.into();
 
             #[cfg(feature = "cc")]
@@ -665,13 +665,13 @@ pub fn comp24_main() {
         });
     }
 
-    /*#[test] */fn _test_comp24_c() {
+    /*#[test] */fn _comp24_c() {
         //#[link(name = "comp24")]
         extern "C" { fn test_comp24(); }
         unsafe { test_comp24(); }
     }
 
-    /*#[test] #[bench] */fn _bench_comp24() {
+    /*#[test] #[bench] */fn _comp24_random() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 
@@ -681,7 +681,7 @@ pub fn comp24_main() {
 
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-            println!(r"Bench compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
+            println!(r"Compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
             let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
             let (goal, now) = (goal.into(), Instant::now());
 

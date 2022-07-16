@@ -28,7 +28,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6, 7]);
 
     use yansi::Paint;
-    println!("Benchmark compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));
+    println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));
     let (mut cnt, goal) = (0, goal.into());
 
     #[cfg(feature = "cc")]
