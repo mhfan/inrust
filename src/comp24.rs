@@ -23,15 +23,14 @@ use yansi::Paint;   // Color, Style
 //type Rational = (i32, i32);
 
 //#[derive(/*Debug, */Clone, Copy)]
-struct Oper(char);  // newtype idiom
+struct Oper(u8);    // newtype idiom
 //#[repr(C, i32)] enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
 //type Oper = char;   // type alias
 
 //#[derive(Debug)] enum Value { Void, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
-//#[derive(Debug)]
-//#[repr(packed(4)/*, align(4)*/)]
+//#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
 
 //std::ops::{Add, Sub, Mul, Div}
@@ -105,10 +104,10 @@ impl Expr {
         #[inline(always)] fn operate(a: &Expr, op: &Oper, b: &Expr) -> Rational {
             let mut val = Rational(0, 0);
             match op.0 {
-                '+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-                '-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-                '*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-                '/' => if b.v.1 != 0 {
+                b'+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                b'-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                b'*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
+                b'/' => if b.v.1 != 0 {
                          val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
                 } else { val.1 = 0; }  // invalidation
 
@@ -122,10 +121,10 @@ impl Expr {
 }
 
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    //const Add: Oper = Oper('+');  const Sub: Oper = Oper('-');
-    //const Mul: Oper = Oper('*');  const Div: Oper = Oper('/');
+    //const Add: Oper = Oper(b'+');  const Sub: Oper = Oper(b'-');
+    //const Mul: Oper = Oper(b'*');  const Div: Oper = Oper(b'/');
     //const OPS: [Oper; 4] = [ Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/') ];
-    const OPS: [Oper; 4] = [ Oper('+'), Oper('-'), Oper('*'), Oper('/') ];
+    const OPS: [Oper; 4] = [ Oper(b'+'), Oper(b'-'), Oper(b'*'), Oper(b'/') ];
 
     OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
         // keep human friendly expr. form ONLY
@@ -135,30 +134,30 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 
             // ((a - b) + B) => ((a + B) - b)
             // ((a / b) * B) => ((a * B) / b)
-            match (aop.0, op.0) { ('-', '+') | ('/', '*') => return, _ => () }
+            match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
         }
 
         if let Some((ba, bop, ..)) = &b.m {
             match (op.0, bop.0) {
                 // (A + (a + b)) => (a + (A + b)) if a < A
                 // (A * (a * b)) => (a * (A * b)) if a < A
-                ('+', '+') | ('*', '*') if ba.v < a.v => return,
+                (b'+', b'+') | (b'*', b'*') if ba.v < a.v => return,
 
                 // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b),
                 // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a),
-                ('+', '-') | ('*', '/') | ('-', '-') | ('/', '/') => return,
+                (b'+', b'-') | (b'*', b'/') | (b'-', b'-') | (b'/', b'/') => return,
 
                 _ => ()
             }
         }
 
         // swap sub-expr. for order mattered (different values) operators
-        if op.0 == '/' && a.v.0 != 0 || op.0 == '-'/* && !is_subn_expr(a)*/ {
+        if op.0 == b'/' && a.v.0 != 0 || op.0 == b'-'/* && !is_subn_expr(a)*/ {
             func(Rc::new(Expr::new(b, op, a)));
         }
 
         // prefer (b - a) than (a - b) when a < b
-        if op.0 == '/' && b.v.0 == 0 || op.0 == '-'/* &&  is_subn_expr(b)*/ { return }
+        if op.0 == b'/' && b.v.0 == 0 || op.0 == b'-'/* &&  is_subn_expr(b)*/ { return }
         func(Rc::new(Expr::new(a, op, b)));
     });
 
@@ -184,14 +183,14 @@ impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
         if let Some((a, op, b)) = &self.m {
             //#[allow(clippy::logic_bug)]
             let braket = if let Some((_, aop, ..)) = &a.m { //true ||
-                matches!(aop.0, '+' | '-') && matches!(op.0, '*' | '/') } else { false };
+                matches!(aop.0, b'+' | b'-') && matches!(op.0, b'*' | b'/') } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
-            if  braket { write!(f, r")")? }     write!(f, r"{}", op.0)?;
+            if  braket { write!(f, r")")? }     write!(f, r"{}", op.0 as char)?;
 
             let braket = if let Some((_, bop, ..)) = &b.m { //true ||
-                op.0 == '/' && matches!(bop.0, '*' | '/') ||
-                op.0 != '+' && matches!(bop.0, '+' | '-') } else { false };
+                op.0 == b'/' && matches!(bop.0, b'*' | b'/') ||
+                op.0 != b'+' && matches!(bop.0, b'+' | b'-') } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
             if  braket { write!(f, r")")? }
@@ -407,6 +406,7 @@ fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
 #[repr(C, u8)] pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
 pub  use Comp24Algo::*;
 
+// view dhat-heap.json in https://nnethercote.github.io/dh_view/dh_view.html
 #[cfg(feature = "dhat-heap")] #[global_allocator] static ALLOC: dhat::Alloc = dhat::Alloc;
 // cargo run --features dhat-heap
 
