@@ -129,11 +129,11 @@ void form_expr(const auto a, const auto b, auto func) {
 
         // swap sub-expr. for order mattered (different values) operators
         if ((op == '/' && a->v.n != 0) || (op == '-'/* && !is_subn_expr(a)*/)) {
-            auto e = std::make_shared<const Expr>(b, op, a); func(e);
+            auto e = std::make_shared<const Expr>(b, a, op); func(e);
         }
 
         if ((op == '/' && b->v.n == 0) || (op == '-'/* &&  is_subn_expr(b)*/)) continue;
-            auto e = std::make_shared<const Expr>(a, op, b); func(e);
+            auto e = std::make_shared<const Expr>(a, b, op); func(e);
     }
 }
 

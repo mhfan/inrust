@@ -31,7 +31,7 @@ struct Oper(u8);    // newtype idiom
 //type Value = Option<Rational>;
 
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
-pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Oper, Rc<Expr>)> }
+pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>, Oper)> }
 
 //std::ops::{Add, Sub, Mul, Div}
 /* impl std::ops::Add for Rational {
@@ -84,7 +84,7 @@ impl PartialEq for Rational {
 }
 
 impl Rational {
-    fn simplify(&self) -> Self {    // XXX: move to impl Rational?
+    fn simplify(&self) -> Self {
         fn gcd(a: i32, b: i32) -> i32 { // Greatest Common Denominator
             let (mut m, mut n) = (a, b);
             while m != 0 {  // Use Euclid's algorithm
@@ -100,8 +100,8 @@ impl Rational {
 }
 
 impl Expr {
-    fn new(a: &Rc<Self>, op: &Oper, b: &Rc<Self>) -> Self {
-        #[inline(always)] fn operate(a: &Expr, op: &Oper, b: &Expr) -> Rational {
+    fn new(a: &Rc<Self>, b: &Rc<Self>, op: &Oper) -> Self {
+        #[inline(always)] fn operate(a: &Expr, b: &Expr, op: &Oper) -> Rational {
             let mut val = Rational(0, 0);
             match op.0 {
                 b'+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
@@ -115,8 +115,8 @@ impl Expr {
             }   val //.simplify()   // XXX: reduce probablity of computation overflow
         }
 
-        Self { v: operate(a, op, b),
-               m: Some((Rc::clone(a), Oper(op.0), Rc::clone(b))) }
+        Self { v: operate(a, b, op),
+               m: Some((Rc::clone(a), Rc::clone(b), Oper(op.0))) }
     }
 }
 
@@ -128,7 +128,7 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 
     OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
         // keep human friendly expr. form ONLY
-        if let Some((_, aop, ..)) = &a.m {
+        if let Some((.., aop)) = &a.m {
             // ((a . b) . B) => (a . (b . B))
             if aop.0 == op.0 { return }
 
@@ -137,7 +137,7 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
             match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
         }
 
-        if let Some((ba, bop, ..)) = &b.m {
+        if let Some((ba, _, bop)) = &b.m {
             match (op.0, bop.0) {
                 // (A + (a + b)) => (a + (A + b)) if a < A
                 // (A * (a * b)) => (a * (A * b)) if a < A
@@ -153,12 +153,12 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 
         // swap sub-expr. for order mattered (different values) operators
         if op.0 == b'/' && a.v.0 != 0 || op.0 == b'-'/* && !is_subn_expr(a)*/ {
-            func(Rc::new(Expr::new(b, op, a)));
+            func(Rc::new(Expr::new(b, a, op)));
         }
 
         // prefer (b - a) than (a - b) when a < b
         if op.0 == b'/' && b.v.0 == 0 || op.0 == b'-'/* &&  is_subn_expr(b)*/ { return }
-        func(Rc::new(Expr::new(a, op, b)));
+        func(Rc::new(Expr::new(a, b, op)));
     });
 
     /* #[inline(always)] fn is_subn_expr(e: &Expr) -> bool {
@@ -180,15 +180,15 @@ impl From<i32> for Expr { fn from(n: i32) -> Self { Rational::from(n).into() } }
 
 impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some((a, op, b)) = &self.m {
+        if let Some((a, b, op)) = &self.m {
             //#[allow(clippy::logic_bug)]
-            let braket = if let Some((_, aop, ..)) = &a.m { //true ||
+            let braket = if let Some((.., aop)) = &a.m { //true ||
                 matches!(aop.0, b'+' | b'-') && matches!(op.0, b'*' | b'/') } else { false };
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
             if  braket { write!(f, r")")? }     write!(f, r"{}", op.0 as char)?;
 
-            let braket = if let Some((_, bop, ..)) = &b.m { //true ||
+            let braket = if let Some((.., bop)) = &b.m { //true ||
                 op.0 == b'/' && matches!(bop.0, b'*' | b'/') ||
                 op.0 != b'+' && matches!(bop.0, b'+' | b'-') } else { false };
 
@@ -208,12 +208,12 @@ impl PartialOrd for Expr {
             (None, Some(_)) => Some(Ordering::Less),
             (Some(_), None) => Some(Ordering::Greater),
 
-            (Some((la, lop, lb)), Some((ra, rop, rb))) => {
+            (Some((la, lb, lop)), Some((ra, rb, rop))) => {
                 let ord = la.partial_cmp(ra);   // recursive
                 if  ord != Some(Ordering::Equal) { return ord }
-                let ord = lop.0.partial_cmp(&rop.0);
-                if  ord != Some(Ordering::Equal) { return ord }
                 let ord = lb.partial_cmp(rb);   // recursive
+                if  ord != Some(Ordering::Equal) { return ord }
+                let ord = lop.0.partial_cmp(&rop.0);
                 if  ord != Some(Ordering::Equal) { return ord }  ord
             }
         }
@@ -225,8 +225,8 @@ impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool { //self.partial_cmp(rhs) == Some(Ordering::Equal)
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
-            (Some((la, lop, lb)), Some((ra, rop, rb))) =>
-                la == ra && lop.0 == rop.0 && lb == rb,     // recursive
+            (Some((la, lb, lop)), Some((ra, rb, rop))) =>
+                la == ra && lb == rb && lop.0 == rop.0,     // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v
     }
@@ -241,7 +241,7 @@ fn _hash_combine(lhs: u32, rhs: u32) -> u32 {
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
-        if let Some((a, op, b)) = &self.m {
+        if let Some((a, b, op)) = &self.m {
             a.hash(state);  b.hash(state); op.0.hash(state);    // recursive
         } else { self.v.0.hash(state); self.v.1.hash(state); }
     }
@@ -352,11 +352,9 @@ fn comp24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
     let (n, mut i, ia) = (nums.len(), 0, false);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
-    while i < n {   let mut j = i + 1;
-        let ta = nums[i].clone();
-
-        while j < n {
-            let tb = nums[j].clone();
+    while i < n {
+        let (ta, mut j) = (nums[i].clone(), i + 1);
+        while j < n {    let tb = nums[j].clone();
             let (a, b) = if tb < ta { (&tb, &ta) } else { (&ta, &tb) };
 
             let mut hasher = DefaultHasher::default();
@@ -410,7 +408,7 @@ pub  use Comp24Algo::*;
 #[cfg(feature = "dhat-heap")] #[global_allocator] static ALLOC: dhat::Alloc = dhat::Alloc;
 // cargo run --features dhat-heap
 
-#[inline(always)] pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>],
+#[inline] pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>],
     algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
@@ -514,7 +512,7 @@ pub fn comp24_main() {
     }
 }
 
-#[cfg(feature = "cc")] #[inline(always)]
+#[cfg(feature = "cc")] #[inline]
 pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> usize {
     #[repr(C)] struct Comp24 {
         algo: Comp24Algo, //ia: bool,

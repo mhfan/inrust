@@ -25,16 +25,16 @@ struct Expr;
 typedef std::shared_ptr<const Expr> PtrE;
 
 struct Expr {   Rational v;
-    struct { Oper op; PtrE a, b; };     // anonymous structure
+    struct { PtrE a, b; Oper op; };     // anonymous structure
 
     Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
     Expr(const Rational& r, Oper op = Num,
-        PtrE a = nullptr, PtrE b = nullptr): v(r), op(op), a(a), b(b) {}
+        PtrE a = nullptr, PtrE b = nullptr): v(r), a(a), b(b), op(op) {}
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
     //~Expr();
 
-    Expr(auto a, auto op, auto b): v(0), op(op), a(a), b(b) {
+    Expr(auto a, auto b, auto op): v(0), a(a), b(b), op(op) {
         switch (op) {
             case '+': //v = a->v + b->v; break;
                 v.n = a->v.n * b->v.d + a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
@@ -45,7 +45,7 @@ struct Expr {   Rational v;
             case '/': //v = a->v / b->v; break;
                 0 ==  b->v.d ? (v.d = 0) :
                (v.n = a->v.n * b->v.d, v.d = a->v.d * b->v.n); break;
-            default: ;
+            default: v.d = 0;   // XXX:
         }
     }
 };
