@@ -48,24 +48,21 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 
 # 积累和 TODO
 
-+ Continuous Integration (Github Action)
-+ build timestamp & commit-ID
-+ internationalization (i18n)
-+ SVG/UI/WebAssembly/XR/Game
-+ docs & playround
-+ Code coverage
-+ crates.io
-+ CodeLLDB
-+ C++ FFI
-
----
-
-> + flamegraph
-> + C FFI & build.rs
-> + benchmark/criterion
-> + Continuous (Unit/Integrate/Fuzz) Test
-> + cargo/crate/module organization
-> + conditional compilation
-> + Rust programming
++ [ ] Continuous Integration/Deployment (Github Action)
++ [ ] build timestamp & commit-ID
++ [ ] internationalization (i18n)
++ [ ] SVG/UI/WebAssembly/XR/Game
++ [ ] docs & playround
++ [ ] Code coverage
++ [ ] crates.io
++ [ ] CodeLLDB
++ [ ] C++ FFI
++ [x] flamegraph
++ [x] C FFI & build.rs
++ [x] benchmark/criterion
++ [x] Continuous (Unit/Integrate/Fuzz) Test
++ [x] cargo/crate/module organization
++ [x] conditional compilation
++ [x] Rust programming
 
 # References
