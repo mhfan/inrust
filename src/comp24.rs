@@ -514,9 +514,8 @@ pub fn comp24_main() {
     }
 }
 
-#[cfg(feature = "cc")]
-#[inline(always)] pub fn comp24_algo_c(goal: &Rational, nums: &[Rational],
-    algo: Comp24Algo) -> usize {
+#[cfg(feature = "cc")] #[inline(always)]
+pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> usize {
     #[repr(C)] struct Comp24 {
         algo: Comp24Algo, //ia: bool,
         goal: Rational, //nums: &[Rational],
@@ -635,17 +634,19 @@ pub fn comp24_main() {
             #[cfg(feature = "cc")]
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
 
-            #[cfg(feature = "cc")] let assert_closure_c = |algo| {
-                let elen = comp24_algo_c(&goal, &nums, algo);
-                println!(r"  Got {} expr. by algo-Cxx{:?}",
-                    Paint::green(elen), Paint::green(algo));
-                assert!(elen == cnt, r"Unexpect count by algo-Cxx{:?}: {} != {}",
-                    Paint::magenta(algo), Paint::red(elen), Paint::cyan(cnt));
-            };
+            #[cfg(feature = "cc")] {
+                let assert_closure_c = |algo| {
+                    let elen = comp24_algo_c(&goal, &nums, algo);
+                    println!(r"  Got {} expr. by algo-Cxx{:?}",
+                        Paint::green(elen), Paint::green(algo));
+                    assert!(elen == cnt, r"Unexpect count by algo-Cxx{:?}: {} != {}",
+                        Paint::magenta(algo), Paint::red(elen), Paint::cyan(cnt));
+                };
 
-            #[cfg(feature = "cc")] assert_closure_c(DynProg (false));
-            #[cfg(feature = "cc")] assert_closure_c(SplitSet(false));
-            #[cfg(feature = "cc")] if cnt < 100 { assert_closure_c(Inplace); }
+                assert_closure_c(DynProg (false));
+                assert_closure_c(SplitSet(false));
+                if cnt < 100 { assert_closure_c(Inplace); }
+            }
 
             let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
             let assert_closure = |algo| {
@@ -670,15 +671,17 @@ pub fn comp24_main() {
             assert_closure(Inplace);
             assert_closure(Construct);
 
-            #[cfg(feature = "cxx")] use cxx::{/*CxxVector, */memory::SharedPtr};
-            #[cfg(feature = "cxx")] impl From<Expr> for ffi_cxx::Expr {
-                fn from(e: Expr) -> Self { Self { v: unsafe { core::mem::transmute(e.v) },
-                    op: ffi_cxx::Oper::Num, a: SharedPtr::null(), b: SharedPtr::null() }
+            #[cfg(feature = "cxx")] {
+                use cxx::{/*CxxVector, */memory::SharedPtr};
+                impl From<Expr> for ffi_cxx::Expr {
+                    fn from(e: Expr) -> Self { Self { v: unsafe { core::mem::transmute(e.v) },
+                        op: ffi_cxx::Oper::Num, a: SharedPtr::null(), b: SharedPtr::null() }
+                    }
                 }
-            }
 
-            //let goal: Rational = unsafe { core::mem::transmute(goal) };
-            //#[cfg(feature = "cxx")] ffi_cxx::comp24_dynprog(&goal, &nums);    // FIXME:
+                //let goal: Rational = unsafe { core::mem::transmute(goal) };
+                //ffi_cxx::comp24_dynprog(&goal, &nums);    // FIXME:
+            }
         });
     }
 
@@ -714,6 +717,16 @@ pub fn comp24_main() {
             Paint::magenta(total_time.as_millis() as f32 / 1000.0), Paint::magenta(cnt));
         assert!(total_time.as_secs() < 8);
     }
+
+    // https://doc.rust-lang.org/nightly/rustc/instrument-coverage.html
+    // RUSTFLAGS="-C instrument-coverage" cargo test
+    // llvm-profdata merge -sparse default.profraw -o default.profdata
+    // llvm-cov report --use-color --ignore-filename-regex='/.cargo/registry' \
+    //      -instr-profile=default.profdata target/debug/examples/comp24
+    // llvm-cov show   --use-color --ignore-filename-regex='/.cargo/registry' \
+    //      -instr-profile=default.profdata target/debug/examples/comp24 \
+    //      -Xdemangler=rustfilt -show-line-counts-or-regions \
+    //      -show-instantiations -name=add_quoted_string
 
     // cargo test -- --color always --nocapture
 }

@@ -33,15 +33,18 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     #[cfg(feature = "cc")]
     let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
-    #[cfg(feature = "cc")] let mut bench_closure_c = |algo| {
-        group.bench_function(format!("Cxx{:?}", algo), |b|
-            b.iter(|| { cnt = comp24_algo_c(&goal, &nums, algo); }));
-        if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
-    };
 
-    #[cfg(feature = "cc")] bench_closure_c(DynProg (false));
-    //#[cfg(feature = "cc")] bench_closure_c(SplitSet(false));
-    //#[cfg(feature = "cc")] bench_closure_c(Inplace);
+    #[cfg(feature = "cc")] {
+        let mut bench_closure_c = |algo| {
+            group.bench_function(format!("Cxx{:?}", algo), |b|
+                b.iter(|| { cnt = comp24_algo_c(&goal, &nums, algo); }));
+            if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
+        };
+
+        bench_closure_c(DynProg (false));
+        //bench_closure_c(SplitSet(false));
+        //bench_closure_c(Inplace);
+    }
 
     let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let mut bench_closure = |algo| {

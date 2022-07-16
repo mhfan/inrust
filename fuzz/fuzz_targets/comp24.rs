@@ -9,13 +9,14 @@ use libfuzzer_sys::fuzz_target;
 
 // https://rust-fuzz.github.io/book/
 // XXX: rustup override set nightly
+
 // cargo +nightly fuzz run comp24
 // cargo +nightly fuzz coverage comp24
 // cargo cov -- show fuzz/target/aarch64-apple-darwin/release/comp24 --format=html \
 //      -instr-profile=fuzz/coverage/comp24/coverage.profdata > fuzz/coverage/comp24/index.html
 
 fuzz_target!(|data: Vec<Rational>| {
-    if data.len() < 3 || 6 < data.len() { return }
+    if data.len() < 3 || 6 < data.len() { return }  // FIXME: why return don't work?
     if data.iter().any(|rn| rn.1 == 0 || 100 < rn.0.abs() || 100 < rn.1.abs()) { return }
     let nums = data.iter().skip(1).map(|n| Rc::new((*n).into())).collect::<Vec<_>>();
     comp24_algo(&data[0], &nums, DynProg (false));
