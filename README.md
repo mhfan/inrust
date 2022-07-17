@@ -52,11 +52,11 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [ ] build timestamp & commit-ID
 + [ ] internationalization (i18n)
 + [ ] SVG/UI/WebAssembly/XR/Game
-+ [ ] docs & playround
 + [ ] Code coverage
 + [ ] crates.io
 + [ ] CodeLLDB
 + [ ] C++ FFI
++ [x] doc-tests
 + [x] flamegraph
 + [x] C FFI & build.rs
 + [x] benchmark/criterion

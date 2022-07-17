@@ -537,7 +537,9 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
 
     //debug_assert!(core::mem::size_of::<bool>() == 1);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", comp24.algo, comp24.goal, comp24.ncnt);
-    debug_assert!(core::mem::size_of_val(&comp24.algo) == 2);
+    debug_assert!(core::mem::size_of_val(&comp24.algo) == 2,
+        "{}", std::any::type_name::<Comp24Algo>());
+
     extern "C" { fn comp24_algo(comp24: *mut Comp24); }
 
     //core::ptr::addr_of_mut!(comp24);
