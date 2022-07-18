@@ -9,15 +9,21 @@
 **泛化的 '24' 点计算**：给定任意个有理数， 使用 `(+, -, *, /)`
 四则计算和括号的组合成表达式，使其结果为预先给定的任意目标有理数；
 
-**并且要求**：输出计算形式/方法/结构上 _不相同的所有_ 表达式结果；
-
-    === Solve 24 computation ===
+**并且要求**：只输出计算形式/方法/结构上 _不相同的所有_ 表达式结果；
 
     Input integers/rationals for 24: 1 2 3 4
     1*2*3*4
     2*3*4/1
     (1+3)*(2+4)
     4*(1+2+3)
+
+    Input integers/rationals for 24: 8 8 3 3
+    8/(3-8/3)
+
+    Input integers/rationals for 24: g100 13 14 15 16 17
+    ### Reset GOAL to 100 ###
+    16+(17-14)*(13+15)
+    (17-13)*(14+15)-16
 
 ### (自上而下) 分集计算法
 
@@ -49,10 +55,11 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 # 积累和 TODO
 
 + [ ] Continuous Integration/Deployment (Github Action)
++ [ ] Code coverage automatically
 + [ ] build timestamp & commit-ID
 + [ ] internationalization (i18n)
 + [ ] SVG/UI/WebAssembly/XR/Game
-+ [ ] Code coverage
++ [ ] concurrency
 + [ ] crates.io
 + [ ] CodeLLDB
 + [ ] C++ FFI

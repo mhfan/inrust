@@ -12,10 +12,9 @@
 //use std::io::prelude::*;
 use std::{fmt::{Display,Formatter}, cmp::{Eq, /*Ord, */Ordering, PartialEq}};
 use core::convert::From;
-pub use std::rc::Rc;
 
-//use itertools::Itertools;
 use yansi::Paint;   // Color, Style
+//use itertools::Itertools;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
 #[derive(Debug)] #[repr(C)] pub struct Rational(pub i32, pub i32);
@@ -27,9 +26,10 @@ struct Oper(u8);    // newtype idiom
 //#[repr(C, i32)] enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
 //type Oper = char;   // type alias
 
-//#[derive(Debug)] enum Value { Void, Valid, R(Rational) }
+//#[derive(Debug)] enum Value { None, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
+pub use std::rc::Rc;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>, Oper)> }
 
@@ -103,16 +103,16 @@ impl Expr {
     fn new(a: &Rc<Self>, b: &Rc<Self>, op: &Oper) -> Self {
         #[inline(always)] fn operate(a: &Expr, b: &Expr, op: &Oper) -> Rational {
             let mut val = Rational(0, 0);
-            match op.0 {
+            match op.0 {    // XXX: check overflow?
                 b'+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
                 b'-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
                 b'*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
                 b'/' => if b.v.1 != 0 {
-                         val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
-                } else { val.1 = 0; }  // invalidation
+                          val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
+                }  else { val.1 = 0; }  // invalidation
 
                 _ => unimplemented!("operator '{}'", op.0)
-            }   val //.simplify()   // XXX: reduce probablity of computation overflow
+            }   val //.simplify()   // XXX: reduce probablity of future overflow
         }
 
         Self { v: operate(a, b, op),
@@ -274,8 +274,8 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
 
         if  sub_round {     // skip duplicate combinations over different 'x'
             let mut hasher = DefaultHasher::default();
-            //nums.iter().enumerate().for_each(|(i, e)| {
-            //    if (1 << i) & x != 0 { e.hash(&mut hasher) } });
+            //nums.iter().enumerate().for_each(|(i, e)|     // no index access for list
+            //    if (1 << i) & x != 0 { e.hash(&mut hasher) });
             let (mut n, mut i) = (1, 0);
             while  n < x {
                 if n & x != 0 { nums[i].hash(&mut hasher) }
@@ -284,6 +284,7 @@ fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>>
             if hv.contains(&h0) { continue } else { hv.push(h0) }
         }
 
+        // TODO: suitable concurrency for each vexp[x]?
         let mut exps = vexp[x].borrow_mut();
         for i in 1..(x+1)/2 {
             if x & i != i { continue }

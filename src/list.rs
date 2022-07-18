@@ -1,7 +1,7 @@
 
 // singly linked list implementation
-// https://github.com/rust-unofficial/too-many-lists/blob/master/lists/src/second.rs
 // https://rust-unofficial.github.io/too-many-lists/index.html
+// https://github.com/rust-unofficial/too-many-lists/blob/master/lists/src/second.rs
 
 pub struct List<T> { head: Link<T>, }
 
@@ -73,12 +73,10 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     }
 }
 
-#[cfg(test)]
-mod test {
+#[cfg(test)] mod test {
     use super::List;
 
-    #[test]
-    fn basics() {
+    #[test] fn basics() {
         let mut list = List::new();
 
         // Check empty list behaves right
@@ -106,8 +104,7 @@ mod test {
         assert_eq!(list.pop(), None);
     }
 
-    #[test]
-    fn peek() {
+    #[test] fn peek() {
         let mut list = List::new();
         assert_eq!(list.peek(), None);
         assert_eq!(list.peek_mut(), None);
@@ -122,8 +119,7 @@ mod test {
         assert_eq!(list.pop(), Some(42));
     }
 
-    #[test]
-    fn into_iter() {
+    #[test] fn into_iter() {
         let mut list = List::new();
         list.push(1); list.push(2); list.push(3);
 
@@ -134,8 +130,7 @@ mod test {
         assert_eq!(iter.next(), None);
     }
 
-    #[test]
-    fn iter() {
+    #[test] fn iter() {
         let mut list = List::new();
         list.push(1); list.push(2); list.push(3);
 
@@ -145,8 +140,7 @@ mod test {
         assert_eq!(iter.next(), Some(&1));
     }
 
-    #[test]
-    fn iter_mut() {
+    #[test] fn iter_mut() {
         let mut list = List::new();
         list.push(1); list.push(2); list.push(3);
 
