@@ -129,36 +129,61 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
         // keep human friendly expr. form ONLY
         if let Some((.., aop)) = &a.m {
-            // ((a . b) . B) => (a . (b . B))
-            if aop.0 == op.0 { return }
+            if aop.0 == op.0 { return }     // ((a . b) . B) => (a . (b . B))
 
             // ((a - b) + B) => ((a + B) - b)
             // ((a / b) * B) => ((a * B) / b)
-            match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
+            //match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
+            if aop.0 == b'-' && op.0 == b'+' || aop.0 == b'/' && op.0 == b'*' { return }
         }
 
         if let Some((ba, _, bop)) = &b.m {
+            /* if op.0 == bop.0 {
+                if  op.0 == b'-' || op.0 == b'/' { return }
+                if (op.0 == b'+' || op.0 == b'*') && ba.v < a.v { return }
+            }
+            //if matches!((op.0, bop.0), (b'+', b'-') | (b'*', b'/')) { return }
+            if op.0 == b'+' && bop.0 == b'-' || op.0 == b'*' && bop.0 == b'/' { return } */
+
             match (op.0, bop.0) {
                 // (A + (a + b)) => (a + (A + b)) if a < A
                 // (A * (a * b)) => (a * (A * b)) if a < A
                 (b'+', b'+') | (b'*', b'*') if ba.v < a.v => return,
 
-                // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b),
-                // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a),
+                // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
+                // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
                 (b'+', b'-') | (b'*', b'/') | (b'-', b'-') | (b'/', b'/') => return,
 
                 _ => ()
             }
         }
 
+        /* match op.0 {
+            b'/' => {
+                if a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ {
+                    func(Rc::new(Expr::new(b, a, op))) }
+                if b.v.0 == 0 { return }
+            }
+
+            b'-' => {   // prefer (b - a) than (a - b) since a < b
+                /*if a.v.0 != 0 && !is_subn_expr(a)*/ { func(Rc::new(Expr::new(b, a, op))) }
+                /*if b.v.0 == 0 ||  is_subn_expr(b)*/ { return }
+            }
+
+            _ => ()
+        }   func(Rc::new(Expr::new(a, b, op))); */
+
+        // x / 1 => x * 1, 0 / b => 0 * b; x - 0 => x + 0 ?
         // swap sub-expr. for order mattered (different values) operators
-        if op.0 == b'/' && a.v.0 != 0 || op.0 == b'-'/* && !is_subn_expr(a)*/ {
+        if op.0 == b'/' &&  a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ ||
+           op.0 == b'-'/* &&  a.v.0 != 0 && !is_subn_expr(a))*/ {
             func(Rc::new(Expr::new(b, a, op)));
         }
 
-        // prefer (b - a) than (a - b) when a < b
-        if op.0 == b'/' && b.v.0 == 0 || op.0 == b'-'/* &&  is_subn_expr(b)*/ { return }
-        func(Rc::new(Expr::new(a, b, op)));
+        // prefer (b - a) than (a - b) since a < b
+        if op.0 == b'/' && (b.v.0 == 0/* || b.v.0 == b.v.1 || a.v.0 == 0*/) ||
+           op.0 == b'-'/* && (b.v.0 == 0 ||  is_subn_expr(b))*/ { return }
+            func(Rc::new(Expr::new(a, b, op)));
     });
 
     /* #[inline(always)] fn is_subn_expr(e: &Expr) -> bool {
@@ -401,8 +426,8 @@ fn comp24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
         }));    exps
 }
 
-#[derive(Debug, Clone, Copy)]
-#[repr(C, u8)] pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
+#[derive(Debug, Clone, Copy)] #[repr(C, u8)]
+pub enum Comp24Algo { DynProg(bool), SplitSet(bool), Inplace, Construct, }
 pub  use Comp24Algo::*;
 
 // view dhat-heap.json in https://nnethercote.github.io/dh_view/dh_view.html
@@ -611,10 +636,13 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
             ( 24, vec![24], vec!["24"], 0),
             ( 24, vec![ 8, 8, 8, 8], vec![], 0),
             ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], 0),
+            ( 24, vec![ 3, 3, 7, 7], vec!["(3/7+3)*7"], 0),
             ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], 0),
             ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], 0),
             ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "2*3*4/1",
                                           "(1+3)*(2+4)", "4*(1+2+3)"], 0),
+            ( 24, vec![24,24,24,24], vec!["(24-24)*24+24", "24-(24-24)*24", // XXX:
+                                          "(24-24)/24+24", "24-(24-24)/24"], 0),
             (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)",
                                              "(17-13)*(14+15)-16"], 0),
             (  5, vec![ 1, 2, 3], vec!["1*(2+3)", "(2+3)/1", "2*3-1",

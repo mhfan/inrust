@@ -111,8 +111,7 @@ template <> struct hash<PtrE> {
 void form_expr(const auto a, const auto b, auto func) {
     const Oper OPS[] = { Add, Sub, Mul, Div };
     for (auto op: OPS) {
-        // ((a . b) . B) => (a . (b . B)
-        if (a->op == op) continue;
+        if (a->op == op) continue;  // ((a . b) . B) => (a . (b . B)
 
         // ((a - b) + B) => ((a + B) - b)
         // ((a / b) * B) => ((a * B) / b)
@@ -122,18 +121,21 @@ void form_expr(const auto a, const auto b, auto func) {
         // (A * (a * b)) => (a * (A * b)) if a < A
         if (b->a && op == b->op && (op == '+' || op == '*') && b->a->v < a->v) continue;
 
-        // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b),
-        // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a),
+        // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
+        // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
         if ((op == '+' && b->op == '-') || (op == '*' && b->op == '/') ||
             (op == b->op && (op == '-'  ||  op == '/'))) continue;
 
+        // x / 1 => x * 1, 0 / b => 0 * b; x - 0 => x + 0 ?
         // swap sub-expr. for order mattered (different values) operators
-        if ((op == '/' && a->v.n != 0) || (op == '-'/* && !is_subn_expr(a)*/)) {
-            auto e = std::make_shared<const Expr>(b, a, op); func(e);
-        }
+        if ((op == '/' &&  a->v.n != 0/* && a->v.n != a->v.d && b->v.n != 0*/) ||
+            (op == '-'/* &&  a->v.n != 0 && !is_subn_expr(a)*/))
+            func(std::make_shared<const Expr>(b, a, op));
 
-        if ((op == '/' && b->v.n == 0) || (op == '-'/* &&  is_subn_expr(b)*/)) continue;
-            auto e = std::make_shared<const Expr>(a, b, op); func(e);
+        // prefer (b - a) than (a - b) since a < b
+        if ((op == '/' && (b->v.n == 0/* || b->v.n == b->v.d || a->v.n == 0*/)) ||
+            (op == '-'/* && (b->v.n == 0 ||  is_subn_expr(b))*/)) continue;
+            func(std::make_shared<const Expr>(a, b, op));
     }
 }
 
@@ -281,7 +283,7 @@ void comp24_algo(Comp24* comp24) {
 
 #include <iomanip>
 
-extern "C" void test_comp24() {
+extern "C" void test_comp24() { // deprecated, unified with Rust unit test comp24
     using std::cout, std::cerr, std::endl, std::string;
 
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
