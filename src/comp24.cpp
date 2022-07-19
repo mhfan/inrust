@@ -55,14 +55,13 @@ auto operator< (const Expr& lhs, const auto& rhs) noexcept {
     }   return false;
 }
 
-inline auto operator==(const Expr& lhs, const auto& rhs) noexcept {
-    if (lhs.op == Num && rhs.op == Num) return  lhs.v == rhs.v;
-    if (lhs.op != Num && rhs.op != Num)
-        return lhs.op == rhs.op && *lhs.a == *rhs.a && *lhs.b == *rhs.b;
+// PtrE instead of Expr here regarding for implicit use in unordered_set
+inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept {
+    if (lhs->op == Num && rhs->op == Num) return  lhs->v == rhs->v;
+    if (lhs->op != Num && rhs->op != Num)
+        return lhs->op == rhs->op && lhs->a == rhs->a && lhs->b == rhs->b;
     return false;
 }
-
-inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
 
 #include <sstream>
 using std::ostream;
@@ -91,16 +90,12 @@ inline auto hash_combine(size_t lhs, auto rhs) {
 
 using std::hash; // #include <functional>
 
-template <> struct hash<Expr> {
-    size_t operator()(const Expr& e) const noexcept {
-        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  hash<Expr> hasher;
-            return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (char(e.op) << 13);
+template <> struct hash<PtrE> {
+    size_t operator()(const PtrE& e) const noexcept {
+        if (e->op == Num) return hash_combine(e->v.n, e->v.d); else {  hash<PtrE> hasher;
+            return hash_combine(hasher(e->a), hasher(e->b)) ^ (char(e->op) << 13);
         }
     }
-};
-
-template <> struct hash<PtrE> {
-    size_t operator()(const PtrE& e) const noexcept { return hash<Expr>{}(*e); }
 };
 
 /* bool is_subn_expr(const auto& e) {
@@ -108,7 +103,7 @@ template <> struct hash<PtrE> {
     return e->op == '-' && e->a->v < e->b->v;
 } */
 
-void form_expr(const auto a, const auto b, auto func) {
+void form_expr(const auto& a, const auto& b, auto func) {
     const Oper OPS[] = { Add, Sub, Mul, Div };
     for (auto op: OPS) {
         if (a->op == op) continue;  // ((a . b) . B) => (a . (b . B)
@@ -151,33 +146,31 @@ list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
 
     vector<list<PtrE>> vexp;       vexp.reserve(pow);
     for (auto i = 0; i < pow; ++i) vexp.push_back(list<PtrE>());
-    auto i = 0; for (auto e: nums) vexp[1 << i++].push_back(e);
+    auto i = 0; for (const auto& e: nums) vexp[1 << i++].push_back(e);
 
     vector<size_t> hv; hv.reserve(pow - 2);
     for (auto x = 3; x < pow; ++x) {
         if (!(x & (x - 1))) continue;
-         auto sub_round = x != pow - 1;
+        const auto sub_round = x != pow - 1;
 
-        if   (sub_round) {
-            size_t h0 = (i = 0);
+        if (sub_round) {    size_t h0 = (i = 0);
             //for (auto n = 1; n < x; n <<= 1, ++i) // XXX: for vector only
-            //    if (n & x) h0 = hash_combine(h0, hash<Expr>{}(*nums[i]));
-            for (auto e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<Expr>{}(*e));
+            //    if (n & x) h0 = hash_combine(h0, hash<PtrE>{}(nums[i]));
+            for (const auto& e: nums) if ((1 << i++) & x)
+                h0 = hash_combine(h0, hash<PtrE>{}(e));
 
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
         }
 
-        auto& exps = vexp[x];
+        auto lambda = [&](const auto& e) {
+            if (sub_round || e->v == goal) vexp[x].push_back(e);
+        };
+
         for (auto i = 1; i < (x+1)/2; ++i) {
             if ((x & i) != i) continue;
-
-            for (auto ta: vexp[i]) for (auto tb: vexp[x - i]) {
-                 auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
-                form_expr(a, b, [&](auto e) {
-                    if (sub_round || e->v == goal) exps.push_back(e);
-                });
-            }
+            for (auto& a: vexp[i]) for (auto& b: vexp[x - i])
+                if (*a < *b) form_expr(a, b, lambda); else form_expr(b, a, lambda);
         }
     }   return vexp[pow - 1];
 }
@@ -190,15 +183,15 @@ list<PtrE> comp24_splitset(const Rational& goal, const   list<PtrE>& nums) {
 
     vector<PtrE> ns0, ns1;
     ns0.reserve(n - 1);   ns1.reserve(n - 1);
-    hash<Expr> hasher; vector<size_t> hv; hv.reserve(pow - 2);
+    hash<PtrE> hasher; vector<size_t> hv; hv.reserve(pow - 2);
 
     for (auto x = 1; x < pow/2; ++x) {
         ns0.clear();    ns1.clear();    auto i = 0;
-        for (auto e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
+        for (const auto& e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
         auto h0 = 0, h1 = 0;
-        for (auto e: ns0) h0 = hash_combine(h0, hasher(*e));
-        for (auto e: ns1) h1 = hash_combine(h1, hasher(*e));
+        for (const auto& e: ns0) h0 = hash_combine(h0, hasher(e));
+        for (const auto& e: ns1) h1 = hash_combine(h1, hasher(e));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
         if (h1 != h0) {
@@ -206,40 +199,40 @@ list<PtrE> comp24_splitset(const Rational& goal, const   list<PtrE>& nums) {
                 continue; else hv.push_back(h1);
         }
 
-        //for (auto e: ns0) std::cerr << ' ' << *e; std::cerr << ';';
-        //for (auto e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
+        //for (const auto& e: ns0) std::cerr << ' ' << *e; std::cerr << ';';
+        //for (const auto& e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
 
         if (1 < ns0.size()) ns0 = comp24_splitset(IR, ns0);
         if (1 < ns1.size()) ns1 = comp24_splitset(IR, ns1);
 
-        for (auto ta: ns0) for (auto tb: ns1) {
-             auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
-            form_expr(a, b, [&](auto e) {
-                if (&goal == &IR || e->v == goal) exps.push_back(e);
-            });
-        }
+        auto lambda = [&](const auto& e) {
+            if (&goal == &IR || e->v == goal) exps.push_back(e);
+        };
+
+        for (auto& a: ns0) for (auto& b: ns1)
+            if (*a < *b) form_expr(a, b, lambda); else form_expr(b, a, lambda);
     }   return exps;
 }
 
 #include <unordered_set>
-void comp24_construct(const Rational& goal, const size_t n,
+void comp24_inplace(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
-    hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
+    hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
     for (size_t i = 0; i < n; ++i) {
-        const auto ta = nums[i];
+        auto ta = nums[i];
         for (size_t j = i + 1; j < n; ++j) {
-            const auto tb = nums[j];
+            auto tb = nums[j];
             auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
 
-            size_t h0 = hash_combine(hasher(*a), hasher(*b));
+            size_t h0 = hash_combine(hasher(a), hasher(b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
             nums[j] = nums[n - 1];
-            form_expr(a, b, [&](auto e) {
+            form_expr(a, b, [&](const auto& e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                    nums[i] = e;    comp24_construct(goal, n - 1, nums, exps); }
+                    nums[i] = e;    comp24_inplace(goal, n - 1, nums, exps); }
             });     nums[j] = tb;
         }           nums[i] = ta;
     }
@@ -259,7 +252,7 @@ list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) 
         //case Construct:
         case Inplace: {
             std::unordered_set<PtrE> eset;
-            comp24_construct(goal, nums.size(), nums, eset);
+            comp24_inplace(goal, nums.size(), nums, eset);
             for (auto e: eset) exps.push_back(e);
         }   break;
 
@@ -326,7 +319,7 @@ extern "C" void test_comp24() { // deprecated, unified with Rust unit test comp2
         auto assert_closure = [&](auto algo, auto algs) {
             list<PtrE> exps = comp24_algo(goal, nums, algo);
 
-            for (auto e: exps) {
+            for (const auto& e: exps) {
                 ss.str(""); ss << *e;   //cout << *e << endl;
                 if (it.cnt < 1 && std::find(it.exps.begin(),
                     it.exps.end(), ss.str()) == it.exps.end()) {

@@ -33,7 +33,7 @@ struct Expr {   Rational v;
     //Expr(const Expr&) = delete;
     //~Expr();
 
-    Expr(auto a, auto b, auto op): v(0), a(a), b(b), op(op) {
+    Expr(auto& a, auto& b, auto op): v(0), a(a), b(b), op(op) {
         switch (op) { // XXX: check overflow?
             case '+': //v = a->v + b->v; break;
                 v.n = a->v.n * b->v.d + a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
