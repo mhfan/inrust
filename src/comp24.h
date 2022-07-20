@@ -28,7 +28,8 @@ struct Expr {   Rational v;
     struct { PtrE a, b; Oper op; };     // anonymous structure
 
     Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
-    Expr(const Rational& r, Oper op = Num): v(r), a(nullptr), b(nullptr), op(op) {}
+    Expr(const Rational& r, Oper op = Num,
+         const PtrE& a = nullptr, const PtrE& b = nullptr): v(r), a(a), b(b), op(op) {}
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
     //~Expr();

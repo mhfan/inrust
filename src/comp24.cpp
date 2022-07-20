@@ -104,6 +104,45 @@ template <> struct hash<PtrE> {
 } */
 
 void form_expr(const auto& a, const auto& b, auto func) {
+    auto den = a->v.d * b->v.d;  Oper op;
+
+    // ((a . b) . B) => (a . (b . B)
+
+    // (A * (a * b)) => (a * (A * b)) if a < A
+    // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
+    if (a->op != (op = Mul) && a->op != '/' && b->op != '/' &&
+        !(op == b->op && b->a->v < a->v)) func(std::make_shared<const Expr>(
+            Rational(a->v.n * b->v.n, den), op, a, b));
+
+    // (A + (a + b)) => (a + (A + b)) if a < A
+    // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
+    if (a->op != (op = Add) && a->op != '-' && b->op != '-' &&
+        !(op == b->op && b->a->v < a->v)) func(std::make_shared<const Expr>(
+            Rational(a->v.n * b->v.d + a->v.d * b->v.n, den), op, a, b));
+
+    // (A - (a - b)) => ((A + b) - a), x - 0 => x + 0?
+    if (a->op != (op = Sub) && op != b->op) {
+        auto v = Rational(a->v.d * b->v.n - a->v.n * b->v.d, den);
+        //if (a->v.n != 0/* && !is_subn_expr(a)*/)
+            func(std::make_shared<const Expr>(v, op, b, a));
+
+        //v.n = -v.n; //if (b->v.n != 0/* && !is_subn_expr(b)*/)
+        //    func(std::make_shared<const Expr>(v, op, a, b));
+    }
+
+    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
+    if (a->op != (op = Div) && op != b->op) {
+        auto v = Rational(a->v.n * b->v.d, a->v.d * b->v.n);
+        if (v.d != 0/* && b->v.n != b->v.d && a->v.n != 0*/)
+            func(std::make_shared<const Expr>(v, op, a, b));
+
+        std::swap(v.n, v.d);
+        if (v.d != 0/* && a->v.n != a->v.d && b->v.n != 0*/)
+            func(std::make_shared<const Expr>(v, op, b, a));
+    }
+}
+
+void _form_expr(const auto& a, const auto& b, auto func) {
     for (auto op: { Add, Sub, Mul, Div }) {
         if (a->op == op) continue;      // ((a . b) . B) => (a . (b . B)
 
@@ -236,9 +275,9 @@ void comp24_inplace(const Rational& goal, const size_t n,
 
 list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) {
     list<PtrE> exps;
-    if (nums.size() == 1) { auto e = nums.front();
-         if (e->v == goal) exps.push_back(e);
-        return exps;
+    if (nums.size() == 1) {
+        const auto& e = nums.front();
+        if (e->v == goal) exps.push_back(e);    return exps;
     }
 
     switch (algo) {
@@ -249,7 +288,7 @@ list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) 
         case Inplace: {
             std::unordered_set<PtrE> eset;
             comp24_inplace(goal, nums.size(), nums, eset);
-            for (auto e: eset) exps.push_back(e);
+            for (const auto& e: eset) exps.push_back(e);
         }   break;
 
         default: ;
@@ -266,7 +305,7 @@ void comp24_algo(Comp24* comp24) {
     vector<PtrE> nums;
     for (auto i = 0u; i < comp24->ncnt; ++i)
         nums.push_back(std::make_shared<const Expr>(comp24->nums[i]));
-    list<PtrE> exps = comp24_algo(comp24->goal, nums, comp24->algo);
+    const list<PtrE> exps = comp24_algo(comp24->goal, nums, comp24->algo);
     comp24->ecnt = exps.size();     // TODO:
 }
 
