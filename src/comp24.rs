@@ -16,14 +16,13 @@ use core::convert::From;
 use yansi::Paint;   // Color, Style
 //use itertools::Itertools;
 
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
-#[derive(Debug)] #[repr(C)] pub struct Rational(pub i32, pub i32);
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+#[derive(Debug, Clone, Copy)] #[repr(C)] pub struct Rational(pub i32, pub i32);
 //#[repr(C)] pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
 
-//#[derive(/*Debug, */Clone, Copy)]
-struct Oper(u8);    // newtype idiom
-//#[repr(C, i32)] enum Oper { Num, Add(char), Sub(char), Mul(char), Div(char), }
+#[derive(/*Debug, */Clone, Copy)] struct Oper(u8);    // newtype idiom
+//#[repr(C, u8)] enum Oper { Num, Add(u8), Sub(u8), Mul(u8), Div(u8), }
 //type Oper = char;   // type alias
 
 //#[derive(Debug)] enum Value { None, Valid, R(Rational) }
@@ -31,6 +30,7 @@ struct Oper(u8);    // newtype idiom
 
 pub use std::rc::Rc;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
+//pub struct Expr { pub v: Rational, a: Rc<Expr>, b: Rc<Expr>, op: Oper }
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>, Oper)> }
 
 //std::ops::{Add, Sub, Mul, Div}
@@ -84,7 +84,7 @@ impl PartialEq for Rational {
 }
 
 impl Rational {
-    fn simplify(&self) -> Self {
+    #[allow(dead_code)] fn simplify(&self) -> Self {
         fn gcd(a: i32, b: i32) -> i32 { // Greatest Common Denominator
             let (mut m, mut n) = (a, b);
             while m != 0 {  // Use Euclid's algorithm
@@ -120,34 +120,33 @@ impl Expr {
     }
 }
 
-/* fn form_expr2<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
+fn _form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     let den = a.v.1 * b.v.1;    // TODO:
+    let mut op: Oper;
 
-    let op = Oper(b'+');
-    let  v = Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den);
+    op = Oper(b'*');
+    let v = Rational(a.v.0 * b.v.0, den);
     func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
 
-    let op = Oper(b'-');
-    let  v = Rational(a.v.0 * b.v.1 - a.v.1 * b.v.0, den);
-    let mv = Rational(-v.0, v.1);
+    op = Oper(b'+');
+    let v = Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den);
     func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
 
-    let op = Oper(b'-');
-    //let  v = Rational(a.v.1 * b.v.0 - a.v.0 * b.v.1, den);
-    func(Rc::new(Expr { v: mv, m: Some((b.clone(), a.clone(), op)) }));
+    op = Oper(b'-');
+    let mut v = Rational(a.v.1 * b.v.0 - a.v.0 * b.v.1, den);
+    func(Rc::new(Expr { v, m: Some((b.clone(), a.clone(), op)) }));
 
-    let op = Oper(b'*');
-    let  v = Rational(a.v.0 * b.v.0, den);
+    v.0 = -v.0;
+    //let mut v = Rational(a.v.0 * b.v.1 - a.v.1 * b.v.0, den);
     func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
 
-    let op = Oper(b'/');
-    let  v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
-    let rv = Rational(v.1, v.0);
+    op = Oper(b'/');
+    let mut v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
     if v.1 != 0 { func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) })) }
 
-    let op = Oper(b'/');
-    if rv.1 != 0 { func(Rc::new(Expr { v: rv, m: Some((b.clone(), a.clone(), op)) })) }
-} */
+    v = Rational(v.1, v.0); //core::mem::swap(&mut v.0, &mut v.1);
+    if v.1 != 0 { func(Rc::new(Expr { v, m: Some((b.clone(), a.clone(), op)) })) }
+}
 
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     //const Add: Oper = Oper(b'+');  const Sub: Oper = Oper(b'-');
@@ -227,7 +226,7 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    fn from(r: Rational) -> Self { Self { v: r.simplify(), m: None } }
+    fn from(r: Rational) -> Self { Self { v: r/*.simplify()*/, m: None } }
 }
 
 impl From<i32> for Expr { fn from(n: i32) -> Self { Rational::from(n).into() } }
@@ -607,9 +606,9 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
 
 #[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO:
     struct Rational { n: i32, d: i32 }
-    #[repr(i32)] enum Oper { Num, Add, Sub, Mul, Div, }
+    #[repr(u8)] enum Oper { Num, Add, Sub, Mul, Div, }
     struct Expr { v: Rational, op: Oper, a: SharedPtr<Expr>, b: SharedPtr<Expr> }
-    #[repr(u16)] enum Comp24Algo { DynProg, SplitSet, Inplace, Construct }
+    #[repr(u8)] enum Comp24Algo { DynProg, SplitSet, Inplace, Construct }
 
     extern "Rust" { }
 
