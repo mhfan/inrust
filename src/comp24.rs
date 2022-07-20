@@ -120,30 +120,60 @@ impl Expr {
     }
 }
 
+/* fn form_expr2<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
+    let den = a.v.1 * b.v.1;    // TODO:
+
+    let op = Oper(b'+');
+    let  v = Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den);
+    func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
+
+    let op = Oper(b'-');
+    let  v = Rational(a.v.0 * b.v.1 - a.v.1 * b.v.0, den);
+    let mv = Rational(-v.0, v.1);
+    func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
+
+    let op = Oper(b'-');
+    //let  v = Rational(a.v.1 * b.v.0 - a.v.0 * b.v.1, den);
+    func(Rc::new(Expr { v: mv, m: Some((b.clone(), a.clone(), op)) }));
+
+    let op = Oper(b'*');
+    let  v = Rational(a.v.0 * b.v.0, den);
+    func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
+
+    let op = Oper(b'/');
+    let  v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
+    let rv = Rational(v.1, v.0);
+    if v.1 != 0 { func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) })) }
+
+    let op = Oper(b'/');
+    if rv.1 != 0 { func(Rc::new(Expr { v: rv, m: Some((b.clone(), a.clone(), op)) })) }
+} */
+
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     //const Add: Oper = Oper(b'+');  const Sub: Oper = Oper(b'-');
     //const Mul: Oper = Oper(b'*');  const Div: Oper = Oper(b'/');
-    //const OPS: [Oper; 4] = [ Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/') ];
-    const OPS: [Oper; 4] = [ Oper(b'+'), Oper(b'-'), Oper(b'*'), Oper(b'/') ];
-
-    OPS.iter().for_each(|op| {  // traverse '+', '-', '*', '/'
+    //[ Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/') ]
+    [ Oper(b'+'), Oper(b'-'), Oper(b'*'), Oper(b'/') ].iter().for_each(|op| {
         // keep human friendly expr. form ONLY
         if let Some((.., aop)) = &a.m {
             if aop.0 == op.0 { return }     // ((a . b) . B) => (a . (b . B))
 
-            // ((a - b) + B) => ((a + B) - b)
-            // ((a / b) * B) => ((a * B) / b)
+            // ((a - b) + B) => ((a + B) - b), ((a / b) * B) => ((a * B) / b)
             //match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
-            if aop.0 == b'-' && op.0 == b'+' || aop.0 == b'/' && op.0 == b'*' { return }
+            if let (b'-', b'+') | (b'/', b'*') = (aop.0, op.0) { return }
         }
 
         if let Some((ba, _, bop)) = &b.m {
             /* if op.0 == bop.0 {
                 if  op.0 == b'-' || op.0 == b'/' { return }
+                // (A + (a + b)) => (a + (A + b)) if a < A
+                // (A * (a * b)) => (a * (A * b)) if a < A
                 if (op.0 == b'+' || op.0 == b'*') && ba.v < a.v { return }
             }
-            //if matches!((op.0, bop.0), (b'+', b'-') | (b'*', b'/')) { return }
-            if op.0 == b'+' && bop.0 == b'-' || op.0 == b'*' && bop.0 == b'/' { return } */
+
+            // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
+            // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
+            if let (b'+', b'-') | (b'*', b'/') = (op.0, bop.0) { return } */
 
             match (op.0, bop.0) {
                 // (A + (a + b)) => (a + (A + b)) if a < A
@@ -158,32 +188,31 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
             }
         }
 
-        /* match op.0 {
-            b'/' => {
+        match op.0 {    // x / 1 => x * 1, 0 / b => 0 * b; x - 0 => x + 0 ?
+            b'/' => {   // swap sub-expr. for order mattered (different values) operators
                 if a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ {
                     func(Rc::new(Expr::new(b, a, op))) }
                 if b.v.0 == 0 { return }
             }
 
             b'-' => {   // prefer (b - a) than (a - b) since a < b
-                /*if a.v.0 != 0 && !is_subn_expr(a)*/ { func(Rc::new(Expr::new(b, a, op))) }
-                /*if b.v.0 == 0 ||  is_subn_expr(b)*/ { return }
+                func(Rc::new(Expr::new(b, a, op))); //if a.v.0 != 0 && !is_subn_expr(a) { }
+                return;                                  //if b.v.0 == 0 ||  is_subn_expr(b) { }
             }
 
             _ => ()
-        }   func(Rc::new(Expr::new(a, b, op))); */
+        }   func(Rc::new(Expr::new(a, b, op)));
 
-        // x / 1 => x * 1, 0 / b => 0 * b; x - 0 => x + 0 ?
         // swap sub-expr. for order mattered (different values) operators
-        if op.0 == b'/' &&  a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ ||
-           op.0 == b'-'/* &&  a.v.0 != 0 && !is_subn_expr(a))*/ {
-            func(Rc::new(Expr::new(b, a, op)));
-        }
+        //if op.0 == b'/' &&  a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ ||
+        //   op.0 == b'-'/* &&  a.v.0 != 0 && !is_subn_expr(a))*/ {
+        //    func(Rc::new(Expr::new(b, a, op)));
+        //}
 
         // prefer (b - a) than (a - b) since a < b
-        if op.0 == b'/' && (b.v.0 == 0/* || b.v.0 == b.v.1 || a.v.0 == 0*/) ||
-           op.0 == b'-'/* && (b.v.0 == 0 ||  is_subn_expr(b))*/ { return }
-            func(Rc::new(Expr::new(a, b, op)));
+        //if op.0 == b'/' && (b.v.0 == 0/* || b.v.0 == b.v.1 || a.v.0 == 0*/) ||
+        //   op.0 == b'-'/* && (b.v.0 == 0 ||  is_subn_expr(b))*/ { return }
+        //    func(Rc::new(Expr::new(a, b, op)));
     });
 
     /* #[inline(always)] fn is_subn_expr(e: &Expr) -> bool {
@@ -285,7 +314,7 @@ use std::hash::{Hash, Hasher};
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
-fn comp24_dynprog(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
+fn comp24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
     let pow = 1 << nums.len();   // size of powerset
     let mut vexp = Vec::with_capacity(pow);

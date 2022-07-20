@@ -104,12 +104,10 @@ template <> struct hash<PtrE> {
 } */
 
 void form_expr(const auto& a, const auto& b, auto func) {
-    const Oper OPS[] = { Add, Sub, Mul, Div };
-    for (auto op: OPS) {
-        if (a->op == op) continue;  // ((a . b) . B) => (a . (b . B)
+    for (auto op: { Add, Sub, Mul, Div }) {
+        if (a->op == op) continue;      // ((a . b) . B) => (a . (b . B)
 
-        // ((a - b) + B) => ((a + B) - b)
-        // ((a / b) * B) => ((a * B) / b)
+        // ((a - b) + B) => ((a + B) - b), ((a / b) * B) => ((a * B) / b)
         if ((a->op == '-' && op == '+') || (a->op == '/' && op == '*')) continue;
 
         // (A + (a + b)) => (a + (A + b)) if a < A
@@ -219,10 +217,8 @@ void comp24_inplace(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
-    for (size_t i = 0; i < n; ++i) {
-        auto ta = nums[i];
-        for (size_t j = i + 1; j < n; ++j) {
-            auto tb = nums[j];
+    for (size_t i = 0; i < n; ++i) {         auto ta = nums[i];
+        for (size_t j = i + 1; j < n; ++j) { auto tb = nums[j];
             auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
 
             size_t h0 = hash_combine(hasher(a), hasher(b));
