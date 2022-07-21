@@ -97,28 +97,8 @@ impl Rational {
     }
 }
 
-impl Expr {
-    #[allow(dead_code)] fn new(a: &Rc<Self>, b: &Rc<Self>, op: &Oper) -> Self {
-        #[inline(always)] fn operate(a: &Expr, b: &Expr, op: &Oper) -> Rational {
-            let mut val = Rational(0, 0);
-            match op.0 {    // XXX: check overflow?
-                b'+' => { val.0 = a.v.0 * b.v.1 + a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-                b'-' => { val.0 = a.v.0 * b.v.1 - a.v.1 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-                b'*' => { val.0 = a.v.0 * b.v.0;  val.1 = a.v.1 * b.v.1; }
-                b'/' => if b.v.1 != 0 {
-                          val.0 = a.v.0 * b.v.1;  val.1 = a.v.1 * b.v.0;
-                }  else { val.1 = 0; }  // invalidation
-
-                _ => unimplemented!("operator '{}'", op.0)
-            }   val //.simplify()   // XXX: reduce probablity of future overflow
-        }
-
-        Self { v: operate(a, b, op), m: Some((Rc::clone(a), Rc::clone(b))), op: *op }
-    }
-}
-
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    let den = a.v.1 * b.v.1;
+    let den = a.v.1 * b.v.1;    // XXX: check overflow and simplify?
 
     // ((a . b) . B) => (a . (b . B)
 
@@ -151,7 +131,7 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
         //func(Rc::new(Expr { v, m: Some((a.clone(), b.clone())), op }));
     }
 
-    let op = Oper(b'/');
+    let op = Oper(b'/');    // order mattered
     // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
     if a.op.0 != op.0 && op.0 != b.op.0 {
         let v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
@@ -164,71 +144,6 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
             func(Rc::new(Expr { v, m: Some((b.clone(), a.clone())), op }));
         }
     }
-}
-
-fn _form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    //const Add: Oper = Oper(b'+');  const Sub: Oper = Oper(b'-');
-    //const Mul: Oper = Oper(b'*');  const Div: Oper = Oper(b'/');
-    //[Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/')]
-    [Oper(b'+'), Oper(b'-'), Oper(b'*'), Oper(b'/')].iter().for_each(|op| {
-        // keep human friendly expr. form ONLY
-        if a.op.0 == op.0 { return }     // ((a . b) . B) => (a . (b . B))
-
-        // ((a - b) + B) => ((a + B) - b), ((a / b) * B) => ((a * B) / b)
-        //match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
-        if let (b'-', b'+') | (b'/', b'*') = (a.op.0, op.0) { return }
-
-        if let Some((ba, _)) = &b.m {
-            /* if op.0 == bop.0 {
-                if  op.0 == b'-' || op.0 == b'/' { return }
-                // (A + (a + b)) => (a + (A + b)) if a < A
-                // (A * (a * b)) => (a * (A * b)) if a < A
-                if (op.0 == b'+' || op.0 == b'*') && ba.v < a.v { return }
-            }
-
-            // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
-            // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
-            if let (b'+', b'-') | (b'*', b'/') = (op.0, bop.0) { return } */
-
-            match (op.0, b.op.0) {
-                // (A + (a + b)) => (a + (A + b)) if a < A
-                // (A * (a * b)) => (a * (A * b)) if a < A
-                (b'+', b'+') | (b'*', b'*') if ba.v < a.v => return,
-
-                // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
-                // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
-                (b'+', b'-') | (b'*', b'/') | (b'-', b'-') | (b'/', b'/') => return,
-
-                _ => ()
-            }
-        }
-
-        match op.0 {    // x / 1 => x * 1, 0 / b => 0 * b; x - 0 => x + 0 ?
-            b'/' => {   // swap sub-expr. for order mattered (different values) operators
-                if a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ {
-                    func(Rc::new(Expr::new(b, a, op))) }
-                if b.v.0 == 0 { return }
-            }
-
-            b'-' => {   // prefer (b - a) than (a - b) since a < b
-                func(Rc::new(Expr::new(b, a, op))); //if a.v.0 != 0 && !is_subn_expr(a) { }
-                return;                                  //if b.v.0 == 0 ||  is_subn_expr(b) { }
-            }
-
-            _ => ()
-        }   func(Rc::new(Expr::new(a, b, op)));
-
-        // swap sub-expr. for order mattered (different values) operators
-        //if op.0 == b'/' &&  a.v.0 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ ||
-        //   op.0 == b'-'/* &&  a.v.0 != 0 && !is_subn_expr(a))*/ {
-        //    func(Rc::new(Expr::new(b, a, op)));
-        //}
-
-        // prefer (b - a) than (a - b) since a < b
-        //if op.0 == b'/' && (b.v.0 == 0/* || b.v.0 == b.v.1 || a.v.0 == 0*/) ||
-        //   op.0 == b'-'/* && (b.v.0 == 0 ||  is_subn_expr(b))*/ { return }
-        //    func(Rc::new(Expr::new(a, b, op)));
-    });
 
     /* #[inline(always)] fn is_subn_expr(e: &Expr) -> bool {
         if let Some((a, op, b)) = &e.m {    // recursive

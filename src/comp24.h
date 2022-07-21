@@ -33,21 +33,6 @@ struct Expr {   Rational v;
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
     //~Expr();
-
-    Expr(auto& a, auto& b, auto op): v(0), a(a), b(b), op(op) {
-        switch (op) { // XXX: check overflow?
-            case '+': //v = a->v + b->v; break;
-                v.n = a->v.n * b->v.d + a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
-            case '-': //v = a->v - b->v; break;
-                v.n = a->v.n * b->v.d - a->v.d * b->v.n, v.d = a->v.d * b->v.d; break;
-            case '*': //v = a->v * b->v; break;
-                v.n = a->v.n * b->v.n, v.d = a->v.d * b->v.d;  break;
-            case '/': //v = a->v / b->v; break;
-                0 ==  b->v.d ? (v.d = 0) :
-               (v.n = a->v.n * b->v.d, v.d = a->v.d * b->v.n); break;
-            default: v.d = 0;   // XXX: invalidation
-        }
-    }
 };
 
 #include <vector>

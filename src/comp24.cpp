@@ -104,7 +104,7 @@ template <> struct hash<PtrE> {
 } */
 
 void form_expr(const auto& a, const auto& b, auto func) {
-    auto den = a->v.d * b->v.d;  Oper op;
+    auto den = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
 
     // ((a . b) . B) => (a . (b . B)
 
@@ -139,35 +139,6 @@ void form_expr(const auto& a, const auto& b, auto func) {
         std::swap(v.n, v.d);
         if (v.d != 0/* && a->v.n != a->v.d && b->v.n != 0*/)
             func(std::make_shared<const Expr>(v, op, b, a));
-    }
-}
-
-void _form_expr(const auto& a, const auto& b, auto func) {
-    for (auto op: { Add, Sub, Mul, Div }) {
-        if (a->op == op) continue;      // ((a . b) . B) => (a . (b . B)
-
-        // ((a - b) + B) => ((a + B) - b), ((a / b) * B) => ((a * B) / b)
-        if ((a->op == '-' && op == '+') || (a->op == '/' && op == '*')) continue;
-
-        // (A + (a + b)) => (a + (A + b)) if a < A
-        // (A * (a * b)) => (a * (A * b)) if a < A
-        if (b->a && op == b->op && (op == '+' || op == '*') && b->a->v < a->v) continue;
-
-        // (A + (a - b)) => ((A + a) - b), (A * (a / b)) => ((A * a) / b)
-        // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
-        if ((op == '+' && b->op == '-') || (op == '*' && b->op == '/') ||
-            (op == b->op && (op == '-'  ||  op == '/'))) continue;
-
-        // x / 1 => x * 1, 0 / b => 0 * b; x - 0 => x + 0 ?
-        // swap sub-expr. for order mattered (different values) operators
-        if ((op == '/' &&  a->v.n != 0/* && a->v.n != a->v.d && b->v.n != 0*/) ||
-            (op == '-'/* &&  a->v.n != 0 && !is_subn_expr(a)*/))
-            func(std::make_shared<const Expr>(b, a, op));
-
-        // prefer (b - a) than (a - b) since a < b
-        if ((op == '/' && (b->v.n == 0/* || b->v.n == b->v.d || a->v.n == 0*/)) ||
-            (op == '-'/* && (b->v.n == 0 ||  is_subn_expr(b))*/)) continue;
-            func(std::make_shared<const Expr>(a, b, op));
     }
 }
 
