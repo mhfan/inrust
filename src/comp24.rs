@@ -30,11 +30,9 @@ use yansi::Paint;   // Color, Style
 
 pub use std::rc::Rc;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
-//pub struct Expr { pub v: Rational, a: Rc<Expr>, b: Rc<Expr>, op: Oper }
-pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>, Oper)> }
+pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
 
-//std::ops::{Add, Sub, Mul, Div}
-/* impl std::ops::Add for Rational {
+/* impl std::ops::Add for Rational {    //std::ops::{Add, Sub, Mul, Div}
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output { todo!() }
 } */
@@ -44,7 +42,7 @@ impl From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
 impl Display for Rational {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let srn = self; //.simplify();
-        if srn.1 == 0 { write!(f, r"(INV)")? } else {
+        if  srn.1 == 0 { write!(f, r"(INV)")? } else {
             let braket = srn.0 * srn.1 < 0 || srn.1 != 1;
             if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
             if  srn.1 != 1 { write!(f, r"/{}", srn.1)? }
@@ -100,7 +98,7 @@ impl Rational {
 }
 
 impl Expr {
-    fn new(a: &Rc<Self>, b: &Rc<Self>, op: &Oper) -> Self {
+    #[allow(dead_code)] fn new(a: &Rc<Self>, b: &Rc<Self>, op: &Oper) -> Self {
         #[inline(always)] fn operate(a: &Expr, b: &Expr, op: &Oper) -> Rational {
             let mut val = Rational(0, 0);
             match op.0 {    // XXX: check overflow?
@@ -115,54 +113,72 @@ impl Expr {
             }   val //.simplify()   // XXX: reduce probablity of future overflow
         }
 
-        Self { v: operate(a, b, op),
-               m: Some((Rc::clone(a), Rc::clone(b), Oper(op.0))) }
+        Self { v: operate(a, b, op), m: Some((Rc::clone(a), Rc::clone(b))), op: *op }
+    }
+}
+
+fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
+    let den = a.v.1 * b.v.1;
+
+    // ((a . b) . B) => (a . (b . B)
+
+    let op = Oper(b'*');
+    // (A * (a * b)) => (a * (A * b)) if a < A
+    // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
+    if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && !(op.0 == b.op.0 &&
+        if let Some((ba, _)) = &b.m { ba.v < a.v } else { false }) {
+        func(Rc::new(Expr { v: Rational(a.v.0 * b.v.0, den),
+                            m: Some((a.clone(), b.clone())), op }));
+    }
+
+    let op = Oper(b'+');
+    // (A + (a + b)) => (a + (A + b)) if a < A
+    // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
+    if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && !(op.0 == b.op.0 &&
+        if let Some((ba, _)) = &b.m { ba.v < a.v } else { false }) {
+        func(Rc::new(Expr { v: Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den),
+                            m: Some((a.clone(), b.clone())), op }));
+    }
+
+    let op = Oper(b'-');
+    // (A - (a - b)) => ((A + b) - a), x - 0 => x + 0?
+    if a.op.0 != op.0 && op.0 != b.op.0 {
+        let v = Rational(a.v.1 * b.v.0 - a.v.0 * b.v.1, den);
+        //if a.v.0 != 0/* && !is_subn_expr(a)*/ { }
+        func(Rc::new(Expr { v, m: Some((b.clone(), a.clone())), op }));
+
+        //v.0 = -v.0; //if b.v.0 != 0/* && !is_subn_expr(b)*/ { }
+        //func(Rc::new(Expr { v, m: Some((a.clone(), b.clone())), op }));
+    }
+
+    let op = Oper(b'/');
+    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
+    if a.op.0 != op.0 && op.0 != b.op.0 {
+        let v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
+        if v.1 != 0/* && b.v.0 != b.v.1 && a.v.0 != 0*/  {
+            func(Rc::new(Expr { v, m: Some((a.clone(), b.clone())), op }));
+        }
+
+        let v = Rational(v.1, v.0);     //core::mem::swap(&mut v.0, &mut v.1);
+        if v.1 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/  {
+            func(Rc::new(Expr { v, m: Some((b.clone(), a.clone())), op }));
+        }
     }
 }
 
 fn _form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    let den = a.v.1 * b.v.1;    // TODO:
-    let mut op: Oper;
-
-    op = Oper(b'*');
-    let v = Rational(a.v.0 * b.v.0, den);
-    func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
-
-    op = Oper(b'+');
-    let v = Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den);
-    func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
-
-    op = Oper(b'-');
-    let mut v = Rational(a.v.1 * b.v.0 - a.v.0 * b.v.1, den);
-    func(Rc::new(Expr { v, m: Some((b.clone(), a.clone(), op)) }));
-
-    v.0 = -v.0;
-    //let mut v = Rational(a.v.0 * b.v.1 - a.v.1 * b.v.0, den);
-    func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) }));
-
-    op = Oper(b'/');
-    let mut v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
-    if v.1 != 0 { func(Rc::new(Expr { v, m: Some((a.clone(), b.clone(), op)) })) }
-
-    v = Rational(v.1, v.0); //core::mem::swap(&mut v.0, &mut v.1);
-    if v.1 != 0 { func(Rc::new(Expr { v, m: Some((b.clone(), a.clone(), op)) })) }
-}
-
-fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     //const Add: Oper = Oper(b'+');  const Sub: Oper = Oper(b'-');
     //const Mul: Oper = Oper(b'*');  const Div: Oper = Oper(b'/');
-    //[ Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/') ]
-    [ Oper(b'+'), Oper(b'-'), Oper(b'*'), Oper(b'/') ].iter().for_each(|op| {
+    //[Oper::Add('+'), Oper::Sub('-'), Oper::Mul('*'), Oper::Div('/')]
+    [Oper(b'+'), Oper(b'-'), Oper(b'*'), Oper(b'/')].iter().for_each(|op| {
         // keep human friendly expr. form ONLY
-        if let Some((.., aop)) = &a.m {
-            if aop.0 == op.0 { return }     // ((a . b) . B) => (a . (b . B))
+        if a.op.0 == op.0 { return }     // ((a . b) . B) => (a . (b . B))
 
-            // ((a - b) + B) => ((a + B) - b), ((a / b) * B) => ((a * B) / b)
-            //match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
-            if let (b'-', b'+') | (b'/', b'*') = (aop.0, op.0) { return }
-        }
+        // ((a - b) + B) => ((a + B) - b), ((a / b) * B) => ((a * B) / b)
+        //match (aop.0, op.0) { (b'-', b'+') | (b'/', b'*') => return, _ => () }
+        if let (b'-', b'+') | (b'/', b'*') = (a.op.0, op.0) { return }
 
-        if let Some((ba, _, bop)) = &b.m {
+        if let Some((ba, _)) = &b.m {
             /* if op.0 == bop.0 {
                 if  op.0 == b'-' || op.0 == b'/' { return }
                 // (A + (a + b)) => (a + (A + b)) if a < A
@@ -174,7 +190,7 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
             // (A - (a - b)) => ((A + b) - a), (A / (a / b)) => ((A * b) / a)
             if let (b'+', b'-') | (b'*', b'/') = (op.0, bop.0) { return } */
 
-            match (op.0, bop.0) {
+            match (op.0, b.op.0) {
                 // (A + (a + b)) => (a + (A + b)) if a < A
                 // (A * (a * b)) => (a * (A * b)) if a < A
                 (b'+', b'+') | (b'*', b'*') if ba.v < a.v => return,
@@ -226,24 +242,22 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    fn from(r: Rational) -> Self { Self { v: r/*.simplify()*/, m: None } }
+    fn from(r: Rational) -> Self { Self { v: r/*.simplify()*/, m: None, op: Oper(0) } }
 }
 
 impl From<i32> for Expr { fn from(n: i32) -> Self { Rational::from(n).into() } }
 
 impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some((a, b, op)) = &self.m {
-            //#[allow(clippy::logic_bug)]
-            let braket = if let Some((.., aop)) = &a.m { //true ||
-                matches!(aop.0, b'+' | b'-') && matches!(op.0, b'*' | b'/') } else { false };
+        if let Some((a, b)) = &self.m {
+            let braket = matches!(a.op.0, b'+' | b'-') &&
+                matches!(self.op.0, b'*' | b'/');
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
-            if  braket { write!(f, r")")? }     write!(f, r"{}", op.0 as char)?;
+            if  braket { write!(f, r")")? }     write!(f, r"{}", self.op.0 as char)?;
 
-            let braket = if let Some((.., bop)) = &b.m { //true ||
-                op.0 == b'/' && matches!(bop.0, b'*' | b'/') ||
-                op.0 != b'+' && matches!(bop.0, b'+' | b'-') } else { false };
+            let braket = self.op.0 == b'/' && matches!(b.op.0, b'*' | b'/') ||
+                self.op.0 != b'+' && matches!(b.op.0, b'+' | b'-');
 
             if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
             if  braket { write!(f, r")")? }
@@ -254,20 +268,20 @@ impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
 impl PartialOrd for Expr {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let ord = self.v.partial_cmp(&rhs.v);
-        if ord != Some(Ordering::Equal) { return ord }
+        if  ord != Some(Ordering::Equal) { return ord }
 
         match (&self.m, &rhs.m) {
             (None, None)    => Some(Ordering::Equal),
             (None, Some(_)) => Some(Ordering::Less),
             (Some(_), None) => Some(Ordering::Greater),
 
-            (Some((la, lb, lop)), Some((ra, rb, rop))) => {
+            (Some((la, lb)), Some((ra, rb))) => {
+                let ord = self.op.0.partial_cmp(&rhs.op.0);
+                if  ord != Some(Ordering::Equal) { return ord }
                 let ord = la.partial_cmp(ra);   // recursive
                 if  ord != Some(Ordering::Equal) { return ord }
                 let ord = lb.partial_cmp(rb);   // recursive
-                if  ord != Some(Ordering::Equal) { return ord }
-                let ord = lop.0.partial_cmp(&rop.0);
-                if  ord != Some(Ordering::Equal) { return ord }  ord
+                if  ord != Some(Ordering::Equal) { return ord }   ord
             }
         }
     }
@@ -278,8 +292,8 @@ impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool { //self.partial_cmp(rhs) == Some(Ordering::Equal)
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
-            (Some((la, lb, lop)), Some((ra, rb, rop))) =>
-                la == ra && lb == rb && lop.0 == rop.0,     // recursive
+            (Some((la, lb)), Some((ra, rb))) =>
+                self.op.0 == rhs.op.0 && la == ra && lb == rb,  // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v
     }
@@ -294,8 +308,8 @@ fn _hash_combine(lhs: u32, rhs: u32) -> u32 {
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
-        if let Some((a, b, op)) = &self.m {
-            a.hash(state);  b.hash(state); op.0.hash(state);    // recursive
+        if let Some((a, b)) = &self.m {
+            self.op.0.hash(state);  a.hash(state);  b.hash(state);  // recursive
         } else { self.v.0.hash(state); self.v.1.hash(state); }
     }
 }
