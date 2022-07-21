@@ -29,7 +29,7 @@ inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
 inline auto operator< (const Rational& lhs, const auto& rhs) noexcept {
     return lhs.n * rhs.d < lhs.d * rhs.n; }
 inline auto operator==(const Rational& lhs, const auto& rhs) noexcept {
-    return lhs.d != 0 && rhs.d != 0 && lhs.n * rhs.d == lhs.d * rhs.n;
+    return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;
 }
 
 /* inline auto operator+(const Expr& lhs, const auto& rhs) noexcept {
@@ -42,15 +42,14 @@ inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
     return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); } */
 
 auto operator< (const Expr& lhs, const auto& rhs) noexcept {
-    if (lhs.v  < rhs.v) return true;
-    if (lhs.v == rhs.v) {
-        if (rhs.op != Num) {
-            if (lhs.op == Num) return true;
-            if (*lhs.a < *rhs.a) return true;
-            if (lhs.a->v == rhs.a->v) {
-                if (lhs.a->op  < rhs.a->op) return true;
-                if (lhs.a->op == rhs.a->op) { if (*lhs.b < *rhs.b) return true; }
-            }
+    auto lv = lhs.v.n * rhs.v.d, rv = lhs.v.d * rhs.v.n;
+    if (lv  < rv) return true;
+    if (lv == rv && rhs.op != Num) {
+        if (lhs.op == Num) return true;
+        if (*lhs.a < *rhs.a) return true;
+        if (lhs.a->v == rhs.a->v) {
+            if (lhs.a->op  < rhs.a->op) return true;
+            if (lhs.a->op == rhs.a->op) return *lhs.b < *rhs.b;
         }
     }   return false;
 }
@@ -105,19 +104,18 @@ template <> struct hash<PtrE> {
 
 void form_expr(const auto& a, const auto& b, auto func) {
     auto den = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
-
     // ((a . b) . B) => (a . (b . B)
 
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
     if (a->op != (op = Mul) && a->op != '/' && b->op != '/' &&
-        !(op == b->op && b->a->v < a->v)) func(std::make_shared<const Expr>(
+        (op != b->op || *a < *b->a)) func(std::make_shared<const Expr>(
             Rational(a->v.n * b->v.n, den), op, a, b));
 
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
     if (a->op != (op = Add) && a->op != '-' && b->op != '-' &&
-        !(op == b->op && b->a->v < a->v)) func(std::make_shared<const Expr>(
+        (op != b->op || *a < *b->a)) func(std::make_shared<const Expr>(
             Rational(a->v.n * b->v.d + a->v.d * b->v.n, den), op, a, b));
 
     // (A - (a - b)) => ((A + b) - a), x - 0 => x + 0?
@@ -306,11 +304,11 @@ extern "C" void test_comp24() { // deprecated, unified with Rust unit test comp2
                              "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
-        { 24, { 1, 2, 3, 4, 5 }, { }, 78 },
-        {100, { 1, 2, 3, 4, 5, 6 }, { }, 299 },
-        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 1832 },
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5504 },
-        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 34301 },
+        { 24, { 1, 2, 3, 4, 5 }, { }, 77 },
+        {100, { 1, 2, 3, 4, 5, 6 }, { }, 295 },
+        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 1778 },
+        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5430 },
+        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 33589 },
     };
 
     for (auto it: cases) {

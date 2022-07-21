@@ -118,8 +118,8 @@ mod m {
 //extern crate test;
 
 #[cfg(test)] mod tests {    // unit test sample
-    //use test::Bencher;
     // Need to import items from parent module. Has access to non-public members.
+    //use test::Bencher;
     use super::*;
 
     //#[should_panic(expect = "some panic string")] //#[should_panic]

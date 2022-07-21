@@ -24,8 +24,8 @@ enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/' };
 struct Expr;
 typedef std::shared_ptr<const Expr> PtrE;
 
-struct Expr {   Rational v;
-    struct { PtrE a, b; Oper op; };     // anonymous structure
+struct Expr {
+    Rational v; PtrE a, b; Oper op;     // anonymous structure
 
     Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
     Expr(const Rational& r, Oper op = Num,

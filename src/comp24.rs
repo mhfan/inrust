@@ -67,9 +67,8 @@ impl std::str::FromStr for Rational {
 
 impl PartialOrd for Rational {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
+        //if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
             (self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
-        }
     }
 }
 
@@ -99,14 +98,13 @@ impl Rational {
 
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     let den = a.v.1 * b.v.1;    // XXX: check overflow and simplify?
-
     // ((a . b) . B) => (a . (b . B)
 
     let op = Oper(b'*');
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
-    if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && !(op.0 == b.op.0 &&
-        if let Some((ba, _)) = &b.m { ba.v < a.v } else { false }) {
+    if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && (op.0 != b.op.0 ||
+        if let Some((ba, _)) = &b.m { a < ba } else { true }) {
         func(Rc::new(Expr { v: Rational(a.v.0 * b.v.0, den),
                             m: Some((a.clone(), b.clone())), op }));
     }
@@ -114,8 +112,8 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     let op = Oper(b'+');
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
-    if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && !(op.0 == b.op.0 &&
-        if let Some((ba, _)) = &b.m { ba.v < a.v } else { false }) {
+    if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && (op.0 != b.op.0 ||
+        if let Some((ba, _)) = &b.m { a < ba } else { true }) {
         func(Rc::new(Expr { v: Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den),
                             m: Some((a.clone(), b.clone())), op }));
     }
@@ -135,12 +133,12 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
     if a.op.0 != op.0 && op.0 != b.op.0 {
         let v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
-        if v.1 != 0/* && b.v.0 != b.v.1 && a.v.0 != 0*/  {
+        if  v.1 != 0/* && b.v.0 != b.v.1 && a.v.0 != 0*/  {
             func(Rc::new(Expr { v, m: Some((a.clone(), b.clone())), op }));
         }
 
         let v = Rational(v.1, v.0);     //core::mem::swap(&mut v.0, &mut v.1);
-        if v.1 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/  {
+        if  v.1 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/  {
             func(Rc::new(Expr { v, m: Some((b.clone(), a.clone())), op }));
         }
     }
@@ -195,8 +193,7 @@ impl PartialOrd for Expr {
                 if  ord != Some(Ordering::Equal) { return ord }
                 let ord = la.partial_cmp(ra);   // recursive
                 if  ord != Some(Ordering::Equal) { return ord }
-                let ord = lb.partial_cmp(rb);   // recursive
-                if  ord != Some(Ordering::Equal) { return ord }   ord
+                lb.partial_cmp(rb)   // recursive
             }
         }
     }
@@ -604,11 +601,11 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
                                              "(17-13)*(14+15)-16"], 0),
             (  5, vec![ 1, 2, 3], vec!["1*(2+3)", "(2+3)/1", "2*3-1",
                                        "2+1*3", "2/1+3", "2+3/1", "1*2+3", ], 0),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 78),
-            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 299),
-            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 1832),
-            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 5504),
-            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 34301),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 77),
+            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 295),
+            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 1778),
+            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 5430),
+            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 33589),
         ];
 
         cases.into_iter().for_each(|it| {

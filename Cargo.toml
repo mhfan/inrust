@@ -50,7 +50,7 @@ cc = { version = "1.0", optional = true }
 #cxx-build = { version = "1.0", optional = true }
 
 [features]
-default = ["cc", ]
+default = ["cc"]
 #cxx = ["dep:cxx", "dep:cxx-build"]
 #dhat-heap = ["dep:dhat"]   # not needed, implied by optional dependency
 

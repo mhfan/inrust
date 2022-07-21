@@ -55,9 +55,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     let fact = Fact { f: &|fact, x| if x == 0 {1} else {x * (fact.f)(fact, x - 1)} };
     println!("{}", (fact.f)(&fact, 5)); */
 
-    use hello_rust::comp24::*;
-    comp24_main();
-
+    hello_rust::comp24::comp24_main();
     //guess_number();
     //calc_pi();
 
