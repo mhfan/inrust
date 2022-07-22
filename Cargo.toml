@@ -29,6 +29,9 @@ num-bigint = "0.4"
 yansi = "0.5"
 atty = "0.2"
 
+#async-recursion = "1.0"
+#futures = "0.3"
+
 #syn = "1.0"
 #quote = "1.0"
 #chrono = "0.4"

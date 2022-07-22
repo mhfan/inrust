@@ -31,6 +31,7 @@ use yansi::Paint;   // Color, Style
 pub use std::rc::Rc;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
 pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
+//pub struct _Expr { pub v: Rational, a: *const Expr, b: *const Expr, op: Oper }
 
 /* impl std::ops::Add for Rational {    //std::ops::{Add, Sub, Mul, Div}
     type Output = Self;
@@ -284,8 +285,9 @@ fn comp24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
     vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
 }
 
-// divide and conque number set
+//#[async_recursion::async_recursion(?Send)] async    // divide and conque number set
 fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
+    //if nums.len() < 2 { return nums.to_vec() }
     let (pow, mut exps) = (1 << nums.len(), Vec::new());
     let mut hv = Vec::with_capacity(pow - 2);
     let sub_round = core::ptr::eq(goal, &IR);
@@ -301,8 +303,7 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         //ns0.iter().for_each(|e| eprint!("{e} ")); eprint!("; ");
         //ns1.iter().for_each(|e| eprint!("{e} ")); eprintln!();
 
-        //if !all_unique {      // no gain no penality for performance
-        // skip duplicate (ns0, ns1)
+        //if !all_unique {  // no gain no penality for performance
         let mut hasher = DefaultHasher::default();
         ns0.hash(&mut hasher);   let h0 = hasher.finish();
         if hv.contains(&h0) { continue } else { hv.push(h0) }
@@ -310,10 +311,12 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         let mut hasher = DefaultHasher::default();
         ns1.hash(&mut hasher);   let h1 = hasher.finish();
         if h1 != h0 { if hv.contains(&h1) { continue } else { hv.push(h1) } }
-        //}
+        //}     // skip duplicate (ns0, ns1)
 
         if 1 < ns0.len() { ns0 = comp24_splitset(&IR, &ns0, ia); }
         if 1 < ns1.len() { ns1 = comp24_splitset(&IR, &ns1, ia); }
+        //(ns0, ns1) = futures::join!(comp24_splitset(&IR, &ns0, ia),
+        //                            comp24_splitset(&IR, &ns1, ia));
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
@@ -396,8 +399,9 @@ pub  use Comp24Algo::*;
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
 
     match algo {
-        SplitSet(ia) => comp24_splitset(goal, nums, ia),
         DynProg (ia) => comp24_dynprog (goal, nums, ia),
+        SplitSet(ia) => comp24_splitset(goal, nums, ia),
+        //SplitSet(ia) => futures::executor::block_on(comp24_splitset(goal, nums, ia)),
 
         Inplace => {
             let mut exps = HashSet::default();
