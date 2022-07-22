@@ -97,46 +97,35 @@ template <> struct hash<PtrE> {
     }
 };
 
-/* bool is_subn_expr(const auto& e) {
-    if (e->op == '*' || e->op == '/') return is_subn_expr(e->a) || is_subn_expr(e->b);
-    return e->op == '-' && e->a->v < e->b->v;
-} */
-
 void form_expr(const auto& a, const auto& b, auto func) {
-    auto den = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
+    auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
+    auto dmd = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
     // ((a . b) . B) => (a . (b . B)
 
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
-    if (a->op != (op = Mul) && a->op != '/' && b->op != '/' &&
-        (op != b->op || *a < *b->a)) func(std::make_shared<const Expr>(
-            Rational(a->v.n * b->v.n, den), op, a, b));
+    if (a->op != (op = Mul) && a->op != '/' && b->op != '/' && (op != b->op || *a < *b->a))
+        func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
-    if (a->op != (op = Add) && a->op != '-' && b->op != '-' &&
-        (op != b->op || *a < *b->a)) func(std::make_shared<const Expr>(
-            Rational(a->v.n * b->v.d + a->v.d * b->v.n, den), op, a, b));
+    if (a->op != (op = Add) && a->op != '-' && b->op != '-' && (op != b->op || *a < *b->a))
+        func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
 
-    // (A - (a - b)) => ((A + b) - a), x - 0 => x + 0?
-    if (a->op != (op = Sub) && op != b->op) {
-        auto v = Rational(a->v.d * b->v.n - a->v.n * b->v.d, den);
-        //if (a->v.n != 0/* && !is_subn_expr(a)*/)
-            func(std::make_shared<const Expr>(v, op, b, a));
-
-        //v.n = -v.n; //if (b->v.n != 0/* && !is_subn_expr(b)*/)
-        //    func(std::make_shared<const Expr>(v, op, a, b));
+    // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
+    if (a->op != (op = Sub) && op != b->op) {   //if (a->v.n != 0)
+        func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
+        // (a - b) => -(b - a) since a < b
     }
 
     // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
     if (a->op != (op = Div) && op != b->op) {
-        auto v = Rational(a->v.n * b->v.d, a->v.d * b->v.n);
-        if (v.d != 0/* && b->v.n != b->v.d && a->v.n != 0*/)
-            func(std::make_shared<const Expr>(v, op, a, b));
+        if (dmn != 0/* && b->v.n != b->v.d && a->v.n != 0*/)
+            func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
 
-        std::swap(v.n, v.d);
-        if (v.d != 0/* && a->v.n != a->v.d && b->v.n != 0*/)
-            func(std::make_shared<const Expr>(v, op, b, a));
+        //std::swap(v.n, v.d);
+        if (nmd != 0/* && a->v.n != a->v.d && b->v.n != 0*/)
+            func(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
     }
 }
 

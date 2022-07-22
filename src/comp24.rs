@@ -16,8 +16,8 @@ use core::convert::From;
 use yansi::Paint;   // Color, Style
 //use itertools::Itertools;
 
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
-#[derive(Debug, Clone, Copy)] #[repr(C)] pub struct Rational(pub i32, pub i32);
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
+#[derive(Debug)] #[repr(C)] pub struct Rational(pub i32, pub i32);
 //#[repr(C)] pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
 
@@ -98,15 +98,15 @@ impl Rational {
 }
 
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    let den = a.v.1 * b.v.1;    // XXX: check overflow and simplify?
-    // ((a . b) . B) => (a . (b . B)
+    let (nmd, dmn, dmd) = (a.v.0 * b.v.1, a.v.1 * b.v.0, a.v.1 * b.v.1);
+    // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and simplify?
 
     let op = Oper(b'*');
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
     if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && (op.0 != b.op.0 ||
         if let Some((ba, _)) = &b.m { a < ba } else { true }) {
-        func(Rc::new(Expr { v: Rational(a.v.0 * b.v.0, den),
+        func(Rc::new(Expr { v: Rational(a.v.0 * b.v.0, dmd),
                             m: Some((a.clone(), b.clone())), op }));
     }
 
@@ -115,42 +115,28 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
     if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && (op.0 != b.op.0 ||
         if let Some((ba, _)) = &b.m { a < ba } else { true }) {
-        func(Rc::new(Expr { v: Rational(a.v.0 * b.v.1 + a.v.1 * b.v.0, den),
-                            m: Some((a.clone(), b.clone())), op }));
+        func(Rc::new(Expr { v: Rational(nmd+dmn, dmd), m: Some((a.clone(), b.clone())), op }));
     }
 
     let op = Oper(b'-');
-    // (A - (a - b)) => ((A + b) - a), x - 0 => x + 0?
-    if a.op.0 != op.0 && op.0 != b.op.0 {
-        let v = Rational(a.v.1 * b.v.0 - a.v.0 * b.v.1, den);
-        //if a.v.0 != 0/* && !is_subn_expr(a)*/ { }
-        func(Rc::new(Expr { v, m: Some((b.clone(), a.clone())), op }));
-
-        //v.0 = -v.0; //if b.v.0 != 0/* && !is_subn_expr(b)*/ { }
-        //func(Rc::new(Expr { v, m: Some((a.clone(), b.clone())), op }));
+    // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
+    if a.op.0 != op.0 && op.0 != b.op.0 {   //if a.v.0 != 0 { }
+        func(Rc::new(Expr { v: Rational(dmn-nmd, dmd), m: Some((b.clone(), a.clone())), op }));
+        // (a - b) => -(b - a) since a < b
     }
 
     let op = Oper(b'/');    // order mattered
     // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
     if a.op.0 != op.0 && op.0 != b.op.0 {
-        let v = Rational(a.v.0 * b.v.1, a.v.1 * b.v.0);
-        if  v.1 != 0/* && b.v.0 != b.v.1 && a.v.0 != 0*/  {
-            func(Rc::new(Expr { v, m: Some((a.clone(), b.clone())), op }));
+        if dmn != 0/* && b.v.0 != b.v.1 && a.v.0 != 0*/ {
+            func(Rc::new(Expr { v: Rational(nmd, dmn), m: Some((a.clone(), b.clone())), op }));
         }
 
-        let v = Rational(v.1, v.0);     //core::mem::swap(&mut v.0, &mut v.1);
-        if  v.1 != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/  {
-            func(Rc::new(Expr { v, m: Some((b.clone(), a.clone())), op }));
+        //core::mem::swap(&mut v.0, &mut v.1);
+        if nmd != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ {
+            func(Rc::new(Expr { v: Rational(dmn, nmd), m: Some((b.clone(), a.clone())), op }));
         }
     }
-
-    /* #[inline(always)] fn is_subn_expr(e: &Expr) -> bool {
-        if let Some((a, op, b)) = &e.m {    // recursive
-            if matches!(op.0, '*' | '/') { return is_subn_expr(a) || is_subn_expr(b) }
-            if op.0 == '-' && a.v < b.v  { return true }
-            // find ((a - b) * x / y) where a < b
-        }   false
-    } */
 }
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
@@ -264,7 +250,6 @@ fn comp24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
             if hv.contains(&h0) { continue } else { hv.push(h0) }
         }
 
-        // TODO: suitable concurrency for each vexp[x]?
         let mut exps = vexp[x].borrow_mut();
         for i in 1..(x+1)/2 {
             if x & i != i { continue }
@@ -394,9 +379,8 @@ pub  use Comp24Algo::*;
 #[inline] pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>],
     algo: Comp24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
-    debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
-
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
+    debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
 
     match algo {
         DynProg (ia) => comp24_dynprog (goal, nums, ia),
