@@ -26,9 +26,9 @@ inline auto operator*(const Rational& lhs, const auto& rhs) noexcept {
 inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
     return 0 == rhs.d ? Rational(0, 0) : Rational(lhs.n * rhs.d,  lhs.d * rhs.n); } */
 
-inline auto operator< (const Rational& lhs, const auto& rhs) noexcept {
+inline auto operator< (const auto& lhs, const auto& rhs) noexcept {
     return lhs.n * rhs.d < lhs.d * rhs.n; }
-inline auto operator==(const Rational& lhs, const auto& rhs) noexcept {
+inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;
 }
 
@@ -41,7 +41,7 @@ inline auto operator*(const Expr& lhs, const auto& rhs) noexcept {
 inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
     return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); } */
 
-auto operator< (const Expr& lhs, const auto& rhs) noexcept {
+auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
     auto lv = lhs.v.n * rhs.v.d, rv = lhs.v.d * rhs.v.n;
     if (lv  < rv) return true;
     if (lv == rv && rhs.op != Num) {
@@ -89,7 +89,7 @@ inline auto hash_combine(size_t lhs, auto rhs) {
 
 using std::hash; // #include <functional>
 
-template <> struct hash<PtrE> {
+template <> struct std::hash<PtrE> {
     size_t operator()(const PtrE& e) const noexcept {
         if (e->op == Num) return hash_combine(e->v.n, e->v.d); else {  hash<PtrE> hasher;
             return hash_combine(hasher(e->a), hasher(e->b)) ^ (char(e->op) << 13);
@@ -235,7 +235,8 @@ list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) 
     list<PtrE> exps;
     if (nums.size() == 1) {
         const auto& e = nums.front();
-        if (e->v == goal) exps.push_back(e);    return exps;
+        if (e->v == goal) exps.push_back(e);
+        return exps;
     }
 
     switch (algo) {
