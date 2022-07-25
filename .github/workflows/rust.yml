@@ -60,11 +60,10 @@ jobs:
       #run: | cargo install cargo-tarpulin
       #  cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
       uses: actions-rs/tarpaulin@v0.1
-      with:
+      #with:
       #  version: '0.20.1'
       #  args: '-- --test-threads 1'
-        run-types: 'Tests,Doctests'
-        args: '-v'
+      #  run-types: 'Tests,Doctests'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
