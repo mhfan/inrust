@@ -1,5 +1,5 @@
 
-name: Rust CI, Cargo Build & Test
+name: Rust CI
 
 on:
   push:
@@ -57,7 +57,8 @@ jobs:
       run: cargo bench
 
     - name: Code coverage
-      #run: | cargo install cargo-tarpulin
+      #run: |
+      #  cargo install cargo-tarpulin
       #  cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
       uses: actions-rs/tarpaulin@v0.1
       #with:

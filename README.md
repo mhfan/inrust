@@ -1,4 +1,7 @@
 
+![Build status](https://github.com/mhfan/hello-rust/actions/workflows/rust.yml/badge.svg)
+[![Codecov](https://img.shields.io/codecov/c/gh/mhfan/hello-rust)](https://app.codecov.io/gh/mhfan/hello-rust)
+
 # Rust study project from scratch
 
 ## Solve 24 computation
@@ -54,8 +57,6 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 
 # 积累和 TODO
 
-+ [ ] Continuous Integration/Deployment (Github Action)
-+ [ ] Code coverage automatically
 + [ ] build timestamp & commit-ID
 + [ ] internationalization (i18n)
 + [ ] SVG/UI/WebAssembly/XR/Game
@@ -67,6 +68,8 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [x] concurrency
 + [x] C FFI & build.rs
 + [x] benchmark/criterion
++ [x] Code coverage automatically
++ [x] Continuous Integration/Deployment (Github Action)
 + [x] Continuous (Unit/Integrate/Fuzz) Test
 + [x] cargo/crate/module organization
 + [x] conditional compilation
