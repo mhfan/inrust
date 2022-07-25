@@ -63,7 +63,7 @@ jobs:
       with:
       #  version: '0.20.1'
       #  args: '-- --test-threads 1'
-        run-types: 'Tests Doctests'
+        run-types: 'Tests,Doctests'
         args: '-v'
 
     - name: Upload to codecov.io
