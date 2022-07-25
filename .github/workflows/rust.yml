@@ -27,6 +27,7 @@ jobs:
     #      - stable
     #      - beta
     #      - nightly
+    #
     #    build: [linux, macos, windows]
     #    include:
     #      - build: linux
@@ -40,6 +41,10 @@ jobs:
     #        target: x86_64-pc-windows-msvc
     #  fail-fast: false
 
+    #container:
+    #  image: xd009642/tarpaulin:develop-nightly
+    #  options: --security-opt seccomp=unconfined
+
     steps:
     - uses: actions/checkout@v3
 
@@ -52,7 +57,11 @@ jobs:
       run: cargo bench
 
     - name: Code coverage
-      run: cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
+      #run: cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
+      uses: actions-rs/tarpaulin@v0.1
+      with:
+        version: '0.20.1'
+        args: '-- --test-threads 1'
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v2
