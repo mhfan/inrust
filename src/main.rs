@@ -23,31 +23,20 @@ use yansi::Paint;   // Color, Style
 //#![no_main]
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
-    use std::env;
-
-    //println!("Build @ {}", BUILD_TIMESTAMP);  // TODO:
-    print!(r"{} v{}, args:", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"));
-    env::args().skip(1).for_each(|it| print!(" {it:?}") );
-    //println!(" {:?}", env::args().collect::<Vec<String>>());
-    println!("\n{}", env!("CARGO_PKG_AUTHORS"));
-
-    //env::var("CASE_INSENSITIVE").is_err();   //option_env!("ENV_VAR_NAME");
+    println!(r"{} v{}, {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
+        //env!("CARGO_COMMIT_SHORT_HASH"), //env!("CARGO_BUILD_TIMESTAMP"),  // TODO:
+        env!("CARGO_PKG_AUTHORS"));     //option_env!("ENV_VAR_NAME");
+    //std::env::args().skip(1).for_each(|it| eprint!(" {it:?}") );
+    //env::var("CASE_INSENSITIVE").is_err();    // run time environment
 
     if !atty::is(atty::Stream::Stdout) { Paint::disable() }
     if cfg!(windows) && !Paint::enable_windows_ascii() { Paint::disable() }
 
-    println!(r"Hello, world!");  //panic!("Test a panic.");
-
     //include!("relative_path");    // XXX:
+    //panic!("Test a panic.");
 
-    //use std::time::Duration;
-    //std::thread::sleep(Duration::from_secs(1));
-
+    //std::thread::sleep(std::time::Duration::from_secs(1));
     //let x: Result<u32, &str> = Err("Emergency Failure");  //x.expect("Testing expect");
-
-    //let _a = [1, 2, 3, 4, 5];
-    //let _a = [1; 5]; //_a.len();
-    //for i in _a { println!("{i:?}") }
     //for i in (1..5).rev() { println!("{i:?}") }
 
     /* way of recursive closure:
