@@ -57,11 +57,14 @@ jobs:
       run: cargo bench
 
     - name: Code coverage
-      #run: cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
+      #run: | cargo install cargo-tarpulin
+      #  cargo tarpaulin --all-features --workspace --timeout 120 --out Xml
       uses: actions-rs/tarpaulin@v0.1
       with:
-        version: '0.20.1'
-        args: '-- --test-threads 1'
+      #  version: '0.20.1'
+      #  args: '-- --test-threads 1'
+        run-types: 'Tests Doctests'
+        args: '-v'
 
     - name: Upload to codecov.io
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3
