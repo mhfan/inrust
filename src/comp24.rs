@@ -198,7 +198,7 @@ impl PartialEq for Expr {
     }
 }
 
-fn _hash_combine(lhs: u32, rhs: u32) -> u32 {
+#[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {
     //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
     lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
                                        .wrapping_add(lhs.wrapping_shr(2)))
@@ -662,6 +662,7 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
         unsafe { test_comp24(); }
     }
 
+    #[cfg(not(tarpaulin_include))]
     /*#[test] #[bench] */fn _comp24_random() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};

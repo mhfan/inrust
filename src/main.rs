@@ -51,6 +51,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
+#[cfg(not(tarpaulin_include))]
 #[allow(dead_code)] fn guess_number() {     // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
     //struct Param(i32, bool); let param = Param(100, true); //let param = (100, true);

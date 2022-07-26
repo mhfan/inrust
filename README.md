@@ -1,8 +1,11 @@
 
-![Build status](https://github.com/mhfan/hello-rust/actions/workflows/rust.yml/badge.svg)
-[![Codecov](https://img.shields.io/codecov/c/gh/mhfan/hello-rust)](https://app.codecov.io/gh/mhfan/hello-rust)
-
 # Rust study project from scratch
+
+![Build status](https://github.com/mhfan/hello-rust/actions/workflows/rust.yml/badge.svg)
+[![codecov](https://codecov.io/gh/mhfan/hello-rust/graph/badge.svg)](https://codecov.io/gh/mhfan/hello-rust)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A project to accumulate my knowledge about Rust programming and engineering.
 
 ## Solve 24 computation
 
