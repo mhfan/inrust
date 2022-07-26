@@ -1,11 +1,9 @@
 
-//use hello_rust;
-
 //mod common;   // subdirectory module
 
-#[test] fn sample_test() {
-    assert_eq!(hello_rust::f(), 0);
+#[test] fn test_largest() {
+    let array = [1, 2, 3];
+    assert_eq!(hello_rust::largest(&array), &array[2]);
     // Integration tests (and benchmarks) 'depend' to the crate
     // like a 3rd party would. Hence, they only see public items.
 }
-

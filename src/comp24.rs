@@ -401,6 +401,7 @@ pub  use Comp24Algo::*;
     }
 }
 
+#[cfg(not(tarpaulin_include))]
 pub fn comp24_main() {
     fn comp24_helper<I, S>(goal: &Rational, nums: I)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?

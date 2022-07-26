@@ -4,10 +4,9 @@
 
 //pub use A::B::C as D;
 
-pub fn f() -> i32 { 0 }     // Public item in root, accessible from the outside.
 //pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
 pub mod comp24;
-//pub mod list;
+pub mod list;
 
 /** https://gist.github.com/synecdoche/9ade913c891dda6fcf1cdac823e7d524
  *
@@ -18,9 +17,8 @@ pub mod comp24;
  * positional bits are flipped on in each mask.
  *
  * ```
- * use hello_rust::powerset;
  * let set = vec![1, 2, 3];
- * let psv = powerset(&set);
+ * let psv = hello_rust::powerset(&set);
  * assert_eq!(psv.len(), 1 << set.len());
  * vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
  *     .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
@@ -53,7 +51,12 @@ pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
     }      psv */
 }
 
-// https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
+/** https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
+ * ```
+ * let str = "Hello, World!";
+ * assert_eq!(hello_rust::shell_pipe("echo", &[str], ""), str.to_owned() + "\n");
+ * ```
+ */
 pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
     use std::process::{Command, Stdio};
     //use std::io::prelude::*;
@@ -80,8 +83,8 @@ pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
     for item in list { if largest < item { largest = item } }  largest
 }
 
-pub fn calc_pi() {
-    // a streaming/spigot algorithm, https://rosettacode.org/wiki/Pi
+#[cfg(not(tarpaulin_include))]
+pub fn calc_pi() {  // a streaming/spigot algorithm, https://rosettacode.org/wiki/Pi
     use num_bigint::BigInt;
     let mut first = true;
 
@@ -123,9 +126,7 @@ mod m {
     use super::*;
 
     //#[should_panic(expect = "some panic string")] //#[should_panic]
-    #[test] fn test_f() { assert_eq!(f(), 0); }
-
-    #[test] fn test_g() -> Result<(), String> {
+    #[test] fn test_g() -> Result<(), String> {     m::g();
         if 0 == 0 { Ok(()) } else { Err(String::from("Failed")) }
     }
 }
