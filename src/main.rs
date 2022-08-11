@@ -32,7 +32,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     if !atty::is(atty::Stream::Stdout) { Paint::disable() }
     if cfg!(windows) && !Paint::enable_windows_ascii() { Paint::disable() }
 
-    //include!("relative_path");    // XXX:
+    //include_bytes!("relative_path");  //include!("relative_path");    // XXX:
     //panic!("Test a panic.");
 
     //std::thread::sleep(std::time::Duration::from_secs(1));

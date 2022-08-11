@@ -17,7 +17,8 @@ use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: Vec<Rational>| {
     if data.len() < 3 || 6 < data.len() { return }  // FIXME: why return don't work?
-    if data.iter().any(|rn| rn.1 == 0 || 100 < rn.0.abs() || 100 < rn.1.abs()) { return }
+    if data.iter().any(|rn| rn.denom() == &0 || 100 < rn.numer().abs() ||
+                                                100 < rn.denom().abs()) { return }
     let nums = data.iter().skip(1).map(|n| Rc::new((*n).into())).collect::<Vec<_>>();
     comp24_algo(&data[0], &nums, DynProg (false));
 });

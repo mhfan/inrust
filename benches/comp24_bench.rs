@@ -1,8 +1,6 @@
 
 // https://nnethercote.github.io/perf-book/introduction.html
 
-// TODO: How to do memory profiling in macOS?
-
 //#[macro_use]
 //extern crate bencher;
 //use bencher::Bencher;

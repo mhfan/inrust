@@ -16,10 +16,95 @@ use core::convert::From;
 use yansi::Paint;   // Color, Style
 //use itertools::Itertools;
 
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
-#[derive(Debug)] #[repr(C)] pub struct Rational(pub i32, pub i32);
-//#[repr(C)] pub struct Rational { n: i32, d: i32 }
 //type Rational = (i32, i32);
+pub type Rational = RNum<i32>;
+//pub type Rational = num_rational::Rational32;
+
+#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
+#[derive(Debug)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
+
+use num_integer::Integer;
+impl<T: Integer + Copy> From<T> for RNum<T> {
+    fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
+}
+
+impl<T: Integer + Copy + Display> Display for RNum<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let srn = self; //.reduce();
+        if  srn.1.is_zero() { write!(f, r"(INV)")? } else {
+            let braket = srn.0 * srn.1 < T::zero() || !srn.1.is_one();
+            if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
+            if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }
+            if  braket { write!(f, r")")? }
+        }   Ok(())
+    }
+}
+
+use core::str::FromStr;
+impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
+    type Err = T::Err;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut s = s.splitn(2, '/');
+        let n = FromStr::from_str(s.next().unwrap())?;  // XXX:
+        let d = FromStr::from_str(s.next().unwrap_or("1"))?;
+        Ok(Self::new_raw(n, d))
+    }
+}
+
+/* impl<T: Integer> Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
+impl<T: Integer> std::cmp::Ord for RNum<T> {
+    fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
+} */
+
+impl<T: Integer + Copy> PartialOrd for RNum<T> {
+    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+        //if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
+            (self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
+    }
+}
+
+impl<T: Integer + Copy> PartialEq for RNum<T> {
+    fn eq(&self, rhs: &Self) -> bool {
+        self.partial_cmp(rhs) == Some(Ordering::Equal)
+        //self.1 != 0 && rhs.1 != 0 && self.0 * rhs.1 == self.1 * rhs.0
+    }
+}
+
+impl<T: Integer + Copy> RNum<T> {
+    #![allow(dead_code)]
+
+    #[inline] pub const fn numer(&self) -> &T { &self.0 }
+    #[inline] pub const fn denom(&self) -> &T { &self.1 }
+
+    #[inline] const fn new_raw(numer: T, denom: T) -> Self { Self(numer, denom) }
+    #[inline] fn new(numer: T, denom: T) -> Self {
+        let mut rn = Self::new_raw(numer, denom);
+        rn.reduce();    rn
+    }
+
+    /*pub*/ fn reduce(&mut self) {
+        #[inline] fn gcd<T: Integer + Copy>(a: T, b: T) -> T {     // Greatest Common Denominator
+            // Stein's algorithm (Binary GCD) support non-negative only
+            let (mut m, mut n) = (a, b);
+            while !m.is_zero() {  // Use Euclid's algorithm
+                let temp = m;
+                m = n % temp;
+                n = temp;
+            }   n //.abs()
+        }
+
+        let gcd = gcd(self.0, self.1);
+        let (n, d) = (self.0 / gcd, self.1 / gcd);
+        if T::zero() < d { self.0 = n; self.1 = d; } else {
+            self.0 = T::zero() - n; self.1 = T::zero() - d;
+        }
+    }
+}
+
+/* impl<T: Integer + Copy> std::ops::Add for RNum<T> {  //std::ops::{Add, Sub, Mul, Div}
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output { todo!() }
+} */
 
 #[derive(/*Debug, */Clone, Copy)] struct Oper(u8);    // newtype idiom
 //#[repr(C, u8)] enum Oper { Num, Add(u8), Sub(u8), Mul(u8), Div(u8), }
@@ -30,83 +115,20 @@ use yansi::Paint;   // Color, Style
 
 pub use std::rc::Rc;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
-pub struct Expr { pub v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
-//pub struct _Expr { pub v: Rational, a: *const Expr, b: *const Expr, op: Oper }
-
-/* impl std::ops::Add for Rational {    //std::ops::{Add, Sub, Mul, Div}
-    type Output = Self;
-    fn add(self, rhs: Self) -> Self::Output { todo!() }
-} */
-
-impl From<i32> for Rational { fn from(n: i32) -> Self { Self(n, 1) } }
-
-impl Display for Rational {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let srn = self; //.simplify();
-        if  srn.1 == 0 { write!(f, r"(INV)")? } else {
-            let braket = srn.0 * srn.1 < 0 || srn.1 != 1;
-            if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
-            if  srn.1 != 1 { write!(f, r"/{}", srn.1)? }
-            if  braket { write!(f, r")")? }
-        }   Ok(())
-    }
-}
-
-impl std::str::FromStr for Rational {
-    type Err = std::num::ParseIntError;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let v = s.split('/').collect::<Vec<_>>();
-        let (n, mut d) = (v[0].parse::<i32>()?, 1);
-        if 1 < v.len() { d = v[1].parse::<i32>()? }
-        Ok(Rational(n, d))
-    }
-}
-
-/* impl std::cmp::Ord for Rational {
-    fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
-} */
-
-impl PartialOrd for Rational {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        //if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
-            (self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
-    }
-}
-
-//impl Eq for Rational { /*fn assert_receiver_is_total_eq(&self) { }*/ }
-impl PartialEq for Rational {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.partial_cmp(rhs) == Some(Ordering::Equal)
-        //self.1 != 0 && rhs.1 != 0 && self.0 * rhs.1 == self.1 * rhs.0
-    }
-}
-
-impl Rational {
-    #[allow(dead_code)] fn simplify(&self) -> Self {
-        fn gcd(a: i32, b: i32) -> i32 { // Greatest Common Denominator
-            let (mut m, mut n) = (a, b);
-            while m != 0 {  // Use Euclid's algorithm
-                let temp = m;
-                m = n % temp;
-                n = temp;
-            }   n //.abs()
-        }
-
-        let gcd = gcd(self.0, self.1);
-        Self(self.0 / gcd, self.1 / gcd)  //*self
-    }
-}
+pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
+//pub struct _Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }
 
 fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    let (nmd, dmn, dmd) = (a.v.0 * b.v.1, a.v.1 * b.v.0, a.v.1 * b.v.1);
-    // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and simplify?
+    let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
+               a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
+    // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and reduce?
 
     let op = Oper(b'*');
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
     if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && (op.0 != b.op.0 ||
         if let Some((ba, _)) = &b.m { a < ba } else { true }) {
-        func(Rc::new(Expr { v: Rational(a.v.0 * b.v.0, dmd),
+        func(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
                             m: Some((a.clone(), b.clone())), op }));
     }
 
@@ -115,26 +137,29 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
     if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && (op.0 != b.op.0 ||
         if let Some((ba, _)) = &b.m { a < ba } else { true }) {
-        func(Rc::new(Expr { v: Rational(nmd+dmn, dmd), m: Some((a.clone(), b.clone())), op }));
+        func(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
+                            m: Some((a.clone(), b.clone())), op }));
     }
 
     let op = Oper(b'-');
     // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
-    if a.op.0 != op.0 && op.0 != b.op.0 {   //if a.v.0 != 0 { }
-        func(Rc::new(Expr { v: Rational(dmn-nmd, dmd), m: Some((b.clone(), a.clone())), op }));
+    if a.op.0 != op.0 && op.0 != b.op.0 {   //if a.v.numer() != &0 { }
+        func(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
+                            m: Some((b.clone(), a.clone())), op }));
         // (a - b) => -(b - a) since a < b
     }
 
     let op = Oper(b'/');    // order mattered
     // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
     if a.op.0 != op.0 && op.0 != b.op.0 {
-        if dmn != 0/* && b.v.0 != b.v.1 && a.v.0 != 0*/ {
-            func(Rc::new(Expr { v: Rational(nmd, dmn), m: Some((a.clone(), b.clone())), op }));
+        if dmn != 0/* && b.v.numer() != b.v.denom() && a.v.numer() != &0*/ {
+            func(Rc::new(Expr { v: Rational::new_raw(nmd, dmn),
+                                m: Some((a.clone(), b.clone())), op }));
         }
 
-        //core::mem::swap(&mut v.0, &mut v.1);
-        if nmd != 0/* && a.v.0 != a.v.1 && b.v.0 != 0*/ {
-            func(Rc::new(Expr { v: Rational(dmn, nmd), m: Some((b.clone(), a.clone())), op }));
+        if nmd != 0/* && a.v.numer() != a.v.denom() && b.v.numer() != &0*/ {
+            func(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
+                                m: Some((b.clone(), a.clone())), op }));
         }
     }
 }
@@ -142,10 +167,8 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    fn from(r: Rational) -> Self { Self { v: r/*.simplify()*/, m: None, op: Oper(0) } }
+    fn from(r: Rational) -> Self { Self { v: r/*.reduce()*/, m: None, op: Oper(0) } }
 }
-
-impl From<i32> for Expr { fn from(n: i32) -> Self { Rational::from(n).into() } }
 
 impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -209,7 +232,7 @@ impl Hash for Expr {
         //self.to_string().hash(state); return;
         if let Some((a, b)) = &self.m {
             self.op.0.hash(state);  a.hash(state);  b.hash(state);  // recursive
-        } else { self.v.0.hash(state); self.v.1.hash(state); }
+        } else { self.v.numer().hash(state); self.v.denom().hash(state); }
     }
 }
 
@@ -276,7 +299,7 @@ fn comp24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
     let (pow, mut exps) = (1 << nums.len(), Vec::new());
     let mut hv = Vec::with_capacity(pow - 2);
     let sub_round = core::ptr::eq(goal, &IR);
-    const IR: Rational = Rational(0, 0);
+    const IR: Rational = Rational::new_raw(0, 0);
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
@@ -374,7 +397,7 @@ pub  use Comp24Algo::*;
 
 // view dhat-heap.json in https://nnethercote.github.io/dh_view/dh_view.html
 #[cfg(feature = "dhat-heap")] #[global_allocator] static ALLOC: dhat::Alloc = dhat::Alloc;
-// cargo run --features dhat-heap
+// cargo run --features dhat-heap   // memory profiling
 
 #[inline] pub fn comp24_algo(goal: &Rational, nums: &[Rc<Expr>],
     algo: Comp24Algo) -> Vec<Rc<Expr>> {
@@ -408,8 +431,9 @@ pub fn comp24_main() {
         let nums = nums.map(|str| str.as_ref().parse::<Rational>())
             .inspect(|res| match res {  // XXX: exit on error?
                 Err(why) => eprintln!(r"Error parsing rational: {}", Paint::red(why)),
-                Ok(rn) => if rn.1 == 0 {
-                    eprintln!(r"Invalid rational number: {}/{}", rn.0, Paint::red(rn.1)) }})
+                Ok(rn) => if rn.denom() == &0 {
+                    eprintln!(r"Invalid rational number: {}/{}", rn.numer(),
+                    Paint::red(rn.denom())) }})
             .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
         //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
         if  nums.len() < 2 { return eprintln!(r"{}",
@@ -498,7 +522,7 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
     impl Drop for Cstr { fn drop(&mut self) { todo!() } }
 
     let mut comp24 = Comp24 {
-        algo, goal: Rational(goal.0, goal.1),
+        algo, goal: Rational::new_raw(*goal.numer(), *goal.denom()),
         //goal: unsafe { core::mem::transmute(goal) },
         nums: nums.as_ptr(), ncnt: nums.len(),
         ecnt: 0, exps: core::ptr::null_mut(),
@@ -547,29 +571,30 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
 
     #[test] fn parse_disp_rn() {
         let cases = [
-            (Rational::from(0), "0"), (Rational(1, 2), "(1/2)"),
-            (Rational::from(1), "1"), (Rational::from(-1), "(-1)"),
+            (RNum::from(0), "0"), (RNum::new_raw(1, 2), "(1/2)"),
+            (RNum::from(1), "1"), (RNum::from(-1), "(-1)"),
         ];
 
         cases.iter().for_each(|it| {
             assert_eq!(it.0.to_string(), it.1, r"display {} != {}",
                 Paint::red(&it.0), Paint::cyan(&it.1));
             assert_eq!(it.1.trim_start_matches('(').trim_end_matches(')')
-                .parse::<Rational>().unwrap(),  it.0, r"parsing {} != {}",
+                .parse::<RNum<i32>>().unwrap(),  it.0, r"parsing {} != {}",
                 Paint::red(&it.1), Paint::cyan(&it.0));
         });
     }
 
-    #[test] fn simplify_rn() {
+    #[test] fn reduce_rn() {
         let cases = [
-            (Rational(-1, -1), Rational(1, 1)),
-            (Rational(-4, -2), Rational(2, 1)),
-            (Rational( 6,  2), Rational(3, 1)),
+            (RNum::new(-1, -1), RNum::new_raw( 1, 1)),
+            (RNum::new(-4, -2), RNum::new_raw( 2, 1)),
+            (RNum::new( 6, -2), RNum::new_raw(-3, 1)),
+            (RNum::new( 3,  2), RNum::new_raw( 3, 2)),
         ];
 
-        cases.iter().for_each(|(a, b)| {
-            let sa = a.simplify();
-            assert!(sa.0 == b.0 && sa.1 == b.1, "simplified rational: {sa}");
+        cases.into_iter().for_each(|(a, b)| {
+            assert!(a.numer() == b.numer() && a.denom() == b.denom(),
+                "simplified rational: {a}");
         });
     }
 
@@ -674,7 +699,8 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());
             println!(r"Compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
-            let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
+            let nums = nums.into_iter().map(|n|
+                Rc::new(Rational::from(n).into())).collect::<Vec<_>>();
             let (goal, now) = (goal.into(), Instant::now());
 
             comp24_algo(&goal, &nums, DynProg (false));
