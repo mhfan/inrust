@@ -230,6 +230,7 @@ dependencies = [
  "cc",
  "criterion",
  "num-bigint",
+ "num-integer",
  "rand",
  "yansi",
 ]
