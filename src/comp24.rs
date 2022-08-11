@@ -116,53 +116,7 @@ impl<T: Integer + Copy> RNum<T> {
 pub use std::rc::Rc;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
 pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
-//pub struct _Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }
-
-fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
-    let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
-               a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
-    // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and reduce?
-
-    let op = Oper(b'*');
-    // (A * (a * b)) => (a * (A * b)) if a < A
-    // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
-    if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && (op.0 != b.op.0 ||
-        if let Some((ba, _)) = &b.m { a < ba } else { true }) {
-        func(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
-                            m: Some((a.clone(), b.clone())), op }));
-    }
-
-    let op = Oper(b'+');
-    // (A + (a + b)) => (a + (A + b)) if a < A
-    // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
-    if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && (op.0 != b.op.0 ||
-        if let Some((ba, _)) = &b.m { a < ba } else { true }) {
-        func(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
-                            m: Some((a.clone(), b.clone())), op }));
-    }
-
-    let op = Oper(b'-');
-    // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
-    if a.op.0 != op.0 && op.0 != b.op.0 {   //if a.v.numer() != &0 { }
-        func(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
-                            m: Some((b.clone(), a.clone())), op }));
-        // (a - b) => -(b - a) since a < b
-    }
-
-    let op = Oper(b'/');    // order mattered
-    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
-    if a.op.0 != op.0 && op.0 != b.op.0 {
-        if dmn != 0/* && b.v.numer() != b.v.denom() && a.v.numer() != &0*/ {
-            func(Rc::new(Expr { v: Rational::new_raw(nmd, dmn),
-                                m: Some((a.clone(), b.clone())), op }));
-        }
-
-        if nmd != 0/* && a.v.numer() != a.v.denom() && b.v.numer() != &0*/ {
-            func(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
-                                m: Some((b.clone(), a.clone())), op }));
-        }
-    }
-}
+//pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
@@ -221,12 +175,6 @@ impl PartialEq for Expr {
     }
 }
 
-#[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {
-    //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
-    lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
-                                       .wrapping_add(lhs.wrapping_shr(2)))
-}
-
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
@@ -236,6 +184,12 @@ impl Hash for Expr {
     }
 }
 
+#[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {
+    //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
+    lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
+                                       .wrapping_add(lhs.wrapping_shr(2)))
+}
+
 use std::collections::HashSet;
 //use rustc_hash::FxHashSet as HashSet;
 // faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
@@ -243,11 +197,57 @@ use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-//use crate::list::List;
-//use std::collections::LinkedList as List;     // both seems lower performance than Vec
-
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
+
+fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
+    let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
+               a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
+    // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and reduce?
+
+    let op = Oper(b'*');
+    // (A * (a * b)) => (a * (A * b)) if a < A
+    // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
+    if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' && (op.0 != b.op.0 ||
+        if let Some((ba, _)) = &b.m { a < ba } else { true }) {
+        func(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
+                            m: Some((a.clone(), b.clone())), op }));
+    }
+
+    let op = Oper(b'+');
+    // (A + (a + b)) => (a + (A + b)) if a < A
+    // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
+    if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' && (op.0 != b.op.0 ||
+        if let Some((ba, _)) = &b.m { a < ba } else { true }) {
+        func(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
+                            m: Some((a.clone(), b.clone())), op }));
+    }
+
+    let op = Oper(b'-');
+    // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
+    if a.op.0 != op.0 && op.0 != b.op.0 {   //if a.v.numer() != &0 { }
+        func(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
+                            m: Some((b.clone(), a.clone())), op }));
+        // (a - b) => -(b - a) since a < b
+    }
+
+    let op = Oper(b'/');    // order mattered
+    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
+    if a.op.0 != op.0 && op.0 != b.op.0 {
+        if dmn != 0/* && b.v.numer() != b.v.denom() && a.v.numer() != &0*/ {
+            func(Rc::new(Expr { v: Rational::new_raw(nmd, dmn),
+                                m: Some((a.clone(), b.clone())), op }));
+        }
+
+        if nmd != 0/* && a.v.numer() != a.v.denom() && b.v.numer() != &0*/ {
+            func(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
+                                m: Some((b.clone(), a.clone())), op }));
+        }
+    }
+}
+
+//use crate::list::List;
+//use std::collections::LinkedList as List;     // both seems lower performance than Vec
 
 fn comp24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
