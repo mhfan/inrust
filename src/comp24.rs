@@ -34,7 +34,7 @@ impl<T: Integer + Copy> RNum<T> {
         rn.reduce();    rn
     }
 
-    /*pub*/ fn reduce(&mut self) {
+    /*pub */fn reduce(&mut self) {
         #[inline] fn gcd<T: Integer + Copy>(a: T, b: T) -> T {     // Greatest Common Denominator
             // Stein's algorithm (Binary GCD) support non-negative only
             let (mut m, mut n) = (a, b);

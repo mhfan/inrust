@@ -7,8 +7,7 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-//fn bench_comp24(c: &mut Criterion) { }
-fn criterion_benchmark(c: &mut Criterion) {
+fn bench_comp24(c: &mut Criterion) {
     /* fn fibonacci(n: u64) -> u64 {
         match n { 0 => 1, 1 => 1, n => fibonacci(n-1) + fibonacci(n-2), }
     }
@@ -59,6 +58,14 @@ fn criterion_benchmark(c: &mut Criterion) {
     group.finish();
 }
 
+//criterion_group!(benches, bench_comp24);
+use pprof::criterion::{PProfProfiler, Output};
+criterion_group!{
+    name = benches;
+    config = Criterion::default()
+        .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
+    targets = bench_comp24
+}
+
 // sudo cargo flamegraph --bench comp24_bench
-criterion_group!(benches, criterion_benchmark);
-criterion_main! (benches);
+criterion_main!(benches);

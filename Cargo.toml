@@ -22,20 +22,20 @@ authors = ["MeiHui FAN <mhfan@ustc.edu>"]
 
 [dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8"
-#num  = "0.4"  # rational/complex/bigint/integer etc.
-num-bigint = "0.4"
+#num  = "0.4"    # rational/complex/bigint/integer etc.
 num-integer = "0.1"
-#itertools = "0.10"
+num-bigint  = "0.4"
+#itertools  = "0.10"
 #rustc-hash = "1.1"
 yansi = "0.5"
-atty = "0.2"
+atty  = "0.2"
 
 #async-std = "1.12"
 #async-recursion = "1.0"
 #futures = "0.3"
 
 #syn = "1.0"
-#quote = "1.0"
+#quote  = "1.0"
 #chrono = "0.4"
 #proc_macro2 = "1.0"
 
@@ -46,14 +46,14 @@ arbitrary = { version = "1.1", optional = true, features = ["derive"] }
 #dhat = { version = "0.3", optional = true }
 
 [dev-dependencies]
-#pprof = { version = "0.9", features = ["flamegraph"] }
+pprof = { version = "0.10", features = ["flamegraph", "criterion"] }
 criterion = "0.3"
 #bencher = "0.1"
 
 [build-dependencies]
-#pkg-config = "0.3"
 cc = { version = "1.0", optional = true }
 #cxx-build = { version = "1.0", optional = true }
+#pkg-config = "0.3"
 
 [features]
 default = ["cc"] #, "num-rational"
