@@ -17,13 +17,44 @@ use yansi::Paint;   // Color, Style
 //use itertools::Itertools;
 
 //type Rational = (i32, i32);
-pub type Rational = RNum<i32>;
-//pub type Rational = num_rational::Rational32;
+#[cfg(not(feature = "num-rational"))] pub type Rational = RNum<i32>;
+#[cfg(feature = "num-rational")] pub type Rational = num_rational::Ratio<i32>;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
 #[derive(Debug)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
 use num_integer::Integer;
+impl<T: Integer + Copy> RNum<T> {
+    #![allow(dead_code)]
+
+    #[inline] pub const fn numer(&self) -> &T { &self.0 }
+    #[inline] pub const fn denom(&self) -> &T { &self.1 }
+
+    #[inline] const fn new_raw(numer: T, denom: T) -> Self { Self(numer, denom) }
+    #[inline] fn new(numer: T, denom: T) -> Self {
+        let mut rn = Self::new_raw(numer, denom);
+        rn.reduce();    rn
+    }
+
+    /*pub*/ fn reduce(&mut self) {
+        #[inline] fn gcd<T: Integer + Copy>(a: T, b: T) -> T {     // Greatest Common Denominator
+            // Stein's algorithm (Binary GCD) support non-negative only
+            let (mut m, mut n) = (a, b);
+            while !m.is_zero() {  // Use Euclid's algorithm
+                let temp = m;
+                m = n % temp;
+                n = temp;
+            }   n //.abs()
+        }
+
+        let gcd = gcd(self.0, self.1);
+        let (n, d) = (self.0 / gcd, self.1 / gcd);
+        if T::zero() < d { self.0 = n; self.1 = d; } else {
+            self.0 = T::zero() - n; self.1 = T::zero() - d;
+        }
+    }
+}
+
 impl<T: Integer + Copy> From<T> for RNum<T> {
     fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
 }
@@ -70,37 +101,6 @@ impl<T: Integer + Copy> PartialEq for RNum<T> {
     }
 }
 
-impl<T: Integer + Copy> RNum<T> {
-    #![allow(dead_code)]
-
-    #[inline] pub const fn numer(&self) -> &T { &self.0 }
-    #[inline] pub const fn denom(&self) -> &T { &self.1 }
-
-    #[inline] const fn new_raw(numer: T, denom: T) -> Self { Self(numer, denom) }
-    #[inline] fn new(numer: T, denom: T) -> Self {
-        let mut rn = Self::new_raw(numer, denom);
-        rn.reduce();    rn
-    }
-
-    /*pub*/ fn reduce(&mut self) {
-        #[inline] fn gcd<T: Integer + Copy>(a: T, b: T) -> T {     // Greatest Common Denominator
-            // Stein's algorithm (Binary GCD) support non-negative only
-            let (mut m, mut n) = (a, b);
-            while !m.is_zero() {  // Use Euclid's algorithm
-                let temp = m;
-                m = n % temp;
-                n = temp;
-            }   n //.abs()
-        }
-
-        let gcd = gcd(self.0, self.1);
-        let (n, d) = (self.0 / gcd, self.1 / gcd);
-        if T::zero() < d { self.0 = n; self.1 = d; } else {
-            self.0 = T::zero() - n; self.1 = T::zero() - d;
-        }
-    }
-}
-
 /* impl<T: Integer + Copy> std::ops::Add for RNum<T> {  //std::ops::{Add, Sub, Mul, Div}
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output { todo!() }
@@ -121,7 +121,7 @@ pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    fn from(r: Rational) -> Self { Self { v: r/*.reduce()*/, m: None, op: Oper(0) } }
+    fn from(rn: Rational) -> Self { Self { v: rn/*.reduce()*/, m: None, op: Oper(0) } }
 }
 
 impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
