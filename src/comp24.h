@@ -14,9 +14,8 @@
 #include <cstdint>
 #include <memory>   // shared_ptr
 
-struct Rational {    int32_t n, d;
-    Rational(auto n, int32_t d = 1): n(n), d(d) {}
-};
+template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
+typedef RNum<int32_t> Rational;
 
 //typedef char Oper;
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/' };

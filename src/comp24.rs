@@ -10,8 +10,6 @@
 //pub mod comp24 {
 
 //use std::io::prelude::*;
-use std::{fmt::{Display,Formatter}, cmp::{Eq, /*Ord, */Ordering, PartialEq}};
-use core::convert::From;
 
 use yansi::Paint;   // Color, Style
 //use itertools::Itertools;
@@ -55,10 +53,12 @@ impl<T: Integer + Copy> RNum<T> {
     }
 }
 
+use core::convert::From;
 impl<T: Integer + Copy> From<T> for RNum<T> {
     fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
 }
 
+use std::fmt::{Display,Formatter};
 impl<T: Integer + Copy + Display> Display for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let srn = self; //.reduce();
@@ -82,6 +82,7 @@ impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
     }
 }
 
+use core::cmp::{Eq, /*Ord, */Ordering, PartialEq};
 /* impl<T: Integer> Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
 impl<T: Integer> std::cmp::Ord for RNum<T> {
     fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
@@ -175,6 +176,7 @@ impl PartialEq for Expr {
     }
 }
 
+use std::hash::{Hash, Hasher};
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
@@ -189,13 +191,6 @@ impl Hash for Expr {
     lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
                                        .wrapping_add(lhs.wrapping_shr(2)))
 }
-
-use std::collections::HashSet;
-//use rustc_hash::FxHashSet as HashSet;
-// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
-//use rustc_hash::FxHasher as DefaultHasher;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
@@ -247,7 +242,11 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 }
 
 //use crate::list::List;
-//use std::collections::LinkedList as List;     // both seems lower performance than Vec
+//use std::collections::LinkedList as List;   // both seems lower performance than Vec
+
+use std::collections::{HashSet, hash_map::DefaultHasher};
+//use rustc_hash::{FxHashSet as HashSet, FxHasher as DefaultHasher};
+// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
 
 fn comp24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     use std::cell::RefCell;     // for interior mutability, shared ownership
@@ -528,10 +527,11 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
         ecnt: 0, exps: core::ptr::null_mut(),
     };
 
-    //debug_assert!(core::mem::size_of::<bool>() == 1);
+    // XXX: limit according definition in C++
+    debug_assert!(core::mem::size_of::<Rational>() == 8);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", comp24.algo, comp24.goal, comp24.ncnt);
     debug_assert!(core::mem::size_of_val(&comp24.algo) == 2,
-        "{}", std::any::type_name::<Comp24Algo>());
+        "{}", core::any::type_name::<Comp24Algo>());
 
     extern "C" { fn comp24_algo(comp24: *mut Comp24); }
 
