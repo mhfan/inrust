@@ -238,7 +238,8 @@ fn form_expr<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, mut func: F) {
 //use crate::list::List;
 //use std::collections::LinkedList as List;   // both seems lower performance than Vec
 
-use std::collections::{HashSet, hash_map::DefaultHasher};
+//use std::collections::{HashSet, hash_map::DefaultHasher};
+use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
 //use rustc_hash::{FxHashSet as HashSet, FxHasher as DefaultHasher};
 // faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
 

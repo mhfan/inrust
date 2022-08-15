@@ -25,8 +25,8 @@ rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer etc.
 num-integer = "0.1"
 num-bigint  = "0.4"
-#itertools  = "0.10"
-#rustc-hash = "1.1"
+#itertools = "0.10"
+ahash = "0.8"   # https://github.com/tkaitchuck/aHash
 yansi = "0.5"
 atty  = "0.2"
 
@@ -56,7 +56,7 @@ cc = { version = "1.0", optional = true }
 #pkg-config = "0.3"
 
 [features]
-default = ["cc"] #, "num-rational"
+default = ["cc"] #, "ahash", "num-rational"
 #cxx = ["dep:cxx", "dep:cxx-build"]
 #dhat-heap = ["dep:dhat"]   # not needed, implied by optional dependency
 
@@ -80,3 +80,4 @@ panic = 'abort'
 
 #[profile.release-lto]  # customized profile
 #inherits = "release"
+
