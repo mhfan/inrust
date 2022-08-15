@@ -35,14 +35,11 @@ impl<T: Integer + Copy> RNum<T> {
     }
 
     /*pub */fn reduce(&mut self) {
-        #[inline] fn gcd<T: Integer + Copy>(a: T, b: T) -> T {     // Greatest Common Denominator
+        #[inline] fn gcd<T: Integer + Copy>(mut a: T, mut b: T) -> T {
             // Stein's algorithm (Binary GCD) support non-negative only
-            let (mut m, mut n) = (a, b);
-            while !m.is_zero() {  // Use Euclid's algorithm
-                let temp = m;
-                m = n % temp;
-                n = temp;
-            }   n //.abs()
+            while !b.is_zero() {  // fast Euclid's algorithm for Greatest Common Denominator
+                a = a % b;  core::mem::swap(&mut a, &mut b);
+            }   a //.abs()
         }
 
         let gcd = gcd(self.0, self.1);
@@ -89,25 +86,22 @@ impl<T: Integer> std::cmp::Ord for RNum<T> {
 } */
 
 impl<T: Integer + Copy> PartialOrd for RNum<T> {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
+    #[inline] fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         //if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
             (self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
     }
 }
 
-impl<T: Integer + Copy> PartialEq for RNum<T> {
-    fn eq(&self, rhs: &Self) -> bool {
-        self.partial_cmp(rhs) == Some(Ordering::Equal)
-        //self.1 != 0 && rhs.1 != 0 && self.0 * rhs.1 == self.1 * rhs.0
-    }
+impl<T: Integer + Copy> PartialEq  for RNum<T> {
+    #[inline] fn eq(&self, rhs: &Self) -> bool { self.partial_cmp(rhs) == Some(Ordering::Equal) }
 }
 
-/* impl<T: Integer + Copy> std::ops::Add for RNum<T> {  //std::ops::{Add, Sub, Mul, Div}
+/* impl<T: Integer + Copy> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
     type Output = Self;
     fn add(self, rhs: Self) -> Self::Output { todo!() }
 } */
 
-#[derive(/*Debug, */Clone, Copy)] struct Oper(u8);    // newtype idiom
+#[derive(/*Debug, */Clone, Copy)] struct Oper(u8);  // newtype idiom
 //#[repr(C, u8)] enum Oper { Num, Add(u8), Sub(u8), Mul(u8), Div(u8), }
 //type Oper = char;   // type alias
 
@@ -122,7 +116,7 @@ pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    fn from(rn: Rational) -> Self { Self { v: rn/*.reduce()*/, m: None, op: Oper(0) } }
+    #[inline] fn from(rn: Rational) -> Self { Self { v: rn/*.reduce()*/, m: None, op: Oper(0) } }
 }
 
 impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
