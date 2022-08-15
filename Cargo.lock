@@ -29,6 +29,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ahash"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57e6e951cfbb2db8de1828d49073a113a29fd7117b1596caa781a258c7e38d72"
+dependencies = [
+ "cfg-if",
+ "getrandom",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "arbitrary"
 version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -332,6 +344,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 name = "hello-rust"
 version = "0.3.0"
 dependencies = [
+ "ahash 0.8.0",
  "arbitrary",
  "atty",
  "cc",
@@ -369,7 +382,7 @@ version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9709543bd6c25fdc748da2bed0f6855b07b7e93a203ae31332ac2101ab2f4782"
 dependencies = [
- "ahash",
+ "ahash 0.7.6",
  "atty",
  "indexmap",
  "itoa 1.0.2",
