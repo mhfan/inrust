@@ -14,6 +14,7 @@
 #include <string>
 #include <cassert>
 #include <iostream>
+#include <algorithm>
 
 #include "comp24.h"
 
