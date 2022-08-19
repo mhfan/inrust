@@ -1,7 +1,7 @@
 
 #![no_main]
 
-use hello_rust::comp24::*;
+use inrust::comp24::*;
 use libfuzzer_sys::fuzz_target;
 //#[macro_use] extern crate libfuzzer_sys;
 

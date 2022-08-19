@@ -15,7 +15,7 @@ fn bench_comp24(c: &mut Criterion) {
     c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
     use criterion::black_box; */
 
-    use hello_rust::comp24::*;
+    use inrust::comp24::*;
     let mut group = c.benchmark_group("comp24");
     group.sample_size(10);
 

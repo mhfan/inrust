@@ -419,8 +419,8 @@ pub  use Comp24Algo::*;
 }
 
 #[cfg(not(tarpaulin_include))]
-pub fn comp24_main() {
-    fn comp24_helper<I, S>(goal: &Rational, nums: I)
+pub fn game24_main() {
+    fn game24_helper<I, S>(goal: &Rational, nums: I)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
         let nums = nums.map(|str| str.as_ref().parse::<Rational>())
             .inspect(|res| match res {  // XXX: exit on error?
@@ -465,7 +465,7 @@ pub fn comp24_main() {
                 }
             } else { eprintln!(r"Lack parameter for GOAL!") }
 
-            comp24_helper(&goal, nums);
+            game24_helper(&goal, nums);
             if want_exit { std::process::exit(0) }
         }
     }
@@ -495,7 +495,7 @@ pub fn comp24_main() {
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("quit") { break }
-        }   comp24_helper(&goal, nums);
+        }   game24_helper(&goal, nums);
     }
 }
 
@@ -593,7 +593,7 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
         });
     }
 
-    #[test] fn comp24() {
+    #[test] fn solve24() {
         let cases = [
             ( 24, vec![ 0], vec![], 0),
             ( 24, vec![24], vec!["24"], 0),
@@ -677,13 +677,13 @@ pub fn comp24_algo_c(goal: &Rational, nums: &[Rational], algo: Comp24Algo) -> us
         });
     }
 
-    #[cfg(feature = "cc")] /*#[test] */fn _comp24_c() {
-        /*#[link(name = "comp24")] */extern "C" { fn test_comp24(); }
-        unsafe { test_comp24(); }
+    #[cfg(feature = "cc")] /*#[test] */fn _solve24_c() {
+        /*#[link(name = "comp24")] */extern "C" { fn test_solve24(); }
+        unsafe { test_solve24(); }
     }
 
     #[cfg(not(tarpaulin_include))]
-    /*#[test] #[bench] */fn _comp24_random() {
+    /*#[test] #[bench] */fn _solve24_random() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 

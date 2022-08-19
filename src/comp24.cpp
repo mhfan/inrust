@@ -271,7 +271,7 @@ void comp24_algo(Comp24* comp24) {
 
 #include <iomanip>
 
-extern "C" void test_comp24() { // deprecated, unified with Rust unit test comp24
+extern "C" void test_solve24() { // deprecated, unified with Rust unit test comp24
     using std::cout, std::cerr, std::endl, std::string;
 
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
@@ -345,7 +345,7 @@ extern "C" void test_comp24() { // deprecated, unified with Rust unit test comp2
 #ifdef  RUN_TEST
 int main(int argc, char* argv[]) {
     (void)argc;     (void)argv;
-    test_comp24();
+    test_solve24();
     return 0;
 }
 #endif

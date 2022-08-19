@@ -4,7 +4,7 @@
 
 [package]
 #authors = ["Automatically generated"]
-name = "hello-rust-fuzz"
+name = "comp24-fuzz"
 version = "0.0.1"
 edition = "2021"
 publish = false

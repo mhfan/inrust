@@ -1,9 +1,9 @@
 
 # Rust study project from scratch
 
-![Build status](https://github.com/mhfan/hello-rust/actions/workflows/rust.yml/badge.svg)
-[![codecov](https://codecov.io/gh/mhfan/hello-rust/graph/badge.svg)](https://codecov.io/gh/mhfan/hello-rust)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+![Build status](https://github.com/mhfan/inrust/actions/workflows/rust.yml/badge.svg)
+[![codecov](https://codecov.io/gh/mhfan/inrust/graph/badge.svg)](https://codecov.io/gh/mhfan/inrust)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 A project to accumulate my knowledge about Rust programming and engineering.
 

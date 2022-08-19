@@ -18,7 +18,7 @@ pub mod list;
  *
  * ```
  * let set = vec![1, 2, 3];
- * let psv = hello_rust::powerset(&set);
+ * let psv = inrust::powerset(&set);
  * assert_eq!(psv.len(), 1 << set.len());
  * vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
  *     .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
@@ -54,7 +54,7 @@ pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
 /** https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
  * ```
  * let str = "Hello, World!";
- * assert_eq!(hello_rust::shell_pipe("echo", &[str], ""), str.to_owned() + "\n");
+ * assert_eq!(inrust::shell_pipe("echo", &[str], ""), str.to_owned() + "\n");
  * ```
  */
 pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
