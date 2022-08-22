@@ -7,7 +7,7 @@
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
-fn bench_comp24(c: &mut Criterion) {
+fn bench_24calc(c: &mut Criterion) {
     /* fn fibonacci(n: u64) -> u64 {
         match n { 0 => 1, 1 => 1, n => fibonacci(n-1) + fibonacci(n-2), }
     }
@@ -16,7 +16,7 @@ fn bench_comp24(c: &mut Criterion) {
     use criterion::black_box; */
 
     use inrust::comp24::*;
-    let mut group = c.benchmark_group("comp24");
+    let mut group = c.benchmark_group("calc24");
     group.sample_size(10);
 
     /*use rand::{Rng, thread_rng, distributions::Uniform};
@@ -34,8 +34,8 @@ fn bench_comp24(c: &mut Criterion) {
     #[cfg(feature = "cc")] {
         let mut bench_closure_c = |algo| {
             group.bench_function(format!("Cxx{:?}", algo), |b|
-                b.iter(|| { cnt = comp24_algo_c(&goal, &nums, algo); }));
-            if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
+                b.iter(|| { cnt = calc24_algo_c(&goal, &nums, algo); }));
+            if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
         };
 
         bench_closure_c(DynProg (false));
@@ -46,8 +46,8 @@ fn bench_comp24(c: &mut Criterion) {
     let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let mut bench_closure = |algo| {
         group.bench_function(format!("{algo:?}"), |b|
-            b.iter(|| { cnt = comp24_algo(&goal, &nums, algo).len(); }));
-        if 0 < cnt { println!(r"Got {} expr.", Paint::magenta(cnt)) }
+            b.iter(|| { cnt = calc24_algo(&goal, &nums, algo).len(); }));
+        if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
     };
 
     bench_closure(DynProg (false));
@@ -58,13 +58,13 @@ fn bench_comp24(c: &mut Criterion) {
     group.finish();
 }
 
-//criterion_group!(benches, bench_comp24);
+//criterion_group!(benches, bench_24calc);
 use pprof::criterion::{PProfProfiler, Output};
 criterion_group!{
     name = benches;
     config = Criterion::default()
         .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
-    targets = bench_comp24
+    targets = bench_24calc
 }
 
 // sudo cargo flamegraph --bench comp24_bench

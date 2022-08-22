@@ -62,6 +62,7 @@ default = ["cc"] #, "ahash", "num-rational"
 
 [[bench]]
 name = "comp24_bench"
+#path = "benches/comp24_bench.rs"
 #cargo_bench_support = true
 #html_reports = false
 harness = false

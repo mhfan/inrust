@@ -1,6 +1,6 @@
 //#!/usr/bin/tcc -run
 /****************************************************************
- * $ID: comp24.cpp       二, 21  6 2022 14:05:39 +0800  mhfan $ *
+ * $ID: calc24.cpp       二, 21  6 2022 14:05:39 +0800  mhfan $ *
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  *                                                              *
@@ -98,7 +98,7 @@ template <> struct std::hash<PtrE> {
     }
 };
 
-void form_expr(const auto& a, const auto& b, auto func) {
+void form_compose(const auto& a, const auto& b, auto func) {
     auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     auto dmd = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
     // ((a . b) . B) => (a . (b . B)
@@ -107,19 +107,21 @@ void form_expr(const auto& a, const auto& b, auto func) {
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
     if (a->op != (op = Mul) && a->op != '/' && b->op != '/' && (op != b->op || *a < *b->a))
         func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
+        //if (a.v.n == a.v.d || b.v.n == b.v.d) && last_round {}    // XXX:
 
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
     if (a->op != (op = Add) && a->op != '-' && b->op != '-' && (op != b->op || *a < *b->a))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
+        //if (a.v.n == &0 || b.v.n == &0) && last_round {}    // XXX:
 
     // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
-    if (a->op != (op = Sub) && op != b->op) {   //if (a->v.n != 0)
+    if (a->op != (op = Sub) && op != b->op/* && a->v.n != 0*/) {
         func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
-        // (a - b) => -(b - a) since a < b
+        // (a - b) => -(b - a) since a < b, XXX:
     }
 
-    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / b => 0 * b?
+    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / x => 0 * x?
     if (a->op != (op = Div) && op != b->op) {
         if (dmn != 0/* && b->v.n != b->v.d && a->v.n != 0*/)
             func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
@@ -137,7 +139,7 @@ using std::list;
 #define list vector
 #endif
 
-list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
+list<PtrE> calc24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
     auto pow = 1 << nums.size();
 
     vector<list<PtrE>> vexp;       vexp.reserve(pow);
@@ -166,12 +168,12 @@ list<PtrE> comp24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
         for (auto i = 1; i < (x+1)/2; ++i) {
             if ((x & i) != i) continue;
             for (auto& a: vexp[i]) for (auto& b: vexp[x - i])
-                if (*a < *b) form_expr(a, b, lambda); else form_expr(b, a, lambda);
+                if (*a < *b) form_compose(a, b, lambda); else form_compose(b, a, lambda);
         }
     }   return vexp[pow - 1];
 }
 
-list<PtrE> comp24_splitset(const Rational& goal, const   list<PtrE>& nums) {
+list<PtrE> calc24_splitset(const Rational& goal, const   list<PtrE>& nums) {
     static auto IR = Rational(0, 0);
     auto n = nums.size();
     auto pow = 1 << n;
@@ -198,20 +200,20 @@ list<PtrE> comp24_splitset(const Rational& goal, const   list<PtrE>& nums) {
         //for (const auto& e: ns0) std::cerr << ' ' << *e; std::cerr << ';';
         //for (const auto& e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
 
-        if (1 < ns0.size()) ns0 = comp24_splitset(IR, ns0);
-        if (1 < ns1.size()) ns1 = comp24_splitset(IR, ns1);
+        if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0);
+        if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1);
 
         auto lambda = [&](const auto& e) {
             if (&goal == &IR || e->v == goal) exps.push_back(e);
         };
 
         for (auto& a: ns0) for (auto& b: ns1)
-            if (*a < *b) form_expr(a, b, lambda); else form_expr(b, a, lambda);
+            if (*a < *b) form_compose(a, b, lambda); else form_compose(b, a, lambda);
     }   return exps;
 }
 
 #include <unordered_set>
-void comp24_inplace(const Rational& goal, const size_t n,
+void calc24_inplace(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
@@ -224,15 +226,15 @@ void comp24_inplace(const Rational& goal, const size_t n,
                 continue; else hv.push_back(h0);
 
             nums[j] = nums[n - 1];
-            form_expr(a, b, [&](const auto& e) {
+            form_compose(a, b, [&](const auto& e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                    nums[i] = e;    comp24_inplace(goal, n - 1, nums, exps); }
+                    nums[i] = e;    calc24_inplace(goal, n - 1, nums, exps); }
             });     nums[j] = tb;
         }           nums[i] = ta;
     }
 }
 
-list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) {
+list<PtrE> calc24_algo(const Rational& goal, list<PtrE>& nums, Calc24Algo algo) {
     list<PtrE> exps;
     if (nums.size() == 1) {
         const auto& e = nums.front();
@@ -241,13 +243,13 @@ list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) 
     }
 
     switch (algo) {
-        case DynProg:  exps = comp24_dynprog (goal, nums); break;
-        case SplitSet: exps = comp24_splitset(goal, nums); break;
+        case DynProg:  exps = calc24_dynprog (goal, nums); break;
+        case SplitSet: exps = calc24_splitset(goal, nums); break;
 
-        //case Construct:
+        case Construct:     // don't worth to implement
         case Inplace: {
             std::unordered_set<PtrE> eset;
-            comp24_inplace(goal, nums.size(), nums, eset);
+            calc24_inplace(goal, nums.size(), nums, eset);
             for (const auto& e: eset) exps.push_back(e);
         }   break;
 
@@ -255,23 +257,23 @@ list<PtrE> comp24_algo(const Rational& goal, list<PtrE>& nums, Comp24Algo algo) 
     }   return exps;
 }
 
-void comp24_algo(Comp24* comp24) {
-    /*assert(sizeof(comp24->algo == 1 && sizeof(bool) == 1);
-    std::cerr << "algo: " << comp24->algo << ", ia: " << comp24->ia
-            << ", goal: " << comp24->goal << ", nums: [";
-    for (auto i = 0u; i < comp24->ncnt; ++i) std::cerr << comp24->nums[i] << ", ";
+void calc24_algo(Calc24IO* calc24) {
+    /*assert(sizeof(calc24->algo == 1 && sizeof(bool) == 1);
+    std::cerr << "algo: " << calc24->algo << ", ia: " << calc24->ia
+            << ", goal: " << calc24->goal << ", nums: [";
+    for (auto i = 0u; i < calc24->ncnt; ++i) std::cerr << calc24->nums[i] << ", ";
     std::cerr << "]\n"; */
 
     vector<PtrE> nums;
-    for (auto i = 0u; i < comp24->ncnt; ++i)
-        nums.push_back(std::make_shared<const Expr>(comp24->nums[i]));
-    const list<PtrE> exps = comp24_algo(comp24->goal, nums, comp24->algo);
-    comp24->ecnt = exps.size();     // TODO:
+    for (auto i = 0u; i < calc24->ncnt; ++i)
+        nums.push_back(std::make_shared<const Expr>(calc24->nums[i]));
+    const list<PtrE> exps = calc24_algo(calc24->goal, nums, calc24->algo);
+    calc24->ecnt = exps.size();     // TODO:
 }
 
 #include <iomanip>
 
-extern "C" void test_solve24() { // deprecated, unified with Rust unit test comp24
+extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve24
     using std::cout, std::cerr, std::endl, std::string;
 
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
@@ -312,7 +314,7 @@ extern "C" void test_solve24() { // deprecated, unified with Rust unit test comp
         for (auto n: it.nums) nums.push_back(std::make_shared<const Expr>(n));
 
         auto assert_closure = [&](auto algo, auto algs) {
-            list<PtrE> exps = comp24_algo(goal, nums, algo);
+            list<PtrE> exps = calc24_algo(goal, nums, algo);
 
             for (const auto& e: exps) {
                 ss.str(""); ss << *e;   //cout << *e << endl;
@@ -345,7 +347,7 @@ extern "C" void test_solve24() { // deprecated, unified with Rust unit test comp
 #ifdef  RUN_TEST
 int main(int argc, char* argv[]) {
     (void)argc;     (void)argv;
-    test_solve24();
+    test_24calc();
     return 0;
 }
 #endif

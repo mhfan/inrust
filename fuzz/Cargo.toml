@@ -4,8 +4,8 @@
 
 [package]
 #authors = ["Automatically generated"]
-name = "comp24-fuzz"
-version = "0.0.1"
+name = "calc24-fuzz"
+version = "0.1.0"
 edition = "2021"
 publish = false
 
@@ -15,7 +15,8 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 
-[dependencies.hello-rust]
+#inrust = { path = "..", features = ["arbitrary"] }
+[dependencies.inrust]
 features = ["arbitrary"]
 path = ".."
 
@@ -24,7 +25,7 @@ path = ".."
 members = ["."]
 
 [[bin]]
-name = "comp24"
+name = "calc24" # because of no main.rs
 path = "src/comp24_fuzz.rs"
 test = false
 doc  = false

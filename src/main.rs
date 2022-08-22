@@ -44,7 +44,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     let fact = Fact { f: &|fact, x| if x == 0 {1} else {x * (fact.f)(fact, x - 1)} };
     println!("{}", (fact.f)(&fact, 5)); */
 
-    inrust::comp24::game24_main();
+    inrust::comp24::game24_cli();
     //guess_number();
     //calc_pi();
 
