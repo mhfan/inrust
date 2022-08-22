@@ -16,7 +16,7 @@
 #include <iostream>
 #include <algorithm>
 
-#include "comp24.h"
+#include "calc24.h"
 
 /* inline auto operator+(const Rational& lhs, const auto& rhs) noexcept {
     return Rational(lhs.n * rhs.d + lhs.d * rhs.n, lhs.d * rhs.d); }

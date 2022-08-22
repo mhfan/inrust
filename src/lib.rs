@@ -5,7 +5,7 @@
 //pub use A::B::C as D;
 
 //pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
-pub mod comp24;
+pub mod calc24;
 pub mod list;
 
 /** https://gist.github.com/synecdoche/9ade913c891dda6fcf1cdac823e7d524

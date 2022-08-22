@@ -4,7 +4,7 @@
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 四, 09  6 2022 18:10:33 +0800       by mhfan #
+ * Last modified: 一, 22  8 2022 15:28:09 +0800       by mhfan #
  ****************************************************************/
 
 //pub mod calc24 {
@@ -554,7 +554,7 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
     extern "Rust" { }
 
     unsafe extern "C++" {
-        include!("comp24.h");
+        include!("calc24.h");
 
         //type PtrE;// = cxx::SharedPtr<Expr>;
 
