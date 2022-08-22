@@ -7,7 +7,7 @@
 
 A project to accumulate my knowledge about Rust programming and engineering.
 
-## Solve 24 computation
+## Solve 24 calculation game
 
 **经典的 24 点计算**：给定任意 _4 个 1-10 或 1-13_ (扑克牌) 的整数，
 使用 `(+, -, *, /)` 四则计算和括号的组合成表达式，使其结果为目标数 _24_；
@@ -16,6 +16,7 @@ A project to accumulate my knowledge about Rust programming and engineering.
 四则计算和括号的组合成表达式，使其结果为预先给定的任意 _目标有理数_；
 
 **并且要求**：只输出计算形式/方法/结构上 _不相同的所有_ 表达式结果；
+(all algebraically unique/inequivalent solutions)
 
     Input integers/rationals for 24: 1 2 3 4
     1*2*3*4
@@ -31,13 +32,13 @@ A project to accumulate my knowledge about Rust programming and engineering.
     16+(17-14)*(13+15)
     (17-13)*(14+15)-16
 
-### (自上而下) 分集计算法
+### 自上而下分集计算法 (Top-down divide)
 
 全搜索的计算复杂度：`O(n) ~= (2^(n - 1) * 5) * (2^ (n - 2) * 5) * ... * (2^0 * 5)`
 
 _动态规划_ vs _递归分解_
 
-### (自下而上) 递归构造法
+### 自下而上递归构造法 (Bottom-up construct)
 
 全搜索的计算复杂度：`O(n) ~= (C^2_n * 5) * (C^2_(n-1) * 5) * ... * (C^2_2 * 5)`
 
@@ -79,3 +80,12 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [x] Rust programming
 
 # References
+
+## 24-Game Solver
+
++ <https://github.com/MaigoAkisame/enumerate-expressions>
++ <https://zhuanlan.zhihu.com/p/34015231>
++ <https://github.com/wiebemarten/gamemn>
++ <https://github.com/auntyellow/24>
++ <https://4shu.net/theory/>
++ <https://github.com/mhfan/smonde>
