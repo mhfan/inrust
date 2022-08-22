@@ -22,7 +22,7 @@ fn bench_24calc(c: &mut Criterion) {
     /*use rand::{Rng, thread_rng, distributions::Uniform};
     let (mut rng, dst) = (thread_rng(), Uniform::new(1, 100));
     let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-    */let (goal, nums) = (24, [1, 2, 3, 4, 5, 6, 7]);
+    */let (goal, nums) = (24, [2, 3, 4, 5, 6, 7, 8]);
 
     use yansi::Paint;
     println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));

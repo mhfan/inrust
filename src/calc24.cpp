@@ -144,36 +144,37 @@ template <> struct std::hash<PtrE> {
     }
 };
 
-void form_compose(const auto& a, const auto& b, auto func) {
+// several pruning rules to find inequivalent/unique expressions only
+void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
     auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     auto dmd = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
     // ((a . b) . B) => (a . (b . B)
 
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
-    if (a->op != (op = Mul) && a->op != '/' && b->op != '/' && (op != b->op || *a < *b->a))
+    if (a->op != (op = Mul) && a->op != '/' && b->op != '/' &&
+        ((a->v.n != a->v.d && b->v.n != b->v.d) || is_final) && (op != b->op || *a < *b->a))
         func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
-        //if (a.v.n == a.v.d || b.v.n == b.v.d) && last_round {}    // XXX:
 
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
-    if (a->op != (op = Add) && a->op != '-' && b->op != '-' && (op != b->op || *a < *b->a))
+    if (a->op != (op = Add) && a->op != '-' && b->op != '-' &&
+        ((a->v.n != 0 && b->v.n != 0) || is_final) && (op != b->op || *a < *b->a))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
-        //if (a.v.n == &0 || b.v.n == &0) && last_round {}    // XXX:
 
     // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
-    if (a->op != (op = Sub) && op != b->op/* && a->v.n != 0*/) {
+    if (a->op != (op = Sub) && op != b->op && a->v.n != 0) {
+        // FIXME: select (a - b) when goal < 0, better add condition in (a, b) ordering?
         func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
-        // (a - b) => -(b - a) since a < b, XXX:
     }
 
     // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / x => 0 * x?
     if (a->op != (op = Div) && op != b->op) {
-        if (dmn != 0/* && b->v.n != b->v.d && a->v.n != 0*/)
+        if (dmn != 0 && b->v.n != b->v.d && a->v.n != 0)
             func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
 
         //std::swap(v.n, v.d);
-        if (nmd != 0/* && a->v.n != a->v.d && b->v.n != 0*/)
+        if (nmd != 0 && a->v.n != a->v.d && b->v.n != 0)
             func(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
     }
 }
@@ -195,9 +196,9 @@ list<PtrE> calc24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
     vector<size_t> hv; hv.reserve(pow - 2);
     for (auto x = 3; x < pow; ++x) {
         if (!(x & (x - 1))) continue;
-        const auto sub_round = x != pow - 1;
+        const auto is_final = x == pow - 1;
 
-        if (sub_round) {    size_t h0 = (i = 0);
+        if (!is_final) {  size_t h0 = (i = 0);
             //for (auto n = 1; n < x; n <<= 1, ++i) // XXX: for vector only
             //    if (n & x) h0 = hash_combine(h0, hash<PtrE>{}(nums[i]));
             for (const auto& e: nums) if ((1 << i++) & x)
@@ -208,19 +209,21 @@ list<PtrE> calc24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
         }
 
         auto lambda = [&](const auto& e) {
-            if (sub_round || e->v == goal) vexp[x].push_back(e);
+            if (!is_final || e->v == goal) vexp[x].push_back(e);
         };
 
         for (auto i = 1; i < (x+1)/2; ++i) {
             if ((x & i) != i) continue;
             for (auto& a: vexp[i]) for (auto& b: vexp[x - i])
-                if (*a < *b) form_compose(a, b, lambda); else form_compose(b, a, lambda);
+                if (*a < *b) form_compose(a, b, is_final, lambda); else
+                             form_compose(b, a, is_final, lambda);
         }
     }   return vexp[pow - 1];
 }
 
 list<PtrE> calc24_splitset(const Rational& goal, const   list<PtrE>& nums) {
     static auto IR = Rational(0, 0);
+    auto is_final = &goal != &IR;
     auto n = nums.size();
     auto pow = 1 << n;
     list<PtrE> exps;
@@ -250,11 +253,12 @@ list<PtrE> calc24_splitset(const Rational& goal, const   list<PtrE>& nums) {
         if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1);
 
         auto lambda = [&](const auto& e) {
-            if (&goal == &IR || e->v == goal) exps.push_back(e);
+            if (!is_final || e->v == goal) exps.push_back(e);
         };
 
         for (auto& a: ns0) for (auto& b: ns1)
-            if (*a < *b) form_compose(a, b, lambda); else form_compose(b, a, lambda);
+            if (*a < *b) form_compose(a, b, is_final, lambda); else
+                         form_compose(b, a, is_final, lambda);
     }   return exps;
 }
 
@@ -272,7 +276,7 @@ void calc24_inplace(const Rational& goal, const size_t n,
                 continue; else hv.push_back(h0);
 
             nums[j] = nums[n - 1];
-            form_compose(a, b, [&](const auto& e) {
+            form_compose(a, b, n == 2, [&](const auto& e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
                     nums[i] = e;    calc24_inplace(goal, n - 1, nums, exps); }
             });     nums[j] = tb;
@@ -339,15 +343,15 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
         { 24, {10, 9, 7, 7 }, { "10+(9-7)*7" }, 0 },
-        {  5, { 1, 2, 3 }, { "1*(2+3)", "(2+3)/1", "2*3-1",
-                             "2+1*3", "2/1+3", "2+3/1", "1*2+3" }, 0 },
-        { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "2*3*4/1", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
+        { 24, {24,24,24,24 }, { "(24-24)*24+24" }, 0 },
+        {  5, { 1, 2, 3 }, { "1*(2+3)", "2*3-1" }, 0 },
+        { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
-        { 24, { 1, 2, 3, 4, 5 }, { }, 77 },
-        {100, { 1, 2, 3, 4, 5, 6 }, { }, 295 },
-        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 1778 },
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 5430 },
-        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 33589 },
+        { 24, { 1, 2, 3, 4, 5 }, { }, 47 },
+        {100, { 1, 2, 3, 4, 5, 6 }, { }, 113 },
+        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 847 },
+        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 3031 },
+        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 14500 },
     };
 
     for (auto it: cases) {
