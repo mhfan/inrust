@@ -163,6 +163,10 @@ impl Display for Expr {
     }
 }
 
+/* impl Ord for Expr {
+    fn cmp(&self, other: &Self) -> Ordering { self.partial_cmp(other).unwrap() }
+} */
+
 impl PartialOrd for Expr {
     fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         let ord = self.v.partial_cmp(&rhs.v);
@@ -219,46 +223,61 @@ impl Hash for Expr {
 fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, mut func: F) {
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
-    //#[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
-    // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and reduce?
+    #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
+    // ((A . B) . b) => (A . (B . b)    // XXX: check overflow and reduce?
 
     let op = Oper(b'*');
-    // (A * (a * b)) => (a * (A * b)) if a < A
-    // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
-    if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' &&
-        (!a.v.is_one() && !b.v.is_one() || is_final) && (op.0 != b.op.0 ||
-            if let Some((ba, _)) = &b.m { a.v <= ba.v } else { true }) {
+    // (a * (A * B)) => (A * (a * B)) if A < a
+    // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B)
+    if !(a.op.0 == op.0 || a.op.0 == b'/' || (b.op.0 == b'/' && !a.v.is_one()) ||
+        (!is_final && (a.v.is_one() || b.v.is_one())) ||
+        (op.0 == b.op.0 && if let Some((ba, _)) = &b.m {
+            ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
         func(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
                             m: Some((a.clone(), b.clone())), op }));
     }
 
     let op = Oper(b'+');
-    // (A + (a + b)) => (a + (A + b)) if a < A
-    // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
-    if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' &&
-        (!a.v.is_zero() && !b.v.is_zero() || is_final) && (op.0 != b.op.0 ||
-            if let Some((ba, _)) = &b.m { a.v <= ba.v } else { true }) {
+    // (a + (A + B)) => (A + (a + B)) IF A < a
+    // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B)
+    if !(a.op.0 == op.0 || a.op.0 == b'-' || (b.op.0 == b'-' && !a.v.is_zero()) ||
+        (!is_final && (a.v.is_zero() || b.v.is_zero())) ||
+        (op.0 == b.op.0 && if let Some((ba, _)) = &b.m {
+            ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
         func(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
                             m: Some((a.clone(), b.clone())), op }));
     }
 
+    #[inline] fn find_factor(av: &Rational, b: &Rc<Expr>, op: Oper) -> bool {
+        b.op.0 == op.0 && if let Some((ba, bb)) = &b.m {
+            //(if ba.m.is_none() { &ba.v == av } else { find_factor(av, ba, op) } ||
+            // if bb.m.is_none() { &bb.v == av } else { find_factor(av, bb, op) })
+            &ba.v == av || find_factor(av, ba, op) ||
+            &bb.v == av || find_factor(av, bb, op)
+        } else { false }
+    }
+
     let op = Oper(b'-');
-    // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
-    if a.op.0 != op.0 && op.0 != b.op.0 && !a.v.is_zero() {
+    // (b - (B - A)) => ((b + A) - B), (x - 0) => (x + 0)
+    if !(a.op.0 == op.0 || op.0 == b.op.0 || a.v.is_zero() ||
+        (!is_final && find_factor(&a.v, b, Oper(b'+')))) {
         // FIXME: select (a - b) when goal < 0, better add condition in (a, b) ordering?
         func(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
                             m: Some((b.clone(), a.clone())), op }));
     }
 
     let op = Oper(b'/');    // order mattered
-    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / x => 0 * x?
-    if a.op.0 != op.0 && op.0 != b.op.0 {
-        if dmn != 0 && !b.v.is_one() && !a.v.is_zero() {
+    // (a / (A / B)) => ((a * B) / A)
+    // ((x * B) / x) => (B + x - x), (x / 1) => (x * 1), (0 / x) => (0 * x)
+    if !(a.op.0 == op.0 || op.0 == b.op.0) {
+        if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
+            find_factor(&b.v, a, Oper(b'*'))) {
             func(Rc::new(Expr { v: Rational::new_raw(nmd, dmn),
                                 m: Some((a.clone(), b.clone())), op }));
         }
 
-        if nmd != 0 && nmd != dmn && !a.v.is_one() && !b.v.is_zero() {
+        if !(nmd == 0 || a.v.is_one() || b.v.is_zero() || nmd == dmn ||
+            find_factor(&a.v, b, Oper(b'*'))) {
             func(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
                                 m: Some((b.clone(), a.clone())), op }));
         }
@@ -491,7 +510,7 @@ pub  use Calc24Algo::*;
 }
 
 /// ```
-/// assert_eq!(inrust::calc24::game24_traverse(), (458, 1362, 3199));
+/// assert_eq!(inrust::calc24::game24_traverse(), (458, 1362, 3017));
 /// ```
 pub fn game24_traverse() -> (usize, usize, usize) {
     let (pkn, goal) = (13, Rational::from(24));
@@ -511,13 +530,13 @@ pub fn game24_traverse() -> (usize, usize, usize) {
             print!("[{:2}", Paint::cyan(&nums[0].v));  // FIXME: format width
             nums.into_iter().skip(1).for_each(|e| print!(" {:2}", Paint::cyan(&e.v)));
 
-            print!("]: {}", Paint::green(&exps[0]));
-            exps.into_iter().skip(1).for_each(|e| print!(", {}", Paint::green(e)));
+            print!("]:");
+            exps.into_iter().for_each(|e| print!(" {}", Paint::green(e)));
             println!();
         }
     }))));
 
-    // "1362 sets with 3199 solutions, 458 sets unsolvable."
+    // "1362 sets with 3017 solutions, 458 sets unsolvable."
     println!("{} sets with {} solutions, {} sets unsolvable.", Paint::green(cnt.1).bold(),
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
@@ -526,7 +545,7 @@ pub fn game24_traverse() -> (usize, usize, usize) {
 pub fn game24_cli() {
     fn game24_helper<I, S>(goal: &Rational, nums: I)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
-        let mut nums = nums.map(|str| str.as_ref().parse::<Rational>())
+        let mut nums = nums.map(|s| s.as_ref().parse::<Rational>())
             .inspect(|res| match res {  // XXX: exit on error?
                 Err(why) => eprintln!(r"Error parsing rational: {}", Paint::red(why)),
                 Ok(rn) => if rn.denom() == &0 {
@@ -567,7 +586,7 @@ pub fn game24_cli() {
                     Ok(_goal) => goal = _goal,
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }
-            } //else { eprintln!(r"Lack parameter for GOAL!") }
+            } else { eprintln!(r"Lack parameter for GOAL!") }
 
             if nums.len() < 1 && goal == 24.into() {
                 game24_traverse(); } else { game24_helper(&goal, nums); }
@@ -703,21 +722,23 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
             ( 24, vec![ 0], vec![], 0),
             ( 24, vec![24], vec!["24"], 0),
             ( 24, vec![ 8, 8, 8, 8], vec![], 0),
+            ( 24, vec![ 1, 2, 4,12], vec![], 5),
+            ( 24, vec![ 2, 4, 4,12], vec![], 5),
             ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], 0),
             ( 24, vec![ 3, 3, 7, 7], vec!["(3/7+3)*7"], 0),
             ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], 0),
             ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], 0),
+            ( 24, vec![12,12,13,13], vec!["12+12+13-13"], 0),
             ( 24, vec![24,24,24,24], vec!["(24-24)*24+24"], 0),
             (  5, vec![ 1, 2, 3 ],   vec!["1*(2+3)", "2*3-1" ], 0),
+            ( 24, vec![ 1, 1, 2, 6], vec!["2*(1+1)*6", "(1+1+2)*6"], 0),
+            ( 24, vec![ 1, 1, 2,12], vec!["1+2*12-1", "12/(1-1/2)"], 0),
             ( 24, vec![ 5, 5, 1, 1], vec!["1*(5*5-1)", "(5-1)*(1+5)"], 0),
             ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)"], 0),
-            ( 24, vec![12,12,13,13], vec!["12+12*13/13", "12+12+13-13", "13*(12+12)/13"], 0),
             (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)", "(17-13)*(14+15)-16"], 0),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 46),
-            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 115),
-            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 798),
-            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 3058),
-            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 13759),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 45),
+            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 111),
+            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 727),
         ];
 
         cases.into_iter().for_each(|it| {

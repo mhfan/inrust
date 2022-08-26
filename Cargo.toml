@@ -49,6 +49,7 @@ arbitrary = { version = "1.1", optional = true, features = ["derive"] }
 pprof = { version = "0.10", features = ["flamegraph", "criterion"] }
 criterion = "0.3"
 #bencher = "0.1"
+csv = "1.1"
 
 [build-dependencies]
 cc = { version = "1.0", optional = true }

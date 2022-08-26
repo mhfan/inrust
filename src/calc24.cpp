@@ -144,39 +144,49 @@ template <> struct std::hash<PtrE> {
     }
 };
 
+inline bool find_factor(const Rational& av, const PtrE& b, const Oper op) {
+    return b->op == op && (b->a->v == av || find_factor(av, b->a, op) ||
+                           b->b->v == av || find_factor(av, b->b, op));
+}
+
 // several pruning rules to find inequivalent/unique expressions only
 void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
     auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     auto dmd = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
-    // ((a . b) . B) => (a . (b . B)
+    // ((A . B) . b) => (A . (B . b)
 
-    // (A * (a * b)) => (a * (A * b)) if a < A
-    // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
-    if (a->op != (op = Mul) && a->op != '/' && b->op != '/' &&
-        ((a->v.n != a->v.d && b->v.n != b->v.d) || is_final) &&
-        (op != b->op || !(b->a->v < a->v)))
+    // (a * (A * B)) => (A * (a * B)) if A < a
+    // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B)
+    if (!(a->op == (op = Mul) || a->op == '/' || (b->op == '/' && a->v.n != a->v.d) ||
+        (!is_final && (a->v.n == a->v.d || b->v.n == b->v.d)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
-    // (A + (a + b)) => (a + (A + b)) if a < A
-    // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
-    if (a->op != (op = Add) && a->op != '-' && b->op != '-' &&
-        ((a->v.n != 0 && b->v.n != 0) || is_final) &&
-        (op != b->op || !(b->a->v < a->v)))
+    // (a + (A + B)) => (A + (a + B)) if A < a
+    // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B)
+    if (!(a->op == (op = Add) || a->op == '-' || (b->op == '-' && a->v.n != 0) ||
+        (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
 
-    // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
-    if (a->op != (op = Sub) && op != b->op && a->v.n != 0) {
-        // FIXME: select (a - b) when goal < 0, better add condition in (a, b) ordering?
-        func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
-    }
+    /* auto find_factor = [](auto&& self, const auto& av, const auto& b, const auto op) {
+        return b->op == op && (b->a->v == av || self(self, av, b->a, op) ||
+                               b->b->v == av || self(self, av, b->b, op));
+    }; */
 
-    // (A / (a / b)) => ((A * b) / a), x / 1 => x * 1, 0 / x => 0 * x?
-    if (a->op != (op = Div) && op != b->op) {
-        if (dmn != 0 && b->v.n != b->v.d && a->v.n != 0)
+    // (b - (B - A)) => ((b + A) - B), (x - 0) => (x + 0)
+    if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
+        (!is_final && find_factor(a->v, b, Add))))
+        func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
+        // FIXME: select (a - b) when goal < 0, better add condition in (a, b) ordering?
+
+    // (a / (A / B)) => ((a * B) / A),
+    // ((x * B) / x) => (B + x - x), (x / 1) => (x * 1), (0 / x) => (0 * x)
+    if (!(a->op == (op = Div) || op == b->op)) {
+        if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || find_factor(b->v, a, Mul)))
             func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
 
         //std::swap(v.n, v.d);
-        if (nmd != 0 && nmd != dmn && a->v.n != a->v.d && b->v.n != 0)
+        if (!(nmd == 0 || a->v.n == a->v.d || b->v.n == 0 ||
+              nmd == dmn || find_factor(a->v, b, Mul)))
             func(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
     }
 }
@@ -361,21 +371,23 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 0 }, { }, 0 },
         { 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },
+        { 24, { 1, 2, 4,12 }, { }, 5 },
+        { 24, { 2, 4, 4,12 }, { }, 5 },
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
         { 24, { 3, 3, 7, 7 }, { "(3/7+3)*7" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
         { 24, {10, 9, 7, 7 }, { "10+(9-7)*7" }, 0 },
+        { 24, {12,12,13,13 }, { "12+12+13-13" }, 0 },
         { 24, {24,24,24,24 }, { "(24-24)*24+24" }, 0 },
         {  5, { 1, 2, 3    }, { "1*(2+3)", "2*3-1" }, 0 },
+        { 24, { 1, 1, 2, 6 }, { "2*(1+1)*6", "(1+1+2)*6" }, 0 },
+        { 24, { 1, 1, 2,12 }, { "1+2*12-1", "12/(1-1/2)" }, 0 },
         { 24, { 5, 5, 1, 1 }, { "1*(5*5-1)", "(5-1)*(1+5)" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
-        { 24, {12,12,13,13 }, { "12+12*13/13", "12+12+13-13", "13*(12+12)/13" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
-        { 24, { 1, 2, 3, 4, 5 }, { }, 46 },
-        {100, { 1, 2, 3, 4, 5, 6 }, { }, 115 },
-        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 798 },
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 3058 },
-        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 13759 },
+        { 24, { 1, 2, 3, 4, 5 }, { }, 45 },
+        {100, { 1, 2, 3, 4, 5, 6 }, { }, 111 },
+        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 732 },
     };
 
     for (auto it: cases) {
