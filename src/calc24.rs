@@ -304,12 +304,12 @@ fn calc24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
     let get_hash = |x| {
         let mut hasher = DefaultHasher::default();
         //nums.iter().enumerate().for_each(|(i, e)| if (1 << i) & x != 0 {
-        //    #[cfg(feature = "debug")] eprint!("{e} "); e.hash(&mut hasher) });
+        //    #[cfg(feature = "debug")] eprint!(r"{e} "); e.hash(&mut hasher) });
 
         let (mut n, mut i) = (1, 0);
         while  n <= x {
             if n &  x != 0 {
-                #[cfg(feature = "debug")] eprint!("{} ", nums[i]);
+                #[cfg(feature = "debug")] eprint!(r"{} ", nums[i]);
                 nums[i].hash(&mut hasher)
             }   n <<= 1;    i += 1;
         }   hasher.finish()
@@ -323,18 +323,18 @@ fn calc24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         for i in 1..(x+1)/2 {
             if x & i != i { continue }
             let (es0, es1) = (vexp[i].borrow(), vexp[x - i].borrow());
-            #[cfg(feature = "debug")] eprintln!("{i:08b}{} | {:08b}{}",
+            #[cfg(feature = "debug")] eprintln!(r"{i:08b}{} | {:08b}{}",
                 if es0.is_empty() {"X"} else {"="}, x - i, if es1.is_empty() {"X"} else {"="});
 
             // XXX: skip duplicate combinations
             let h0 = get_hash(i); if hv.contains(&h0) {
-                #[cfg(feature = "debug")] eprintln!("~ dup"); continue
-            } else { #[cfg(feature = "debug")] eprint!("~ "); hv.push(h0) }
+                #[cfg(feature = "debug")] eprintln!(r"~ dup"); continue
+            } else { #[cfg(feature = "debug")] eprint!(r"~ "); hv.push(h0) }
 
             let h1 = get_hash(x - i); if h1 != h0 { if hv.contains(&h1) {
-                #[cfg(feature = "debug")] eprintln!("dup"); continue
+                #[cfg(feature = "debug")] eprintln!(r"dup"); continue
                 } else { hv.push(h1) }
-            }   #[cfg(feature = "debug")] eprintln!("pick");
+            }   #[cfg(feature = "debug")] eprintln!(r"pick");
 
             let mut i = 0;
             while i < es0.len() {     let a = &es0[i];
@@ -379,17 +379,17 @@ fn calc24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
         nums.iter().enumerate().for_each(|(i, e)|
             if (1 << i) & x != 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
-        #[cfg(feature = "debug")] eprint!("{:?} ~ {:?} ", ns0, ns1);
+        #[cfg(feature = "debug")] eprint!(r"{:?} ~ {:?} ", ns0, ns1);
 
         //if !all_unique {  // skip duplicate (ns0, ns1)
         let h0 = get_hash(&ns0); if hv.contains(&h0) {
-            #[cfg(feature = "debug")] eprintln!("dup"); continue
+            #[cfg(feature = "debug")] eprintln!(r"dup"); continue
         } else { hv.push(h0) }
 
         let h1 = get_hash(&ns1); if h1 != h0 { if hv.contains(&h1) {
-            #[cfg(feature = "debug")] eprintln!("dup"); continue
+            #[cfg(feature = "debug")] eprintln!(r"dup"); continue
             } else { hv.push(h1) }
-        }   #[cfg(feature = "debug")] eprintln!("pick");
+        }   #[cfg(feature = "debug")] eprintln!(r"pick");
         //}     // no gain no penality for performance
 
         if 1 < ns0.len() { ns0 = calc24_splitset(&IR, &ns0, ia); }
@@ -527,12 +527,12 @@ pub fn game24_traverse() -> (usize, usize, usize) {
 
         if  exps.is_empty() { cnt.0 += 1; } else {
             cnt.1 += 1;       cnt.2 += exps.len();
-            print!("[{:2}", Paint::cyan(&nums[0].v));  // FIXME: format width
-            nums.into_iter().skip(1).for_each(|e| print!(" {:2}", Paint::cyan(&e.v)));
+            print!(r"[{:2}", Paint::cyan(&nums[0].v));  // FIXME: format width
+            nums.into_iter().skip(1).for_each(|e|
+                print!(r" {:2}", Paint::cyan(&e.v)));   print!(r"]:");
 
-            print!("]:");
-            exps.into_iter().for_each(|e| print!(" {}", Paint::green(e)));
-            println!();
+            exps.into_iter().for_each(|e|
+                print!(r" {}", Paint::green(e)));       println!();
         }
     }))));
 
@@ -610,6 +610,7 @@ pub fn game24_cli() {
         std::io::stdin().read_line(&mut nums).expect(r"Failed to read!");
         let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
+        // TODO: random generate poker number for 24-game
         if let Some(first) = nums.peek() {
             if first.starts_with(&['g', 'G']) {
                 match first[1..].parse::<Rational>() {
@@ -744,7 +745,7 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
         cases.into_iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < cnt { cnt } else { res.len() };
-            println!(r"Compute {:3} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
+            println!(r"Calculate {:3} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
             let goal = goal.into();
 
             #[cfg(feature = "cc")]

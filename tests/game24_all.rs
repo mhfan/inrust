@@ -26,14 +26,14 @@
         cnt.0 += 1;
         cnt.1 += record.len() - 1;
         if exps.len() != record.len() - 1 {
-            eprint!("[{}]:", Paint::cyan(&record[0]));
-            record.iter().skip(1).for_each(|s| eprint!(" {}", Paint::magenta(s)));
+            eprint!(r"[{}]:", Paint::cyan(&record[0]));
+            record.iter().skip(1).for_each(|s| eprint!(r" {}", Paint::magenta(s)));
 
-            eprint!("\n[{}]:", Paint::cyan(&record[0]));
-            exps.iter().for_each(|e| eprint!(" {}", Paint::green(e))); eprintln!();
+            eprint!(r"\n[{}]:", Paint::cyan(&record[0]));
+            exps.iter().for_each(|e| eprint!(r" {}", Paint::green(e))); eprintln!();
         }
 
-        assert_eq!(exps.len(), record.len() - 1, "{}", &record[0]);
-    }   assert!(cnt == (1362, 3017), "records: {}, solutions: {}",
+        assert_eq!(exps.len(), record.len() - 1, r"{}", &record[0]);
+    }   assert!(cnt == (1362, 3017), r"records: {}, solutions: {}",
             Paint::red(cnt.0), Paint::red(cnt.1));
 }
