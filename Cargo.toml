@@ -56,6 +56,7 @@ cc = { version = "1.0", optional = true }
 #pkg-config = "0.3"
 
 [features]
+debug = []
 default = ["cc"] #, "ahash", "num-rational"
 #cxx = ["dep:cxx", "dep:cxx-build"]
 #dhat-heap = ["dep:dhat"]   # not needed, implied by optional dependency

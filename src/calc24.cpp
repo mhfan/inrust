@@ -153,13 +153,15 @@ void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
     if (a->op != (op = Mul) && a->op != '/' && b->op != '/' &&
-        ((a->v.n != a->v.d && b->v.n != b->v.d) || is_final) && (op != b->op || *a < *b->a))
+        ((a->v.n != a->v.d && b->v.n != b->v.d) || is_final) &&
+        (op != b->op || !(b->a->v < a->v)))
         func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
     if (a->op != (op = Add) && a->op != '-' && b->op != '-' &&
-        ((a->v.n != 0 && b->v.n != 0) || is_final) && (op != b->op || *a < *b->a))
+        ((a->v.n != 0 && b->v.n != 0) || is_final) &&
+        (op != b->op || !(b->a->v < a->v)))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
 
     // (B - (b - a)) => ((B + a) - b), x - 0 => x + 0?
@@ -174,7 +176,7 @@ void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
             func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
 
         //std::swap(v.n, v.d);
-        if (nmd != 0 && a->v.n != a->v.d && b->v.n != 0)
+        if (nmd != 0 && nmd != dmn && a->v.n != a->v.d && b->v.n != 0)
             func(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
     }
 }
@@ -186,27 +188,28 @@ using std::list;
 #define list vector
 #endif
 
-list<PtrE> calc24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
-    auto pow = 1 << nums.size();
+list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
+    auto psn = 1 << nums.size();
 
-    vector<list<PtrE>> vexp;       vexp.reserve(pow);
-    for (auto i = 0; i < pow; ++i) vexp.push_back(list<PtrE>());
+    vector<list<PtrE>> vexp;       vexp.reserve(psn);
+    for (auto i = 0; i < psn; ++i) vexp.push_back(list<PtrE>());
     auto i = 0; for (const auto& e: nums) vexp[1 << i++].push_back(e);
 
-    vector<size_t> hv; hv.reserve(pow - 2);
-    for (auto x = 3; x < pow; ++x) {
+    vector<size_t> hv; hv.reserve(psn - 2);
+    auto get_hash = [&](auto x) {
+        auto i = 0, h0 = 0;
+#ifdef  LIST
+        for (const auto& e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<PtrE>{}(e));
+#else
+        for (auto n = 1; n <= x; n <<= 1, ++i)
+            if (n & x) h0 = hash_combine(h0, hash<PtrE>{}(nums[i]));
+#endif
+        return h0;
+    };
+
+    for (auto x = 3; x < psn; ++x) {
         if (!(x & (x - 1))) continue;
-        const auto is_final = x == pow - 1;
-
-        if (!is_final) {  size_t h0 = (i = 0);
-            //for (auto n = 1; n < x; n <<= 1, ++i) // XXX: for vector only
-            //    if (n & x) h0 = hash_combine(h0, hash<PtrE>{}(nums[i]));
-            for (const auto& e: nums) if ((1 << i++) & x)
-                h0 = hash_combine(h0, hash<PtrE>{}(e));
-
-            if (std::find(hv.begin(), hv.end(), h0) != hv.end())
-                continue; else hv.push_back(h0);
-        }
+        const auto is_final = x == psn - 1;
 
         auto lambda = [&](const auto& e) {
             if (!is_final || e->v == goal) vexp[x].push_back(e);
@@ -214,33 +217,46 @@ list<PtrE> calc24_dynprog (const Rational& goal, const vector<PtrE>& nums) {
 
         for (auto i = 1; i < (x+1)/2; ++i) {
             if ((x & i) != i) continue;
-            for (auto& a: vexp[i]) for (auto& b: vexp[x - i])
-                if (*a < *b) form_compose(a, b, is_final, lambda); else
-                             form_compose(b, a, is_final, lambda);
-        }
-    }   return vexp[pow - 1];
+
+            auto h0 = get_hash(i);
+                if (std::find(hv.begin(), hv.end(), h0) != hv.end())
+                    continue; else hv.push_back(h0);
+            auto h1 = get_hash(x - i); if (h1 != h0) {
+                if (std::find(hv.begin(), hv.end(), h1) != hv.end())
+                    continue; else hv.push_back(h1);
+            }
+
+            const auto& es0 = vexp[i], es1 = vexp[x - i];
+            for (auto i = 0u; i < es0.size(); ++i) {
+                const auto& a = es0[i];
+                for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) {
+                    const auto& b = es1[j];
+                    if (*a < *b) form_compose(a, b, is_final, lambda); else
+                                 form_compose(b, a, is_final, lambda);
+                }
+            }
+        }   hv.clear();
+    }   return vexp[psn - 1];
 }
 
-list<PtrE> calc24_splitset(const Rational& goal, const   list<PtrE>& nums) {
+list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
     static auto IR = Rational(0, 0);
     auto is_final = &goal != &IR;
     auto n = nums.size();
-    auto pow = 1 << n;
+    auto psn = 1 << n;
     list<PtrE> exps;
 
-    vector<PtrE> ns0, ns1;
-    ns0.reserve(n - 1);   ns1.reserve(n - 1);
-    hash<PtrE> hasher; vector<size_t> hv; hv.reserve(pow - 2);
+    vector<PtrE> ns0, ns1; ns0.reserve(n - 1); ns1.reserve(n - 1);
+    vector<size_t> hv; hv.reserve(psn - 2);
 
-    for (auto x = 1; x < pow/2; ++x) {
-        ns0.clear();    ns1.clear();    auto i = 0;
+    for (auto x = 1; x < psn/2; ++x) {  ns0.clear();    ns1.clear();    auto i = 0;
         for (const auto& e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
         auto h0 = 0, h1 = 0;
-        for (const auto& e: ns0) h0 = hash_combine(h0, hasher(e));
-        for (const auto& e: ns1) h1 = hash_combine(h1, hasher(e));
+        for (const auto& e: ns0) h0 = hash_combine(h0, hash<PtrE>{}(e));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
+        for (const auto& e: ns1) h1 = hash_combine(h1, hash<PtrE>{}(e));
         if (h1 != h0) {
             if (std::find(hv.begin(), hv.end(), h1) != hv.end())
                 continue; else hv.push_back(h1);
@@ -252,13 +268,16 @@ list<PtrE> calc24_splitset(const Rational& goal, const   list<PtrE>& nums) {
         if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0);
         if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1);
 
-        auto lambda = [&](const auto& e) {
-            if (!is_final || e->v == goal) exps.push_back(e);
-        };
+        auto lambda = [&](const auto& e) { if (!is_final || e->v == goal) exps.push_back(e); };
 
-        for (auto& a: ns0) for (auto& b: ns1)
-            if (*a < *b) form_compose(a, b, is_final, lambda); else
-                         form_compose(b, a, is_final, lambda);
+        for (auto i = 0u; i < ns0.size(); ++i) {
+            const auto& a = ns0[i];
+            for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) {
+                const auto& b = ns1[j];
+                if (*a < *b) form_compose(a, b, is_final, lambda); else
+                             form_compose(b, a, is_final, lambda);
+            }
+        }
     }   return exps;
 }
 
@@ -292,6 +311,8 @@ list<PtrE> calc24_algo(const Rational& goal, list<PtrE>& nums, Calc24Algo algo) 
         return exps;
     }
 
+    std::sort(nums.begin(), nums.end(),
+        [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
     switch (algo) {
         case DynProg:  exps = calc24_dynprog (goal, nums); break;
         case SplitSet: exps = calc24_splitset(goal, nums); break;
@@ -341,17 +362,20 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
+        { 24, { 3, 3, 7, 7 }, { "(3/7+3)*7" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
         { 24, {10, 9, 7, 7 }, { "10+(9-7)*7" }, 0 },
         { 24, {24,24,24,24 }, { "(24-24)*24+24" }, 0 },
-        {  5, { 1, 2, 3 }, { "1*(2+3)", "2*3-1" }, 0 },
+        {  5, { 1, 2, 3    }, { "1*(2+3)", "2*3-1" }, 0 },
+        { 24, { 5, 5, 1, 1 }, { "1*(5*5-1)", "(5-1)*(1+5)" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
+        { 24, {12,12,13,13 }, { "12+12*13/13", "12+12+13-13", "13*(12+12)/13" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
-        { 24, { 1, 2, 3, 4, 5 }, { }, 47 },
-        {100, { 1, 2, 3, 4, 5, 6 }, { }, 113 },
-        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 847 },
-        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 3031 },
-        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 14500 },
+        { 24, { 1, 2, 3, 4, 5 }, { }, 46 },
+        {100, { 1, 2, 3, 4, 5, 6 }, { }, 115 },
+        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 798 },
+        //{100, { 1, 2, 3, 4, 5, 6, 7 }, { }, 3058 },
+        //{ 24, { 1, 2, 3, 4, 5, 6, 7 }, { }, 13759 },
     };
 
     for (auto it: cases) {

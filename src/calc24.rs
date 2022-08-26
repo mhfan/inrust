@@ -19,7 +19,7 @@ use yansi::Paint;   // Color, Style
 #[cfg(feature = "num-rational")] pub type Rational = num_rational::Ratio<i32>;
 
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary), derive(Clone, Copy))]
-#[derive(Debug)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
+#[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
 use num_integer::Integer;
 impl<T: Integer + Copy> RNum<T> {
@@ -58,7 +58,11 @@ impl<T: Integer + Copy> From<T> for RNum<T> {
     fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
 }
 
-use std::fmt::{Display,Formatter};
+use std::fmt::{Debug, Display, Formatter};
+#[cfg(feature = "debug")] impl<T: Integer + Copy + Display> Debug for RNum<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { Display::fmt(self, f) }
+}
+
 impl<T: Integer + Copy + Display> Display for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let srn = self; //.reduce();
@@ -82,11 +86,11 @@ impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
     }
 }
 
-use core::cmp::{Eq, /*Ord, */Ordering, PartialEq};
-/* impl<T: Integer> Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
-impl<T: Integer> std::cmp::Ord for RNum<T> {
+use core::cmp::{Eq, Ord, Ordering, PartialEq};
+impl<T: Integer + Copy>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
+impl<T: Integer + Copy> Ord for RNum<T> {
     fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
-} */
+}
 
 impl<T: Integer + Copy> PartialOrd for RNum<T> {
     #[inline] fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
@@ -130,7 +134,18 @@ impl From<Rational> for Expr {
     #[inline] fn from(rn: Rational) -> Self { Self { v: rn/*.reduce()*/, m: None, op: Oper(0) } }
 }
 
-impl Display for Expr {   // XXX: Is it possible to reuse it for Debug trait?
+#[cfg(feature = "debug")] impl Debug for Expr {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Some((a, b)) = &self.m {
+            if a.m.is_none() { write!(f, r"{a}")?; } else { write!(f, r"({a})")?; }
+            write!(f, r"{}", self.op.0 as char)?;
+            if b.m.is_none() { write!(f, r"{b}")?; } else { write!(f, r"({b})")?; }
+        } else { write!(f, r"{}", self.v)? }    Ok(())
+        //Display::fmt(self, f)
+    }
+}
+
+impl Display for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some((a, b)) = &self.m {
             let braket = matches!(a.op.0, b'+' | b'-') &&
@@ -204,14 +219,15 @@ impl Hash for Expr {
 fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, mut func: F) {
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
+    //#[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
     // ((a . b) . B) => (a . (b . B)    // XXX: check overflow and reduce?
 
     let op = Oper(b'*');
     // (A * (a * b)) => (a * (A * b)) if a < A
     // ((a / b) * B) => ((a * B) / b), (A * (a / b)) => ((A * a) / b)
     if a.op.0 != op.0 && a.op.0 != b'/' && b.op.0 != b'/' &&
-        (!a.v.is_one() && !b.v.is_one() || is_final) &&
-        (op.0 != b.op.0 || if let Some((ba, _)) = &b.m { a < ba } else { true }) {
+        (!a.v.is_one() && !b.v.is_one() || is_final) && (op.0 != b.op.0 ||
+            if let Some((ba, _)) = &b.m { a.v <= ba.v } else { true }) {
         func(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
                             m: Some((a.clone(), b.clone())), op }));
     }
@@ -220,8 +236,8 @@ fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, 
     // (A + (a + b)) => (a + (A + b)) if a < A
     // ((a - b) + B) => ((a + B) - b), (A + (a - b)) => ((A + a) - b)
     if a.op.0 != op.0 && a.op.0 != b'-' && b.op.0 != b'-' &&
-        (!a.v.is_zero() && !b.v.is_zero() || is_final) &&
-        (op.0 != b.op.0 || if let Some((ba, _)) = &b.m { a < ba } else { true }) {
+        (!a.v.is_zero() && !b.v.is_zero() || is_final) && (op.0 != b.op.0 ||
+            if let Some((ba, _)) = &b.m { a.v <= ba.v } else { true }) {
         func(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
                             m: Some((a.clone(), b.clone())), op }));
     }
@@ -242,7 +258,7 @@ fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, 
                                 m: Some((a.clone(), b.clone())), op }));
         }
 
-        if nmd != 0 && !a.v.is_one() && !b.v.is_zero() {
+        if nmd != 0 && nmd != dmn && !a.v.is_one() && !b.v.is_zero() {
             func(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
                                 m: Some((b.clone(), a.clone())), op }));
         }
@@ -259,91 +275,124 @@ use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
 
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
-    use std::cell::RefCell;     // for interior mutability, shared ownership
-    let pow = 1 << nums.len();   // size of powerset
-    let mut vexp = Vec::with_capacity(pow);
-    (0..pow).for_each(|_| { vexp.push(RefCell::new(Vec::new())) });
-    for i in 0..nums.len() { vexp[1 << i].borrow_mut().push(nums[i].clone()) }
-    let mut hv = Vec::with_capacity(pow - 2);
+    use core::cell::RefCell;       // for interior mutability, shared ownership
+    let n = nums.len();     let psn = 1 << n; // size of powerset
+    let mut vexp = Vec::with_capacity(psn);
+    (0..psn).for_each(|_| { vexp.push(RefCell::new(Vec::new())) });
+    for i in 0..n {  vexp[1 << i].get_mut().push(nums[i].clone()) }
 
-    for x in 3..pow {
-        if x & (x - 1) == 0 { continue }
-        let is_final = x == pow - 1;
+    let mut hv = Vec::with_capacity(psn - 2);
+    let get_hash = |x| {
+        let mut hasher = DefaultHasher::default();
+        //nums.iter().enumerate().for_each(|(i, e)| if (1 << i) & x != 0 {
+        //    #[cfg(feature = "debug")] eprint!("{e} "); e.hash(&mut hasher) });
 
-        if !is_final {     // skip duplicate combinations over different 'x'
-            let mut hasher = DefaultHasher::default();
-            //nums.iter().enumerate().for_each(|(i, e)|     // no index access for list
-            //    if (1 << i) & x != 0 { e.hash(&mut hasher) });
-            let (mut n, mut i) = (1, 0);
-            while  n < x {
-                if n & x != 0 { nums[i].hash(&mut hasher) }
-                n <<= 1;    i += 1;
-            }   let h0 = hasher.finish();
-            if hv.contains(&h0) { continue } else { hv.push(h0) }
-        }
+        let (mut n, mut i) = (1, 0);
+        while  n <= x {
+            if n &  x != 0 {
+                #[cfg(feature = "debug")] eprint!("{} ", nums[i]);
+                nums[i].hash(&mut hasher)
+            }   n <<= 1;    i += 1;
+        }   hasher.finish()
+    };
+
+    for x in 3..psn {
+        if x & (x - 1) == 0 { continue }    // skip when (x == 2^n)
+        let is_final = x == psn - 1;
 
         let mut exps = vexp[x].borrow_mut();
         for i in 1..(x+1)/2 {
             if x & i != i { continue }
-            let (si, sj) = (vexp[i].borrow(), vexp[x - i].borrow());
+            let (es0, es1) = (vexp[i].borrow(), vexp[x - i].borrow());
+            #[cfg(feature = "debug")] eprintln!("{i:08b}{} | {:08b}{}",
+                if es0.is_empty() {"X"} else {"="}, x - i, if es1.is_empty() {"X"} else {"="});
 
-            //si.iter().cartesian_product(sj).for_each(|(&a, &b)| { });
-            si.iter().for_each(|a| sj.iter().for_each(|b| {
-                let (a, b) = if b < a { (b, a) } else { (a, b) };
-                form_compose(a, b, is_final, |e|
-                    if !is_final { exps.push(e) } else if e.v == *goal {
-                        if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }});
-                //eprintln!(r"-> ({a}) ? ({b})");
-            }));
-        }
+            // XXX: skip duplicate combinations
+            let h0 = get_hash(i); if hv.contains(&h0) {
+                #[cfg(feature = "debug")] eprintln!("~ dup"); continue
+            } else { #[cfg(feature = "debug")] eprint!("~ "); hv.push(h0) }
+
+            let h1 = get_hash(x - i); if h1 != h0 { if hv.contains(&h1) {
+                #[cfg(feature = "debug")] eprintln!("dup"); continue
+                } else { hv.push(h1) }
+            }   #[cfg(feature = "debug")] eprintln!("pick");
+
+            let mut i = 0;
+            while i < es0.len() {     let a = &es0[i];
+                let mut j =  if h1 != h0 { 0 } else { i };
+                while j < es1.len() { let b = &es1[j];
+
+                    let (a, b) = if b < a { (b, a) } else { (a, b) };
+                    form_compose(a, b, is_final, |e|
+                        if !is_final { exps.push(e) } else if e.v == *goal {
+                            if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }
+                        }); j += 1;
+                }           i += 1;
+            }
+
+            //es0.iter().for_each(|a| es1.iter().for_each(|b| { }));
+            //es0.iter().cartesian_product(es1).for_each(|(&a, &b)| { });
+        }   hv.clear();
     }
 
-    if pow == 2 { return Vec::new() }
-    vexp.pop().unwrap().into_inner() //vexp[pow - 1].take()
+    if psn == 2 { return Vec::new() }
+    vexp.pop().unwrap().into_inner() //vexp[psn - 1].take()
 }
 
 //#[async_recursion::async_recursion(?Send)] async
 // traversely top-down divide the number set straightforward
 fn calc24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
     //if nums.len() < 2 { return nums.to_vec() }
-    let (pow, mut exps) = (1 << nums.len(), Vec::new());
-    let mut hv = Vec::with_capacity(pow - 2);
+    let (psn, mut exps) = (1 << nums.len(), Vec::new());
     let is_final = !core::ptr::eq(goal, &IR);
     const IR: Rational = Rational::new_raw(0, 0);
+
+    let mut hv = Vec::with_capacity(psn - 2);
+    let get_hash = |ns: &[_]| {
+        let mut hasher = DefaultHasher::default();
+        ns.hash(&mut hasher);   hasher.finish()
+    };
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
 
-    for x in 1..pow/2 {
+    for x in 1..psn/2 {
         let (mut ns0, mut ns1) = (Vec::new(), Vec::new());
         nums.iter().enumerate().for_each(|(i, e)|
             if (1 << i) & x != 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
-        //ns0.iter().for_each(|e| eprint!("{e} ")); eprint!("; ");
-        //ns1.iter().for_each(|e| eprint!("{e} ")); eprintln!();
+        #[cfg(feature = "debug")] eprint!("{:?} ~ {:?} ", ns0, ns1);
 
-        //if !all_unique {  // no gain no penality for performance
-        let mut hasher = DefaultHasher::default();
-        ns0.hash(&mut hasher);   let h0 = hasher.finish();
-        if hv.contains(&h0) { continue } else { hv.push(h0) }
+        //if !all_unique {  // skip duplicate (ns0, ns1)
+        let h0 = get_hash(&ns0); if hv.contains(&h0) {
+            #[cfg(feature = "debug")] eprintln!("dup"); continue
+        } else { hv.push(h0) }
 
-        let mut hasher = DefaultHasher::default();
-        ns1.hash(&mut hasher);   let h1 = hasher.finish();
-        if h1 != h0 { if hv.contains(&h1) { continue } else { hv.push(h1) } }
-        //}     // skip duplicate (ns0, ns1)
+        let h1 = get_hash(&ns1); if h1 != h0 { if hv.contains(&h1) {
+            #[cfg(feature = "debug")] eprintln!("dup"); continue
+            } else { hv.push(h1) }
+        }   #[cfg(feature = "debug")] eprintln!("pick");
+        //}     // no gain no penality for performance
 
         if 1 < ns0.len() { ns0 = calc24_splitset(&IR, &ns0, ia); }
         if 1 < ns1.len() { ns1 = calc24_splitset(&IR, &ns1, ia); }
         //(ns0, ns1) = futures::join!(calc24_splitset(&IR, &ns0, ia),
         //                            calc24_splitset(&IR, &ns1, ia));
 
+        let mut i = 0;
+        while i < ns0.len() {     let a = &ns0[i];
+            let mut j =  if h1 != h0 { 0 } else { i };
+            while j < ns1.len() { let b = &ns1[j];
+
+                let (a, b) = if b < a { (b, a) } else { (a, b) };
+                form_compose(a, b, is_final, |e|
+                    if !is_final { exps.push(e) } else if e.v == *goal {
+                        if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }
+                    }); j += 1;
+            }           i += 1;
+        }
+
+        //ns0.iter().for_each(|a| ns1.iter().for_each(|b| { }));
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
-        ns0.iter().for_each(|a| ns1.iter().for_each(|b| {
-            let (a, b) = if b < a { (b, a) } else { (a, b) };
-            form_compose(a, b, is_final, |e|
-                if !is_final { exps.push(e) } else if e.v == *goal {
-                    if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) } });
-            //eprintln!(r"-> ({a}) ? ({b})");
-        }));
     }   exps
 }
 
@@ -362,23 +411,21 @@ fn calc24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
             a.hash(&mut hasher);    b.hash(&mut hasher);
             let h0 = hasher.finish();   // in case duplicate numbers
             if hv.contains(&h0) { j += 1; continue } else { hv.push(h0) }
-            //eprintln!(r"-> ({a}) ? ({b})");
 
             nums[j] = nums[n - 1].clone();
             form_compose(a, b, n == 2, |e|
                 if n == 2 { if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
-                } else { nums[i] = e; calc24_inplace(goal, &mut nums[..n-1], exps); });
-
-            nums[j] = tb;   j += 1;
-        }   nums[i] = ta;   i += 1;
+                } else { nums[i] = e; calc24_inplace(goal, &mut nums[..n-1], exps); }
+            );  nums[j] = tb;   j += 1;
+        }       nums[i] = ta;   i += 1;
     }   exps
 }
 
 // traversely construct expr. bottom-up from numbers straightforward
 fn calc24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
     exps: &'a mut HashSet<Rc<Expr>>) -> &'a HashSet<Rc<Expr>> {
-    let (n, ia) = (nums.len(), false);  // got duplicates in interactive
+    let (n, ia) = (nums.len(), false);  // duplicate in interactive
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
     // XXX: How to skip duplicates over different combination orders?
@@ -391,7 +438,6 @@ fn calc24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
             a.hash(&mut hasher);    b.hash(&mut hasher);
             let h0 = hasher.finish();   // in case duplicate numbers
             if hv.contains(&h0) { return } else { hv.push(h0) }
-            //eprintln!(r"-> ({a}) ? ({b})");
 
             let mut nums = nums.iter().filter(|&e|
                 !core::ptr::eq(e, a) && !core::ptr::eq(e, b))
@@ -400,7 +446,8 @@ fn calc24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
             form_compose(a, b, nums.is_empty(), |e|
                 if nums.is_empty() { if e.v == *goal {
                     if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
-                } else { nums.push(e); calc24_construct(goal, &nums, exps); nums.pop(); });
+                } else { nums.push(e); calc24_construct(goal, &nums, exps); nums.pop(); }
+            );
         }));    exps
 }
 
@@ -412,11 +459,17 @@ pub  use Calc24Algo::*;
 #[cfg(feature = "dhat-heap")] #[global_allocator] static ALLOC: dhat::Alloc = dhat::Alloc;
 // cargo run --features dhat-heap   // memory profiling
 
-#[inline] pub fn calc24_algo(goal: &Rational, nums: &[Rc<Expr>],
+//#[inline] pub fn solve24(goal: &Rational, nums: &[Rational],
+//    algo: Calc24Algo) -> Vec<String> { todo!(); vec![] }
+
+#[inline] pub fn calc24_algo(goal: &Rational, nums: &mut [Rc<Expr>],
     algo: Calc24Algo) -> Vec<Rc<Expr>> {
-    if nums.len() == 1 { return  if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
-    #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
+    if nums.len() == 1 { return if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
+    #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
+    //quicksort(nums, |a, b| a.v.partial_cmp(&b.v));    // XXX:
+    nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
+    // so don't needs order-independent hasher
 
     match algo {    // TODO: closure: a. collect, b. print and count, c. stop on first found;
         DynProg (ia) => calc24_dynprog (goal, nums, ia),
@@ -425,7 +478,7 @@ pub  use Calc24Algo::*;
 
         Inplace => {
             let mut exps = HashSet::default();
-            calc24_inplace(goal, &mut nums.to_vec(), &mut exps);
+            calc24_inplace(goal, nums, &mut exps);
             exps.into_iter().collect::<Vec<_>>()
         }
 
@@ -437,24 +490,55 @@ pub  use Calc24Algo::*;
     }
 }
 
+/// ```
+/// assert_eq!(inrust::calc24::game24_traverse(), (458, 1362, 3199));
+/// ```
+pub fn game24_traverse() -> (usize, usize, usize) {
+    let (pkn, goal) = (13, Rational::from(24));
+    let mut cnt = (0, 0, 0);
+
+    (1..=pkn).for_each(|a| (a..=pkn).for_each(|b|
+    (b..=pkn).for_each(|c| (c..=pkn).for_each(|d| {
+        let mut nums = [a, b, c, d].into_iter().map(|n|
+            Rc::new(Rational::from(n).into())).collect::<Vec<_>>();
+        let exps = calc24_algo(&goal, &mut nums, DynProg(false));
+        //let exps = calc24_algo(&goal, &mut nums, SplitSet(false));
+        //let exps = calc24_algo(&goal, &mut nums, Inplace);
+        //let exps = calc24_algo(&goal, &mut nums, Construct);
+
+        if  exps.is_empty() { cnt.0 += 1; } else {
+            cnt.1 += 1;       cnt.2 += exps.len();
+            print!("[{:2}", Paint::cyan(&nums[0].v));  // FIXME: format width
+            nums.into_iter().skip(1).for_each(|e| print!(" {:2}", Paint::cyan(&e.v)));
+
+            print!("]: {}", Paint::green(&exps[0]));
+            exps.into_iter().skip(1).for_each(|e| print!(", {}", Paint::green(e)));
+            println!();
+        }
+    }))));
+
+    // "1362 sets with 3199 solutions, 458 sets unsolvable."
+    println!("{} sets with {} solutions, {} sets unsolvable.", Paint::green(cnt.1).bold(),
+        Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
+}
+
 #[cfg(not(tarpaulin_include))]
 pub fn game24_cli() {
     fn game24_helper<I, S>(goal: &Rational, nums: I)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
-        let nums = nums.map(|str| str.as_ref().parse::<Rational>())
+        let mut nums = nums.map(|str| str.as_ref().parse::<Rational>())
             .inspect(|res| match res {  // XXX: exit on error?
                 Err(why) => eprintln!(r"Error parsing rational: {}", Paint::red(why)),
                 Ok(rn) => if rn.denom() == &0 {
                     eprintln!(r"Invalid rational number: {}/{}", rn.numer(),
                     Paint::red(rn.denom())) }})
             .filter_map(Result::ok).map(|rn| Rc::new(rn.into())).collect::<Vec<_>>();
-        //nums.sort_unstable_by(/* descending */|a, b| b.cmp(a));
         if  nums.len() < 2 { return eprintln!(r"{}",
             Paint::yellow(r"Needs two numbers at least!")) }
 
         let ia = true;
-        let exps = calc24_algo(goal, &nums, DynProg (ia));
-        //let exps = calc24_algo(goal, &nums, SplitSet(ia));
+        let exps = calc24_algo(goal, &mut nums, DynProg (ia));
+        //let exps = calc24_algo(goal, &mut nums, SplitSet(ia));
         //let exps = calc24_algo(goal, &nums, Inplace);
         //let exps = calc24_algo(goal, &nums, Construct);
         // XXX: how to transfer a mut closure into a resursive function?
@@ -483,9 +567,10 @@ pub fn game24_cli() {
                     Ok(_goal) => goal = _goal,
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }
-            } else { eprintln!(r"Lack parameter for GOAL!") }
+            } //else { eprintln!(r"Lack parameter for GOAL!") }
 
-            game24_helper(&goal, nums);
+            if nums.len() < 1 && goal == 24.into() {
+                game24_traverse(); } else { game24_helper(&goal, nums); }
             if want_exit { std::process::exit(0) }
         }
     }
@@ -593,8 +678,8 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
         cases.iter().for_each(|it| {
             assert_eq!(it.0.to_string(), it.1, r"display {} != {}",
                 Paint::red(&it.0), Paint::cyan(&it.1));
-            assert_eq!(it.1.trim_start_matches('(').trim_end_matches(')')
-                .parse::<RNum<i32>>().unwrap(),  it.0, r"parsing {} != {}",
+            assert!(it.1.trim_start_matches('(').trim_end_matches(')')
+                .parse::<RNum<i32>>().unwrap() == it.0, r"parsing {} != {}",
                 Paint::red(&it.1), Paint::cyan(&it.0));
         });
     }
@@ -623,15 +708,16 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
             ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], 0),
             ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], 0),
             ( 24, vec![24,24,24,24], vec!["(24-24)*24+24"], 0),
-            (  5, vec![ 1, 2, 3], vec!["1*(2+3)", "2*3-1" ], 0),
+            (  5, vec![ 1, 2, 3 ],   vec!["1*(2+3)", "2*3-1" ], 0),
+            ( 24, vec![ 5, 5, 1, 1], vec!["1*(5*5-1)", "(5-1)*(1+5)"], 0),
             ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)"], 0),
-            (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)",
-                                             "(17-13)*(14+15)-16"], 0),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 47),
-            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 113),
-            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 847),
-            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 3031),
-            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 14500),
+            ( 24, vec![12,12,13,13], vec!["12+12*13/13", "12+12+13-13", "13*(12+12)/13"], 0),
+            (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)", "(17-13)*(14+15)-16"], 0),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 46),
+            (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 115),
+            ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 798),
+            //(100, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 3058),
+            //( 24, vec![ 1, 2, 3, 4, 5, 6, 7], vec![], 13759),
         ];
 
         cases.into_iter().for_each(|it| {
@@ -657,9 +743,9 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
                 if cnt < 100 { assert_closure_c(Inplace); }
             }
 
-            let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
-            let assert_closure = |algo| {
-                let exps = calc24_algo(&goal, &nums, algo);
+            let mut nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
+            let mut assert_closure = |algo| {
+                let exps = calc24_algo(&goal, &mut nums, algo);
 
                 exps.iter().for_each(|e| {
                     //println!(r"  {}", Paint::green(e));
@@ -711,11 +797,11 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());
             println!(r"Compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
-            let nums = nums.into_iter().map(|n|
+            let mut nums = nums.into_iter().map(|n|
                 Rc::new(Rational::from(n).into())).collect::<Vec<_>>();
             let (goal, now) = (goal.into(), Instant::now());
 
-            calc24_algo(&goal, &nums, DynProg (false));
+            calc24_algo(&goal, &mut nums, DynProg (false));
             //calc24_algo(&goal, &nums, SplitSet(false));
             //calc24_algo(&goal, &nums, Inplace);
             //calc24_algo(&goal, &nums, Construct);

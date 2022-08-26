@@ -43,10 +43,10 @@ fn bench_24calc(c: &mut Criterion) {
         //bench_closure_c(Inplace);
     }
 
-    let nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
+    let mut nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let mut bench_closure = |algo| {
         group.bench_function(format!("{algo:?}"), |b|
-            b.iter(|| { cnt = calc24_algo(&goal, &nums, algo).len(); }));
+            b.iter(|| { cnt = calc24_algo(&goal, &mut nums, algo).len(); }));
         if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
     };
 
