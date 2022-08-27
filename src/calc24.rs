@@ -11,7 +11,7 @@
 
 //use std::io::prelude::*;
 
-use yansi::Paint;   // Color, Style
+use yansi::{Paint, Color};  // Style
 //use itertools::Itertools;
 
 //type Rational = (i32, i32);
@@ -71,7 +71,7 @@ impl<T: Integer + Copy + Display> Display for RNum<T> {
             if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
             if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }
             if  braket { write!(f, r")")? }
-        }   Ok(())
+        }   Ok(())  // FIXME: add padding?
     }
 }
 
@@ -510,16 +510,21 @@ pub  use Calc24Algo::*;
 }
 
 /// ```
-/// assert_eq!(inrust::calc24::game24_traverse(), (458, 1362, 3017));
+/// assert_eq!(inrust::calc24::game24_solvable(), (458, 1362, 3017));
 /// ```
-pub fn game24_traverse() -> (usize, usize, usize) {
+pub fn game24_solvable() -> (usize, usize, usize) {
     let (pkn, goal) = (13, Rational::from(24));
     let mut cnt = (0, 0, 0);
+
+    //let mut pks = (1..=pkn).collect::<Vec<_>>();
+    //use rand::{thread_rng, seq::SliceRandom};
+    //let mut rng = thread_rng();
+    //pks.shuffle(&mut rng);
 
     (1..=pkn).for_each(|a| (a..=pkn).for_each(|b|
     (b..=pkn).for_each(|c| (c..=pkn).for_each(|d| {
         let mut nums = [a, b, c, d].into_iter().map(|n|
-            Rc::new(Rational::from(n).into())).collect::<Vec<_>>();
+            Rc::new(Rational::from(n).into())).collect::<Vec<_>>();     // XXX: n -> pks[n - 1]
         let exps = calc24_algo(&goal, &mut nums, DynProg(false));
         //let exps = calc24_algo(&goal, &mut nums, SplitSet(false));
         //let exps = calc24_algo(&goal, &mut nums, Inplace);
@@ -527,22 +532,71 @@ pub fn game24_traverse() -> (usize, usize, usize) {
 
         if  exps.is_empty() { cnt.0 += 1; } else {
             cnt.1 += 1;       cnt.2 += exps.len();
-            print!(r"[{:2}", Paint::cyan(&nums[0].v));  // FIXME: format width
-            nums.into_iter().skip(1).for_each(|e|
-                print!(r" {:2}", Paint::cyan(&e.v)));   print!(r"]:");
+            //nums.shuffle(&mut rng);
+            nums.into_iter().for_each(|e|
+                print!(r" {:2}", Paint::cyan(e.v.numer())));    print!(r":");
 
-            exps.into_iter().for_each(|e|
-                print!(r" {}", Paint::green(e)));       println!();
+            exps.into_iter().for_each(|e| print!(r" {}", Paint::green(e)));
+            println!();
         }
     }))));
 
     // "1362 sets with 3017 solutions, 458 sets unsolvable."
-    println!("{} sets with {} solutions, {} sets unsolvable.", Paint::green(cnt.1).bold(),
+    eprintln!(r"{} sets with {} solutions, {} sets unsolvable.", Paint::green(cnt.1).bold(),
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
 
-#[cfg(not(tarpaulin_include))]
-pub fn game24_cli() {
+#[cfg(not(tarpaulin_include))] pub fn game24_poker() {
+    let xjqk = [ "X", "J", "Q", "K" ];
+    let suits = [ Color::Blue, Color::Magenta, Color::Cyan, Color::Red ];
+    let mut poker= (0..52).collect::<Vec<_>>();
+
+    use rand::{thread_rng, seq::SliceRandom};
+    let mut rng = thread_rng();
+
+    println!(r"{}", Paint::new(r"Classical 24-game with poker:").dimmed());
+    loop {  poker.shuffle(&mut rng);
+        let mut rems = poker.as_mut_slice();
+        while  !rems.is_empty() {   let pkns;
+            (pkns, rems) = rems.partial_shuffle(&mut rng, 4);
+            let mut nums = pkns.iter().map(|pkn| {
+                let (cid, mut num) = pkn.div_rem(&13);
+                num += 1;   //cid %= 4;
+
+                print!(r" {}", Paint::new(if num < 10 { num.to_string() } else {
+                    xjqk[num - 10].to_owned() }).bold().bg(suits[cid]));
+                Rc::new(Rational::from(num as i32).into())
+            }).collect::<Vec<_>>();     print!(r": ");
+
+            let exps = calc24_algo(&24.into(), &mut nums, DynProg(false));
+            if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
+
+            loop {  use std::io::Write;
+                let mut es = String::new();
+                std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
+                std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
+
+                let es = es.trim_end();
+                if es.eq_ignore_ascii_case("N") {
+                    print!(r"{}", Paint::new(r"Solution:").dimmed());
+                    exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
+                    println!();     break
+                }
+
+                if es.eq_ignore_ascii_case("quit") { return }
+                if let Ok(res) = mexe::eval(es) {
+                    if 24 == (res + 0.5) as i32 {
+                        print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
+                        exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
+                        println!(); break
+                    }
+                } else { print!(r"{} ", Paint::new(r"Tryagain:").dimmed()); }
+            }
+        }   println!();
+    }
+}
+
+#[cfg(not(tarpaulin_include))] pub fn game24_cli() {
     fn game24_helper<I, S>(goal: &Rational, nums: I)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
         let mut nums = nums.map(|s| s.as_ref().parse::<Rational>())
@@ -577,6 +631,7 @@ pub fn game24_cli() {
 
     let mut want_exit = false;
     if let Some(opt) = nums.peek() {
+        // TODO: select algo by cmd parameters
         if opt.eq_ignore_ascii_case("-g") {
             if opt == "-G" { want_exit = true }
             nums.next();
@@ -588,8 +643,8 @@ pub fn game24_cli() {
                 }
             } else { eprintln!(r"Lack parameter for GOAL!") }
 
-            if nums.len() < 1 && goal == 24.into() {
-                game24_traverse(); } else { game24_helper(&goal, nums); }
+            if nums.len() < 1 && goal == 24.into() { game24_solvable();
+            } else { game24_helper(&goal, nums); }
             if want_exit { std::process::exit(0) }
         }
     }
@@ -601,8 +656,8 @@ pub fn game24_cli() {
 
     println!("\n### Solve {} calculation ###", Paint::magenta(&goal).bold());
     loop {
-        print!("\n{}{}{}", Paint::white(r"Input integers/rationals for ").dimmed(),
-            Paint::cyan(&goal), Paint::white(": ").dimmed());
+        print!("\n{}{}{}", Paint::new(r"Input integers/rationals for ").dimmed(),
+            Paint::cyan(&goal), Paint::new(": ").dimmed());
 
         use std::io::Write;
         let mut nums = String::new();
@@ -610,8 +665,7 @@ pub fn game24_cli() {
         std::io::stdin().read_line(&mut nums).expect(r"Failed to read!");
         let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
-        // TODO: random generate poker number for 24-game
-        if let Some(first) = nums.peek() {
+        if let Some(&first) = nums.peek() {
             if first.starts_with(&['g', 'G']) {
                 match first[1..].parse::<Rational>() {
                     Ok(_goal) => {  goal = _goal;
@@ -619,6 +673,8 @@ pub fn game24_cli() {
                     }
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }   nums.next();
+            } else if first.eq_ignore_ascii_case("poker") {
+                game24_poker();     nums.next();    continue;
             } else if first.eq_ignore_ascii_case("quit") { break }
         }   game24_helper(&goal, nums);
     }

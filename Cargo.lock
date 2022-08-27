@@ -387,6 +387,7 @@ dependencies = [
  "cc",
  "criterion",
  "csv",
+ "mexe",
  "num-bigint",
  "num-integer",
  "num-rational",
@@ -488,6 +489,12 @@ checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
 ]
+
+[[package]]
+name = "mexe"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65d50f91b5666c1d613f8b0856d5bf69a18c6a68bdc222de641e0caea67dab39"
 
 [[package]]
 name = "miniz_oxide"

@@ -8,23 +8,30 @@
     // like a 3rd party would. Hence, they only see public items.
 }
 
-#[test] fn game24_all() {   // TODO: try use tokio and scraper to extract url and parse html
+#[test] fn game24_all() {
     use {inrust::calc24::*, yansi::Paint};
-    let game24_all = "tests/game24_all.txt"; // https://4shu.net/solutions/allsolutions/
-    //let _ = std::fs::read_to_string(game24_all).unwrap();     // XXX: parse game24_all.fmh
 
+    use std::{fs::File, io::{BufRead, BufReader}};
+    BufReader::new(File::open("tests/game24_all.fmh").unwrap())
+        .lines().for_each(|line| line.unwrap().split(':')
+            .last().unwrap().split(' ').for_each(|res| if !res.is_empty() {
+                assert_eq!((mexe::eval(res).unwrap() + 0.5) as u32, 24, "failed at: `{res}'");
+            })
+        );
+
+    // TODO: try use tokio and scraper to extract url and parse html?
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false).delimiter(b'\t').flexible(true)
-        .trim(csv::Trim::All).from_path(game24_all).unwrap();
+        .trim(csv::Trim::All).from_path("tests/game24_all.txt").unwrap();
+        // https://4shu.net/solutions/allsolutions/
 
     let mut cnt = (0, 0);
     for result in rdr.records() {
         let record = result.unwrap();
+        cnt.1 += record.len() - 1;  cnt.0 += 1;
         let mut nums = record[0].split(' ').map(|s| Rc::new(Rational::from(s.parse::<i32>().unwrap()).into())).collect::<Vec<_>>();
         let exps = calc24_algo(&24.into(), &mut nums, DynProg(false));
 
-        cnt.0 += 1;
-        cnt.1 += record.len() - 1;
         if exps.len() != record.len() - 1 {
             eprint!(r"[{}]:", Paint::cyan(&record[0]));
             record.iter().skip(1).for_each(|s| eprint!(r" {}", Paint::magenta(s)));
