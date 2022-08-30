@@ -23,7 +23,7 @@
 #include <memory>   // shared_ptr
 
 template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
-typedef RNum<int32_t> Rational;
+typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 
 //typedef char Oper;
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
@@ -151,18 +151,19 @@ inline bool find_factor(const Rational& av, const PtrE& b, const Oper op) {
 
 // several pruning rules to find inequivalent/unique expressions only
 void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
-    auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
-    auto dmd = a->v.d * b->v.d;  Oper op;   // XXX: check overflow and simplify?
-    // ((A . B) . b) => (A . (B . b)
+    // ((A . B) . b) => (A . (B . b), kept right sub-tree only
+    const auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
+    const auto dmd = a->v.d * b->v.d;   Oper op;
+    // XXX: check overflow and reduce?
 
-    // (a * (A * B)) => (A * (a * B)) if A < a
-    // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B)
+    // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
+    // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
     if (!(a->op == (op = Mul) || a->op == '/' || (b->op == '/' && a->v.n != a->v.d) ||
         (!is_final && (a->v.n == a->v.d || b->v.n == b->v.d)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
-    // (a + (A + B)) => (A + (a + B)) if A < a
-    // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B)
+    // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
+    // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
     if (!(a->op == (op = Add) || a->op == '-' || (b->op == '-' && a->v.n != 0) ||
         (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
@@ -172,13 +173,12 @@ void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
                                b->b->v == av || self(self, av, b->b, op));
     }; */
 
-    // (b - (B - A)) => ((b + A) - B), (x - 0) => (x + 0)
+    // (b - (B - A)) => ((b + A) - B), (x - 0) => (x + 0), ((A + x) - x) is only kept in final
     if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
-        (!is_final && find_factor(a->v, b, Add))))
+        (!is_final && find_factor(a->v, b, Add))))  // FIXME: select (a - b) when goal < 0?
         func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
-        // FIXME: select (a - b) when goal < 0, better add condition in (a, b) ordering?
 
-    // (a / (A / B)) => ((a * B) / A),
+    // (a / (A / B)) => ((a * B) / A)
     // ((x * B) / x) => (B + x - x), (x / 1) => (x * 1), (0 / x) => (0 * x)
     if (!(a->op == (op = Div) || op == b->op)) {
         if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || find_factor(b->v, a, Mul)))
@@ -186,7 +186,7 @@ void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
 
         //std::swap(v.n, v.d);
         if (!(nmd == 0 || a->v.n == a->v.d || b->v.n == 0 ||
-              nmd == dmn || find_factor(a->v, b, Mul)))
+              nmd == dmn || find_factor(a->v, b, Mul))) // order mattered only if a != b
             func(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
     }
 }
@@ -296,8 +296,8 @@ void calc24_inplace(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
-    for (size_t i = 0; i < n; ++i) {         auto ta = nums[i];
-        for (size_t j = i + 1; j < n; ++j) { auto tb = nums[j];
+    for (size_t i = 0; i < n; ++i) {         const auto ta = nums[i];
+        for (size_t j = i + 1; j < n; ++j) { const auto tb = nums[j];
             auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
 
             size_t h0 = hash_combine(hasher(a), hasher(b));
