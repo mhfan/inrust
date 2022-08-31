@@ -8,24 +8,17 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn bench_24calc(c: &mut Criterion) {
-    /* fn fibonacci(n: u64) -> u64 {
-        match n { 0 => 1, 1 => 1, n => fibonacci(n-1) + fibonacci(n-2), }
-    }
-
-    c.bench_function("fib 20", |b| b.iter(|| fibonacci(black_box(20))));
-    use criterion::black_box; */
-
-    use inrust::calc24::*;
+    use inrust::{fibonacci, calc24::*};
     let mut group = c.benchmark_group("calc24");
     group.sample_size(10);
 
     /*use rand::{Rng, thread_rng, distributions::Uniform};
     let (mut rng, dst) = (thread_rng(), Uniform::new(1, 100));
     let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-    */let (goal, nums) = (24, [2, 3, 4, 5, 6, 7, 8]);
+    */let (goal, nums) = (24, fibonacci().skip(3).take(7).collect::<Vec<i32>>());
 
     use yansi::Paint;
-    println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(nums));
+    println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(&nums));
     let (mut cnt, goal) = (0, goal.into());
 
     #[cfg(feature = "cc")]
