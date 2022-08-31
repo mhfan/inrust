@@ -57,6 +57,7 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 ## Code snippet gems
 
 + 简单的幂集 (powerset) 算法
++ Fibonacci 数列迭代生成器
 + 流式 Pi 值计算
 + 命令管道
 

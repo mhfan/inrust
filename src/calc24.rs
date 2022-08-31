@@ -22,9 +22,7 @@ use yansi::{Paint, Color};  // Style
 #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
 use num_integer::Integer;
-impl<T: Integer + Copy> RNum<T> {
-    #![allow(dead_code)]
-
+impl<T: Integer + Copy> RNum<T> {   #![allow(dead_code)]
     #[inline] pub const fn numer(&self) -> &T { &self.0 }
     #[inline] pub const fn denom(&self) -> &T { &self.1 }
     #[inline] fn is_one (&self) -> bool { self.0 == self.1 }
@@ -77,13 +75,12 @@ impl<T: Integer + Copy + Display> Display for RNum<T> {
 
 use core::str::FromStr;
 impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
-    type Err = T::Err;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = s.splitn(2, '/');
         let n = FromStr::from_str(s.next().unwrap())?;  // XXX:
         let d = FromStr::from_str(s.next().unwrap_or("1"))?;
         Ok(Self::new_raw(n, d))
-    }
+    }   type Err = T::Err;
 }
 
 use core::cmp::{Eq, Ord, Ordering, PartialEq};
@@ -104,8 +101,8 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
 }
 
 /* impl<T: Integer + Copy> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
-    type Output = Self;
     fn add(self, rhs: Self) -> Self::Output { todo!() }
+    type Output = Self;
 } */
 
 #[derive(/*Debug, */Clone, Copy)] struct Oper(u8);  // newtype idiom
@@ -121,9 +118,7 @@ pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
 //pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }
 // a & b refer to left & right operands
 
-/* impl Expr {
-    #![allow(dead_code)]
-
+/* impl Expr {  #![allow(dead_code)]
     #[inline] fn is_one (&self) -> bool { self.op.0 == 0 && self.v.numer() == self.v.denom() }
     #[inline] fn is_zero(&self) -> bool { self.op.0 == 0 && self.v.numer() == &0 }
 } */
@@ -220,9 +215,10 @@ impl Hash for Expr {
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
 // several pruning rules to find inequivalent/unique expressions only
-fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, mut func: F) {
-    let (a, b) = if b < a { (b, a) } else { (a, b) };
+fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>,
+    is_final: bool/*, ngoal: bool*/, mut func: F) {
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
+    let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
 
     // XXX: check overflow and reduce?
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
@@ -232,8 +228,7 @@ fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, 
     let op = Oper(b'*');
     // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
     // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
-    if !(a.op.0 == op.0 || a.op.0 == b'/' ||
-        (b.op.0 == b'/' && !a.v.is_one()) ||
+    if !(a.op.0 == op.0 || a.op.0 == b'/' || (b.op.0 == b'/' && !a.v.is_one()) ||
         (!is_final && (a.v.is_one() || b.v.is_one())) ||
         (op.0 == b.op.0 && if let Some((ba, _)) = &b.m {
             ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
@@ -244,8 +239,7 @@ fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, 
     let op = Oper(b'+');
     // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
     // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
-    if !(a.op.0 == op.0 || a.op.0 == b'-' ||
-        (b.op.0 == b'-' && !a.v.is_zero()) ||
+    if !(a.op.0 == op.0 || a.op.0 == b'-' || (b.op.0 == b'-' && !a.v.is_zero()) ||
         (!is_final && (a.v.is_zero() || b.v.is_zero())) ||
         (op.0 == b.op.0 && if let Some((ba, _)) = &b.m {
             ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
@@ -262,18 +256,17 @@ fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, 
         } else { false }
     }
 
-    let op = Oper(b'-');
-    // (b - (B - A)) => ((b + A) - B), (x - 0) => (x + 0), ((A + x) - x) is only kept in final
+    let op = Oper(b'-');    // (b - (B - A)) => ((b + A) - B)
+    // (x - 0) => (0 + x), ((A + x) - x) is only kept in final
     if !(a.op.0 == op.0 || op.0 == b.op.0 || a.v.is_zero() ||
         (!is_final && find_factor(&a.v, b, Oper(b'+')))) {
-        // FIXME: select (a - b) when goal < 0?
         func(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
                             m: Some((b.clone(), a.clone())), op }));
+        // FIXME: select (a - b) if goal < 0?
     }
 
-    let op = Oper(b'/');
-    // (a / (A / B)) => ((a * B) / A)
-    // (x / 1) => (x * 1), (0 / x) => (0 * x), ((x * B) / x) => (B + x - x)
+    let op = Oper(b'/');    // (a / (A / B)) => ((a * B) / A)
+    // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
     if !(a.op.0 == op.0 || op.0 == b.op.0) {
         if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
             find_factor(&b.v, a, Oper(b'*'))) {
@@ -281,9 +274,8 @@ fn form_compose<F: FnMut(Rc<Expr>)>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, 
                                 m: Some((a.clone(), b.clone())), op }));
         }
 
-        // order mattered only if a != b
-        if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||
-            nmd == dmn || find_factor(&a.v, b, Oper(b'*'))) {
+        if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||   // order mattered only if a != b
+             nmd == dmn || find_factor(&a.v, b, Oper(b'*'))) {
             func(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
                                 m: Some((b.clone(), a.clone())), op }));
         }
@@ -313,27 +305,22 @@ fn calc24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         //    #[cfg(feature = "debug")] eprint!(r"{e} "); e.hash(&mut hasher) });
 
         let (mut n, mut i) = (1, 0);
-        while  n <= x {
-            if n &  x != 0 {
-                #[cfg(feature = "debug")] eprint!(r"{} ", nums[i]);
-                nums[i].hash(&mut hasher)
-            }   n <<= 1;    i += 1;
+        while  n <= x { if n & x != 0 {
+            #[cfg(feature = "debug")] eprint!(r"{} ", nums[i]);
+            nums[i].hash(&mut hasher) }     n <<= 1;    i += 1;
         }   hasher.finish()
     };
 
-    for x in 3..psn {
-        if x & (x - 1) == 0 { continue }    // skip when (x == 2^n)
+    for x in 3..psn { if x & (x - 1) == 0 { continue }  // skip when (x == 2^n)
         let is_final = x == psn - 1;
 
         let mut exps = vexp[x].borrow_mut();
-        for i in 1..(x+1)/2 {
-            if x & i != i { continue }
+        for i in 1..(x+1)/2 { if x & i != i { continue }
             let (es0, es1) = (vexp[i].borrow(), vexp[x - i].borrow());
             #[cfg(feature = "debug")] eprintln!(r"{i:08b}{} | {:08b}{}",
                 if es0.is_empty() {"X"} else {"="}, x - i, if es1.is_empty() {"X"} else {"="});
 
-            // XXX: skip duplicate combinations
-            let h0 = get_hash(i); if hv.contains(&h0) {
+            let h0 = get_hash(i); if hv.contains(&h0) { // skip duplicate combinations
                 #[cfg(feature = "debug")] eprintln!(r"~ dup"); continue
             } else { #[cfg(feature = "debug")] eprint!(r"~ "); hv.push(h0) }
 
@@ -342,19 +329,13 @@ fn calc24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
                 } else { hv.push(h1) }
             }   #[cfg(feature = "debug")] eprintln!(r"pick");
 
-            let mut i = 0;
-            while i < es0.len() {     let a = &es0[i];
-                let mut j =  if h1 != h0 { 0 } else { i };
-                while j < es1.len() { let b = &es1[j];
+            es0.iter().enumerate().for_each(|(i, a)|
+                es1.iter().skip(if h1 != h0 { 0 } else { i }).for_each(|b| {
                     form_compose(a, b, is_final, |e|
                         if !is_final { exps.push(e) } else if e.v == *goal {
                             if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }
-                        }); j += 1;
-                }           i += 1;
-            }
-
-            //es0.iter().for_each(|a| es1.iter().for_each(|b| { }));
-            //es0.iter().cartesian_product(es1).for_each(|(&a, &b)| { });
+                        });
+                }));
         }   hv.clear();
     }
 
@@ -365,10 +346,10 @@ fn calc24_dynprog (goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
 //#[async_recursion::async_recursion(?Send)] async
 // traversely top-down divide the number set straightforward
 fn calc24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>> {
-    //if nums.len() < 2 { return nums.to_vec() }
     let (psn, mut exps) = (1 << nums.len(), Vec::new());
-    let is_final = !core::ptr::eq(goal, &IR);
     const IR: Rational = Rational::new_raw(0, 0);
+    let is_final = !core::ptr::eq(goal, &IR);
+    //if nums.len() < 2 { return nums.to_vec() }
 
     let mut hv = Vec::with_capacity(psn - 2);
     let get_hash = |ns: &[_]| {
@@ -401,19 +382,14 @@ fn calc24_splitset(goal: &Rational, nums: &[Rc<Expr>], ia: bool) -> Vec<Rc<Expr>
         //(ns0, ns1) = futures::join!(calc24_splitset(&IR, &ns0, ia),
         //                            calc24_splitset(&IR, &ns1, ia));
 
-        let mut i = 0;
-        while i < ns0.len() {     let a = &ns0[i];
-            let mut j =  if h1 != h0 { 0 } else { i };
-            while j < ns1.len() { let b = &ns1[j];
+        //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
+        ns0.iter().enumerate().for_each(|(i, a)|
+            ns1.iter().skip(if h1 != h0 { 0 } else { i }).for_each(|b| {
                 form_compose(a, b, is_final, |e|
                     if !is_final { exps.push(e) } else if e.v == *goal {
                         if ia { println!(r"{}", Paint::green(e)) } else { exps.push(e) }
-                    }); j += 1;
-            }           i += 1;
-        }
-
-        //ns0.iter().for_each(|a| ns1.iter().for_each(|b| { }));
-        //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
+                    });
+            }));
     }   exps
 }
 
@@ -423,35 +399,35 @@ fn calc24_inplace<'a>(goal: &Rational, nums: &mut [Rc<Expr>],
     let (n, mut i, ia) = (nums.len(), 0, false);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
-    while i < n {
-        let (ta, mut j) = (nums[i].clone(), i + 1);
-        while j < n {    let tb = nums[j].clone();
-            let (a, b) = (&ta, &tb);
+    // XXX: skip duplicates over different combination order, as well in symmetric
+    while i < n - 1 {   let (a, mut j) = (nums[i].clone(), i + 1);
+        while j < n {   let b = nums[j].clone();
             let mut hasher = DefaultHasher::default();
             a.hash(&mut hasher);    b.hash(&mut hasher);
             let h0 = hasher.finish();   // unify duplicate numbers
             if hv.contains(&h0) { j += 1; continue } else { hv.push(h0) }
 
-            nums[j] = nums[n - 1].clone();
-            form_compose(a, b, n == 2, |e|
+            nums[j] = nums[n - 1].clone();  // the last j is n - 1
+            form_compose(&a, &b, n == 2, |e|
                 if n == 2 { if e.v == *goal {
-                    if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
+                    if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); } }
                 } else { nums[i] = e; calc24_inplace(goal, &mut nums[..n-1], exps); }
-            );  nums[j] = tb;   j += 1;
-        }       nums[i] = ta;   i += 1;
+            );  nums[j] = b;   j += 1;
+        }       nums[i] = a;   i += 1;
     }   exps
 }
 
 // traversely construct expr. bottom-up from numbers straightforward
-fn calc24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
+fn calc24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>], minj: usize,
     exps: &'a mut HashSet<Rc<Expr>>) -> &'a HashSet<Rc<Expr>> {
-    let (n, ia) = (nums.len(), false);  // duplicate in interactive
+    let (n, ia) = (nums.len(), false);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
-    // XXX: How to skip duplicates over different combination orders?
+    // XXX: skip duplicates in symmetric, e.g.: [1 1 5 5]
     //nums.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
-    nums.iter().enumerate().for_each(|(i, a)|
-        nums.iter().skip(i+1).for_each(|b| {    // traverse all expr. combinations
+    nums.iter().enumerate().skip(minj).for_each(|(j, b)|
+        nums.iter().take(j).for_each(|a| {
+
             let mut hasher = DefaultHasher::default();
             a.hash(&mut hasher);    b.hash(&mut hasher);
             let h0 = hasher.finish();   // unify duplicate numbers
@@ -462,10 +438,11 @@ fn calc24_construct<'a>(goal: &Rational, nums: &[Rc<Expr>],
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
             form_compose(a, b, nums.is_empty(), |e|
-                if nums.is_empty() { if e.v == *goal {
-                    if ia { println!(r"{}", Paint::green(&e)) } else { exps.insert(e); }}
-                } else { nums.push(e); calc24_construct(goal, &nums, exps); nums.pop(); }
-            );
+                if nums.is_empty() { if e.v == *goal { if ia {
+                    println!(r"{}", Paint::green(&e)) } else { exps.insert(e); } }
+                } else {    nums.push(e);
+                    calc24_construct(goal, &nums, j - 1, exps);     nums.pop();
+                });
         }));    exps
 }
 
@@ -483,13 +460,13 @@ pub  use Calc24Algo::*;
 #[inline] pub fn calc24_algo(goal: &Rational, nums: &mut [Rc<Expr>],
     algo: Calc24Algo) -> Vec<Rc<Expr>> {
     if nums.len() == 1 { return if nums[0].v == *goal { nums.to_vec() } else { vec![] } }
-    debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
+    debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8);
     //quicksort(nums, |a, b| a.v.partial_cmp(&b.v));    // XXX:
     nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
     // so don't needs order-independent hasher
 
-    match algo {    // TODO: closure: a. collect, b. print and count, c. stop on first found;
+    match algo {    // TODO: closures: a. collect, b. print and count, c. stop on first found;
         DynProg (ia) => calc24_dynprog (goal, nums, ia),
         SplitSet(ia) => calc24_splitset(goal, nums, ia),
         //SplitSet(ia) => futures::executor::block_on(calc24_splitset(goal, nums, ia)),
@@ -502,7 +479,7 @@ pub  use Calc24Algo::*;
 
         Construct => {
             let mut exps = HashSet::default();
-            calc24_construct(goal, nums, &mut exps);
+            calc24_construct(goal, nums, 1, &mut exps);
             exps.into_iter().collect::<Vec<_>>()
         }
     }
@@ -510,23 +487,21 @@ pub  use Calc24Algo::*;
 
 /// ```
 /// use inrust::calc24::*;
+/// let algo = DynProg(false);
 /// let expect = (458, 1362, 3017);
-/// assert_eq!(game24_solvable(DynProg (false)), expect);
-/// //assert_eq!(game24_solvable(SplitSet(false)), expect);
-/// //assert_eq!(game24_solvable(Inplace),   expect);
-/// //assert_eq!(game24_solvable(Construct), expect);
+/// assert_eq!(game24_solvable(algo), expect);
 /// ```
 pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
-    let (pkn, goal) = (13, Rational::from(24));
+    let (pkm, goal) = (13, Rational::from(24));
     let mut cnt = (0, 0, 0);
 
-    //let mut pks = (1..=pkn).collect::<Vec<_>>();
+    //let mut pks = (1..=pkm).collect::<Vec<_>>();
     //use rand::{thread_rng, seq::SliceRandom};
     //let mut rng = thread_rng();
     //pks.shuffle(&mut rng);
 
-    (1..=pkn).for_each(|a| (a..=pkn).for_each(|b|       // C^52_4 = 270725
-    (b..=pkn).for_each(|c| (c..=pkn).for_each(|d| {     // C^(13+4-1)_4 = 1820
+    (1..=pkm).for_each(|a| (a..=pkm).for_each(|b|       // C^52_4 = 270725
+    (b..=pkm).for_each(|c| (c..=pkm).for_each(|d| {     // C^(13+4-1)_4 = 1820
         let mut nums = [a, b, c, d].into_iter().map(|n|
             Rc::new(Rational::from(n).into())).collect::<Vec<_>>();     // XXX: n -> pks[n - 1]
         let exps = calc24_algo(&goal, &mut nums, algo);
@@ -547,7 +522,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_poker() {
+#[cfg(not(tarpaulin_include))] pub fn game24_poker(n: usize) {  // n = 4, 5, 6
     let court = [ "T", "J", "Q", "K" ];     // Spade, Club, Diamond, Heart
     let suits = [ Color::Blue, Color::Magenta, Color::Cyan, Color::Red ];
     let mut poker= (0..52).collect::<Vec<_>>();
@@ -555,16 +530,14 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
     use rand::{thread_rng, seq::SliceRandom};
     let mut rng = thread_rng();
 
-    // https://github.com/htdebeer/SVG-cards
-    // https://www.me.uk/cards/makeadeck.cgi
-    // https://github.com/revk/SVG-playing-cards
-    println!(r"{}", Paint::new(
+    // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
+    println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
         r"Classic 24-game with poker (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
     loop {  poker.shuffle(&mut rng);
         let mut rems = poker.as_mut_slice();
         while  !rems.is_empty() {   let pkns;
-            (pkns, rems) = rems.partial_shuffle(&mut rng, 4);
+            (pkns, rems) = rems.partial_shuffle(&mut rng, n);
             let mut nums = pkns.iter().map(|pkn| {
                 let (cid, mut num) = pkn.div_rem(&13);
                 num += 1;   //cid %= 4;
@@ -584,13 +557,13 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
                 std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
 
                 let es = es.trim_end();
-                if es.eq_ignore_ascii_case("N") {
+                if  es.eq_ignore_ascii_case("N") {
                     print!(r"{}", Paint::new(r"Solution:").dimmed());
                     exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
                     println!();     break
                 }
 
-                if es.eq_ignore_ascii_case("quit") { return }
+                if  es.eq_ignore_ascii_case("quit") { return }
                 if let Ok(res) = mexe::eval(es) {
                     if 24 == (res + 0.5) as i32 {
                         print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
@@ -616,8 +589,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         if  nums.len() < 2 { return eprintln!(r"{}",
             Paint::yellow(r"Needs two numbers at least!")) }
 
-        //let algo = Inplace;   // Construct
-        let algo = DynProg(true);   // SplitSet(true)
+        let algo = DynProg(true);
         let exps = calc24_algo(goal, &mut nums, algo);
         // XXX: how to transfer a mut closure into a resursive function?
         if !matches!(algo, Inplace | Construct) { return }
@@ -679,7 +651,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
                     Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("poker") {
-                game24_poker();     nums.next();    continue;
+                game24_poker(4);    nums.next();    continue;
             } else if first.eq_ignore_ascii_case("quit") { break }
         }   game24_helper(&goal, nums);
     }
@@ -792,15 +764,15 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
             ( 24, vec![10, 9, 7, 7], vec!["10+(9-7)*7"], 0),
             ( 24, vec![12,12,13,13], vec!["12+12+13-13"], 0),
             ( 24, vec![24,24,24,24], vec!["(24-24)*24+24"], 0),
-            (  5, vec![ 1, 2, 3 ],   vec!["1*(2+3)", "2*3-1" ], 0),
+            (  5, vec![ 1, 2, 3   ], vec!["1*(2+3)", "2*3-1" ], 0),
             ( 24, vec![ 1, 1, 2, 6], vec!["2*(1+1)*6", "(1+1+2)*6"], 0),
             ( 24, vec![ 1, 1, 2,12], vec!["1+2*12-1", "12/(1-1/2)"], 0),
             ( 24, vec![ 5, 5, 1, 1], vec!["1*(5*5-1)", "(5-1)*(1+5)"], 0),
             ( 24, vec![ 1, 2, 3, 4], vec!["1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)"], 0),
             (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)", "(17-13)*(14+15)-16"], 0),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 45),
             (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 111),
             ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 727),
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 45),
         ];
 
         cases.into_iter().for_each(|it| {

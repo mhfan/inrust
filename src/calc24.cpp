@@ -150,7 +150,7 @@ inline bool find_factor(const Rational& av, const PtrE& b, const Oper op) {
 }
 
 // several pruning rules to find inequivalent/unique expressions only
-void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
+void form_compose(const auto& a, const auto& b, bool is_final/*, bool ngoal*/, auto func) {
     // ((A . B) . b) => (A . (B . b), kept right sub-tree only
     const auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     const auto dmd = a->v.d * b->v.d;   Oper op;
@@ -173,13 +173,13 @@ void form_compose(const auto& a, const auto& b, bool is_final, auto func) {
                                b->b->v == av || self(self, av, b->b, op));
     }; */
 
-    // (b - (B - A)) => ((b + A) - B), (x - 0) => (x + 0), ((A + x) - x) is only kept in final
+    // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x), ((A + x) - x) is only kept in final
     if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
-        (!is_final && find_factor(a->v, b, Add))))  // FIXME: select (a - b) when goal < 0?
+        (!is_final && find_factor(a->v, b, Add))))  // FIXME: select (a - b) if goal < 0?
         func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
 
     // (a / (A / B)) => ((a * B) / A)
-    // ((x * B) / x) => (B + x - x), (x / 1) => (x * 1), (0 / x) => (0 * x)
+    // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
     if (!(a->op == (op = Div) || op == b->op)) {
         if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || find_factor(b->v, a, Mul)))
             func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
@@ -217,16 +217,14 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
         return h0;
     };
 
-    for (auto x = 3; x < psn; ++x) {
-        if (!(x & (x - 1))) continue;
+    for (auto x = 3; x < psn; ++x) { if (!(x & (x - 1))) continue;
         const auto is_final = x == psn - 1;
 
         auto lambda = [&](const auto& e) {
             if (!is_final || e->v == goal) vexp[x].push_back(e);
         };
 
-        for (auto i = 1; i < (x+1)/2; ++i) {
-            if ((x & i) != i) continue;
+        for (auto i = 1; i < (x+1)/2; ++i) { if ((x & i) != i) continue;
 
             auto h0 = get_hash(i);
                 if (std::find(hv.begin(), hv.end(), h0) != hv.end())
@@ -237,12 +235,11 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
             }
 
             const auto& es0 = vexp[i], es1 = vexp[x - i];
-            for (auto i = 0u; i < es0.size(); ++i) {
-                const auto& a = es0[i];
+            for (auto i = 0u; i < es0.size(); ++i) { const auto& a = es0[i];
                 for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) {
                     const auto& b = es1[j];
-                    if (*a < *b) form_compose(a, b, is_final, lambda); else
-                                 form_compose(b, a, is_final, lambda);
+                    if (a->v < b->v) form_compose(a, b, is_final, lambda); else
+                                     form_compose(b, a, is_final, lambda);
                 }
             }
         }   hv.clear();
@@ -280,12 +277,11 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
 
         auto lambda = [&](const auto& e) { if (!is_final || e->v == goal) exps.push_back(e); };
 
-        for (auto i = 0u; i < ns0.size(); ++i) {
-            const auto& a = ns0[i];
+        for (auto i = 0u; i < ns0.size(); ++i) { const auto& a = ns0[i];
             for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) {
                 const auto& b = ns1[j];
-                if (*a < *b) form_compose(a, b, is_final, lambda); else
-                             form_compose(b, a, is_final, lambda);
+                if (a->v < b->v) form_compose(a, b, is_final, lambda); else
+                                 form_compose(b, a, is_final, lambda);
             }
         }
     }   return exps;
@@ -296,9 +292,9 @@ void calc24_inplace(const Rational& goal, const size_t n,
     vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
-    for (size_t i = 0; i < n; ++i) {         const auto ta = nums[i];
+    for (size_t i = 0; i < n - 1; ++i) {     const auto ta = nums[i];
         for (size_t j = i + 1; j < n; ++j) { const auto tb = nums[j];
-            auto a = ta, b = tb; if (*b < *a) a = tb, b = ta;   // swap for ordering
+            auto a = ta, b = tb; if (b->v < a->v) a = tb, b = ta;   // swap for ordering
 
             size_t h0 = hash_combine(hasher(a), hasher(b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
@@ -368,7 +364,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {
-        { 24, { 0 }, { }, 0 },
+        { 24, { 0  }, { }, 0 },
         { 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 1, 2, 4,12 }, { }, 5 },
@@ -385,9 +381,9 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 5, 5, 1, 1 }, { "1*(5*5-1)", "(5-1)*(1+5)" }, 0 },
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
-        { 24, { 1, 2, 3, 4, 5 }, { }, 45 },
         {100, { 1, 2, 3, 4, 5, 6 }, { }, 111 },
         { 24, { 1, 2, 3, 4, 5, 6 }, { }, 732 },
+        { 24, { 1, 2, 3, 4, 5 }, { }, 45 },
     };
 
     for (auto it: cases) {
