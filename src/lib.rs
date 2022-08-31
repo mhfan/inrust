@@ -8,6 +8,29 @@
 pub mod calc24;
 pub mod list;
 
+use num_integer::Integer;
+pub struct Fibonacci<T> { curr: T, next: T }
+impl<T: Integer + Copy> Iterator for Fibonacci<T> {
+    fn next(&mut self) -> Option<Self::Item> {
+        let new_next = self.curr + self.next;
+
+        self.curr = self.next;
+        self.next = new_next;
+
+        Some(self.curr)
+    }   type Item = T;
+}
+
+/// ```
+/// assert_eq!(inrust::fibonacci().nth(0), Some(1));
+/// assert_eq!(inrust::fibonacci().nth(1), Some(1));
+/// assert_eq!(inrust::fibonacci().nth(4), Some(5));
+/// ```
+// Returns a Fibonacci sequence generator
+pub fn fibonacci<T: Integer + Copy>() -> Fibonacci<T> {
+    Fibonacci::<T> { curr: T::zero(), next: T::one() }
+}
+
 /** https://gist.github.com/synecdoche/9ade913c891dda6fcf1cdac823e7d524
  *
  * Given a set of type T, return a Vec containing the powerset, i.e. the set of all subsets.
