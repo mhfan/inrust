@@ -208,8 +208,7 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
     }
 
     vector<size_t> hv; hv.reserve(psn - 2);
-    auto get_hash = [&](auto x) {
-        auto i = 0, h0 = 0;
+    auto get_hash = [&](auto x) {   auto i = 0, h0 = 0;
 #ifdef  LIST
         for (const auto& e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<PtrE>{}(e));
 #else
@@ -236,10 +235,10 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
                     continue; else hv.push_back(h1);
             }
 
-            const auto& es0 = vexp[i], es1 = vexp[x - i];
-            for (auto i = 0u; i < es0.size(); ++i) { const auto& a = es0[i];
+            const auto &es0(vexp[i]), &es1(vexp[x - i]);
+            for (auto i = 0u; i < es0.size(); ++i) { const auto& a(es0[i]);
                 for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) {
-                    const auto& b = es1[j];
+                                                     const auto& b(es1[j]);
                     if (a->v < b->v) form_compose(a, b, is_final, lambda); else
                                      form_compose(b, a, is_final, lambda);
                 }
@@ -255,6 +254,7 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
     auto psn = 1 << n;
     list<PtrE> exps;
 
+    auto lambda = [&](const auto& e) { if (!is_final || e->v == goal) exps.push_back(e); };
     vector<PtrE> ns0, ns1; ns0.reserve(n - 1); ns1.reserve(n - 1);
     vector<size_t> hv; hv.reserve(psn - 2);
 
@@ -277,10 +277,8 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
         if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0);
         if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1);
 
-        auto lambda = [&](const auto& e) { if (!is_final || e->v == goal) exps.push_back(e); };
-
-        for (auto i = 0u; i < ns0.size(); ++i) {                      const auto& a = ns0[i];
-            for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) { const auto& b = ns1[j];
+        for (auto i = 0u; i < ns0.size(); ++i) {                      const auto& a(ns0[i]);
+            for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) { const auto& b(ns1[j]);
                 if (a->v < b->v) form_compose(a, b, is_final, lambda); else
                                  form_compose(b, a, is_final, lambda);
             }
@@ -289,24 +287,57 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
 }
 
 #include <unordered_set>
-void calc24_inplace(const Rational& goal, const size_t n,
-    vector<PtrE>& nums, std::unordered_set<PtrE>& exps) {
+void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
+    const size_t n, std::unordered_set<PtrE>& exps) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
-    for (size_t i = 0; i < n - 1; ++i) {     const auto ta = nums[i];
-        for (size_t j = i + 1; j < n; ++j) { const auto tb = nums[j];
-            auto a = ta, b = tb; if (b->v < a->v) a = tb, b = ta;   // swap for ordering
+    for (size_t i = 0; i < n - 1; ++i) {
+        const auto a(std::move(nums[i]));
+        auto lambda = [&](const auto& e) {
+            if (n == 2) { if (e->v == goal) exps.insert(e); } else {
+                nums[i] = e;    calc24_inplace(goal, nums, n - 1, exps); }
+        };
 
+        for (size_t j = i + 1; j < n; ++j) {
+            size_t h0 = hash_combine(hasher(a), hasher(nums[j]));
+            if (std::find(hv.begin(), hv.end(), h0) != hv.end())
+                continue; else hv.push_back(h0);
+            const auto b(std::move(nums[j]));
+
+            nums[j] = nums[n - 1];
+            if (b->v < a->v) form_compose(b, a, n == 2, lambda); else
+                             form_compose(a, b, n == 2, lambda);
+            nums[j] = std::move(b);
+        }   nums[i] = std::move(a);
+    }
+}
+
+void calc24_construct(const Rational& goal, const list<PtrE>& nums,
+    size_t j, std::unordered_set<PtrE>& exps) {
+    const auto n = nums.size();
+    hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
+
+    for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
+        for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
+    //for (; j < n; ++j) {                    const auto& b(nums[j]);
+    //    for (size_t i = 0; i < j; ++i) {    const auto& a(nums[i]);
             size_t h0 = hash_combine(hasher(a), hasher(b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
-            nums[j] = nums[n - 1];
-            form_compose(a, b, n == 2, [&](const auto& e) {
+            vector<PtrE> nsub;  for (const auto& e: nums)
+                if (e.get() != a.get() && e.get() != b.get()) nsub.push_back(e);
+
+            auto lambda = [&](const auto& e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                    nums[i] = e;    calc24_inplace(goal, n - 1, nums, exps); }
-            });     nums[j] = tb;
-        }           nums[i] = ta;
+                    nsub.push_back(e);  calc24_construct(goal, nsub, j - 1, exps);
+                    nsub.pop_back();
+                }
+            };
+
+            if (b->v < a->v) form_compose(b, a, n == 2, lambda); else
+                             form_compose(a, b, n == 2, lambda);
+        }
     }
 }
 
@@ -325,10 +356,15 @@ list<PtrE> calc24_algo(const Rational& goal, list<PtrE>& nums, Calc24Algo algo) 
         case DynProg:  exps = calc24_dynprog (goal, nums); break;
         case SplitSet: exps = calc24_splitset(goal, nums); break;
 
-        case Construct:     // TODO: to be implemented
         case Inplace: {
             std::unordered_set<PtrE> eset;
-            calc24_inplace(goal, nums.size(), nums, eset);
+            calc24_inplace(goal, nums, nums.size(), eset);
+            for (const auto& e: eset) exps.push_back(e);
+        }   break;
+
+        case Construct: {
+            std::unordered_set<PtrE> eset;
+            calc24_construct(goal, nums, 1, eset);
             for (const auto& e: eset) exps.push_back(e);
         }   break;
 

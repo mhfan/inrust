@@ -803,6 +803,7 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
                 assert_closure_c(DynProg);
                 assert_closure_c(SplitSet);
                 if cnt < 100 { assert_closure_c(Inplace); }
+                assert_closure_c(Construct);
             }
 
             let assert_closure = |algo| {
