@@ -38,14 +38,14 @@ pub fn fibonacci<T: Integer + Copy>() -> Fibonacci<T> {
  * This works by treating each int the range [0, 2**n) (where n is the length of the set)
  * as a bitmask, selecting only the members of the original set whose corresponding
  * positional bits are flipped on in each mask.
-```
-let set = vec![1, 2, 3];
-let psv = inrust::powerset(&set);
-assert_eq!(psv.len(), 1 << set.len());
-vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
-    .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
-    .for_each(|(a, b)| assert_eq!(&a, b)));
-```
+ ```
+ let set = vec![1, 2, 3];
+ let psv = inrust::powerset(&set);
+ assert_eq!(psv.len(), 1 << set.len());
+ vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
+     .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
+     .for_each(|(a, b)| assert_eq!(&a, b)));
+ ```
  * pub fn powerset<T: Clone + Copy>(set: &[T]) -> Vec<Vec<T>>
  */
 pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {

@@ -73,7 +73,7 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     }
 }
 
-#[cfg(test)] mod test {
+#[cfg(test)] mod tests {
     use super::List;
 
     #[test] fn basics() {

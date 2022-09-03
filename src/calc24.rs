@@ -493,6 +493,7 @@ pub  use Calc24Algo::*;
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
     };
 
+    // TODO: output all possible expr. forms?
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     match algo {
         DynProg   => { calc24_dynprog  (goal, &nums, each_found); }
@@ -517,6 +518,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
     //let mut rng = thread_rng();
     //pks.shuffle(&mut rng);
 
+    // TODO: solvable for 4~6 cards?
     (1..=pkm).for_each(|a| (a..=pkm).for_each(|b|       // C^52_4 = 270725
     (b..=pkm).for_each(|c| (c..=pkm).for_each(|d| {     // C^(13+4-1)_4 = 1820
         let nums = [a, b, c, d].into_iter()
@@ -539,7 +541,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_poker(n: usize) {  // n = 4, 5, 6
+#[cfg(not(tarpaulin_include))] pub fn game24_poker(n: usize, algo: Calc24Algo) {  // n = 4~6
     let court = [ "T", "J", "Q", "K" ];     // Spade, Club, Diamond, Heart
     let suits = [ Color::Blue, Color::Magenta, Color::Cyan, Color::Red ];
     let mut poker= (0..52).collect::<Vec<_>>();
@@ -564,7 +566,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
                     .bold().bg(suits[cid]));    (num as i32).into()
             }).collect::<Vec<_>>();     print!(r": ");
 
-            let exps = calc24_coll(&24.into(), &nums, DynProg);
+            let exps = calc24_coll(&24.into(), &nums, algo);
             if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
 
             loop {  use std::io::Write;
@@ -593,18 +595,21 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
 }
 
 #[cfg(not(tarpaulin_include))] pub fn game24_cli() {
-    fn game24_helper<I, S>(goal: &Rational, nums: I)
-        where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: how to use closure instead?
-        let nums = nums.map(|s| s.as_ref().parse::<Rational>())
-            .inspect(|res| match res {  // XXX: exit on error?
-                Err(why) => eprintln!(r"Error parsing rational: {}", Paint::red(why)),
-                Ok(rn) => if rn.denom() == &0 {
-                    eprintln!(r"Invalid rational number: {}/{}", rn.numer(),
-                    Paint::red(rn.denom())) }})
-            .filter_map(Result::ok).collect::<Vec<_>>();
+    fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo)
+        where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
+        let nums = nums.filter_map(|s| match s.as_ref().parse::<Rational>() {
+                Err(why) => {
+                    eprintln!(r"Error parsing rational: {}", Paint::red(why));   None
+                }
+                Ok(rn) => { if rn.denom() == &0 {
+                    eprintln!(r"Invalid rational number: {}/{}",
+                        rn.numer(), Paint::red(rn.denom())) }   Some(rn)
+                }
+            }).collect::<Vec<_>>();
+
         if  nums.len() < 2 { return eprintln!(r"{}",
             Paint::yellow(r"Require two numbers at least!")) }
-        let cnt = calc24_print(goal, &nums, DynProg);
+        let cnt = calc24_print(goal, &nums, algo);
 
         if  cnt < 1 {
             eprintln!(r"{}", Paint::yellow(r"Found NO solution!")) } else if 5 < cnt {
@@ -612,26 +617,33 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         }
     }
 
-    let mut goal = 24.into();
+    let (mut goal, mut algo) = (24.into(), DynProg);
     let mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
 
     let mut want_exit = false;
-    if let Some(opt) = nums.peek() {    // TODO: select algo by cmd parameters
+    if let Some(opt) = nums.peek() {
+        let opt = opt.clone();
+        if opt.eq("-A") {   nums.next();
+            if let Some(gs) = nums.next() { match gs.parse::<u32>() {
+                Ok(n) => algo = match n {
+                    1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg,
+                },
+                Err(e) => eprintln!(r"Error parsing ALGO: {}", Paint::red(e)),
+            } } else { eprintln!(r"Lack parameter for ALGO!") }
+        }
+
         if opt.eq_ignore_ascii_case("-g") {
             if opt == "-G" { want_exit = true }
             nums.next();
 
-            if let Some(gs) = &nums.next() {
-                match gs.parse::<Rational>() {
-                    Ok(_goal) => goal = _goal,
-                    Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
-                }
-            } else { eprintln!(r"Lack parameter for GOAL!") }
+            if let Some(gs) = nums.next() { match gs.parse::<Rational>() {
+                Ok(_goal) => goal = _goal,
+                Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
+            } } else { eprintln!(r"Lack parameter for GOAL!") }
 
-            if nums.len() < 1 && goal == 24.into() {
-                     game24_solvable(DynProg);
-            } else { game24_helper(&goal, nums); }
+            if nums.len() < 1 && goal == 24.into() {    game24_solvable(algo);
+            } else { game24_helper(&goal, nums, algo); }
             if want_exit { std::process::exit(0) }
         }
     }
@@ -658,12 +670,12 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
                     Ok(_goal) => {  goal = _goal;
                         println!(r"### Reset GOAL to {} ###", Paint::magenta(&goal).bold());
                     }
-                    Err(e) => eprintln!(r"Error parsing GOAL: {e}"),
+                    Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("poker") {
-                game24_poker(4);    nums.next();    continue;
+                game24_poker(4, algo);  nums.next();    continue;
             } else if first.eq_ignore_ascii_case("quit") { break }
-        }   game24_helper(&goal, nums);
+        }       game24_helper(&goal, nums, algo);
     }
 }
 

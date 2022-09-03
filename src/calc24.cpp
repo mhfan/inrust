@@ -35,7 +35,7 @@ struct Expr {
     Rational v; PtrE a, b; Oper op;     // anonymous structure
 
     Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
-    Expr(const Rational& r, Oper op = Num,  // a & b refer to left & right operands
+    Expr(Rational&& r, Oper op = Num,   // a & b refer to left & right operands
          const PtrE& a = nullptr, const PtrE& b = nullptr): v(r), a(a), b(b), op(op) {}
 
     //Expr(): Expr(Rational(0, 0)) {}
@@ -168,7 +168,7 @@ void form_compose(const auto& a, const auto& b, bool is_final/*, bool ngoal*/, a
         (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
 
-    /* auto find_factor = [](auto&& self, const auto& av, const auto& b, const auto op) {
+    /* auto find_factor = [&](auto&& self, const auto& av, const auto& b, const auto op) {
         return b->op == op && (b->a->v == av || self(self, av, b->a, op) ||
                                b->b->v == av || self(self, av, b->b, op));
     }; */
@@ -221,7 +221,7 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
     for (auto x = 3; x < psn; ++x) { if (!(x & (x - 1))) continue;
         const auto is_final = x == psn - 1;
 
-        auto lambda = [&](const auto& e) {
+        auto lambda = [&](auto&& e) {
             if (!is_final || e->v == goal) vexp[x].push_back(e);
         };
 
@@ -254,7 +254,7 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
     auto psn = 1 << n;
     list<PtrE> exps;
 
-    auto lambda = [&](const auto& e) { if (!is_final || e->v == goal) exps.push_back(e); };
+    auto lambda = [&](auto&& e) { if (!is_final || e->v == goal) exps.push_back(e); };
     vector<PtrE> ns0, ns1; ns0.reserve(n - 1); ns1.reserve(n - 1);
     vector<size_t> hv; hv.reserve(psn - 2);
 
@@ -293,9 +293,9 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
 
     for (size_t i = 0; i < n - 1; ++i) {
         const auto a(std::move(nums[i]));
-        auto lambda = [&](const auto& e) {
+        auto lambda = [&](auto&& e) {
             if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                nums[i] = e;    calc24_inplace(goal, nums, n - 1, exps); }
+                nums[i] = std::move(e);     calc24_inplace(goal, nums, n - 1, exps); }
         };
 
         for (size_t j = i + 1; j < n; ++j) {
@@ -325,13 +325,13 @@ void calc24_construct(const Rational& goal, const list<PtrE>& nums,
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
-            vector<PtrE> nsub;  for (const auto& e: nums)
+            list<PtrE> nsub;  for (const auto& e: nums)
                 if (e.get() != a.get() && e.get() != b.get()) nsub.push_back(e);
 
-            auto lambda = [&](const auto& e) {
+            auto lambda = [&](auto&& e) {
                 if (n == 2) { if (e->v == goal) exps.insert(e); } else {
                     nsub.push_back(e);  calc24_construct(goal, nsub, j - 1, exps);
-                    nsub.pop_back();
+                    nsub. pop_back();
                 }
             };
 
@@ -383,11 +383,10 @@ void calc24_algo(Calc24IO* calc24) {
     for (auto i = 0u; i < calc24->ncnt; ++i)
         nums.push_back(std::make_shared<const Expr>(calc24->nums[i]));
     const list<PtrE> exps = calc24_algo(calc24->goal, nums, calc24->algo);
-    calc24->ecnt = exps.size();     // TODO:
+    calc24->ecnt = exps.size();     // TODO: handle results
 }
 
 #include <iomanip>
-
 extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve24
     using std::cout, std::cerr, std::endl, std::string;
 
@@ -402,7 +401,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {
-        { 24, { 0  }, { }, 0 },
+        { 24, {  0 }, { }, 0 },
         { 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 1, 2, 4,12 }, { }, 5 },
@@ -460,6 +459,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         ASSERT_CLOSURE(SplitSet);
         if (100 < it.cnt) continue;
         ASSERT_CLOSURE(Inplace);
+        ASSERT_CLOSURE(Construct);
 //break;
     }
 }
