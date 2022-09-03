@@ -29,8 +29,10 @@
     for result in rdr.records() {
         let record = result.unwrap();
         cnt.1 += record.len() - 1;  cnt.0 += 1;
-        let mut nums = record[0].split(' ').map(|s| Rc::new(Rational::from(s.parse::<i32>().unwrap()).into())).collect::<Vec<_>>();
-        let exps = calc24_algo(&24.into(), &mut nums, DynProg(false));
+
+        let nums = record[0].split(' ').map(|s|
+            s.parse::<i32>().unwrap().into()).collect::<Vec<_>>();
+        let exps = calc24_coll(&24.into(), &nums, DynProg);
 
         if exps.len() != record.len() - 1 {
             eprint!(r"[{}]:", Paint::cyan(&record[0]));

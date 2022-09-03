@@ -492,9 +492,9 @@ dependencies = [
 
 [[package]]
 name = "mexe"
-version = "0.0.6"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65d50f91b5666c1d613f8b0856d5bf69a18c6a68bdc222de641e0caea67dab39"
+checksum = "85acd371ab1e803f0fbe3226b9ec516bc83f990f8371f7f84bae8198cf41f1ad"
 
 [[package]]
 name = "miniz_oxide"

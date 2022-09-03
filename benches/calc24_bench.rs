@@ -31,20 +31,23 @@ fn bench_24calc(c: &mut Criterion) {
             if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
         };
 
-        bench_closure_c(DynProg (false));
-        //bench_closure_c(SplitSet(false));
+        bench_closure_c(DynProg);
+        //bench_closure_c(SplitSet);
         //bench_closure_c(Inplace);
     }
 
-    let mut nums = nums.into_iter().map(|n| Rc::new(n.into())).collect::<Vec<_>>();
     let mut bench_closure = |algo| {
-        group.bench_function(format!("{algo:?}"), |b|
-            b.iter(|| { cnt = calc24_algo(&goal, &mut nums, algo).len(); }));
+        group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
+            let mut exps = vec![];
+            calc24_algo(&goal, &nums, algo, &mut |e| {
+                exps.push(e); Some(()) });  cnt = exps.len();
+            //cnt = calc24_coll(&goal, &nums, algo).len();
+        }));
         if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
     };
 
-    bench_closure(DynProg (false));
-    //bench_closure(SplitSet(false));
+    bench_closure(DynProg);
+    //bench_closure(SplitSet);
     //bench_closure(Inplace);
     //bench_closure(Construct);
 

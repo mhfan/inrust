@@ -99,6 +99,7 @@ dependencies = [
  "arbitrary",
  "atty",
  "cc",
+ "mexe",
  "num-bigint",
  "num-integer",
  "rand",
@@ -121,6 +122,12 @@ dependencies = [
  "cc",
  "once_cell",
 ]
+
+[[package]]
+name = "mexe"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "85acd371ab1e803f0fbe3226b9ec516bc83f990f8371f7f84bae8198cf41f1ad"
 
 [[package]]
 name = "num-bigint"

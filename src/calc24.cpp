@@ -48,7 +48,7 @@ using std::vector;
 
 typedef   enum Calc24Algo: uint8_t { DynProg, SplitSet, Inplace, Construct } Calc24Algo;
 typedef struct Calc24IO {
-    const Calc24Algo algo; bool ia;
+    const Calc24Algo algo;
     const Rational goal, *const nums;
     const size_t ncnt;
 
@@ -203,7 +203,9 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
 
     vector<list<PtrE>> vexp;       vexp.reserve(psn);
     for (auto i = 0; i < psn; ++i) vexp.push_back(list<PtrE>());
-    auto i = 0; for (const auto& e: nums) vexp[1 << i++].push_back(e);
+    if (2 < psn) { auto i = 0;
+        for (const auto& e: nums)  vexp[1 << i++].push_back(e);
+    }
 
     vector<size_t> hv; hv.reserve(psn - 2);
     auto get_hash = [&](auto x) {
@@ -277,9 +279,8 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
 
         auto lambda = [&](const auto& e) { if (!is_final || e->v == goal) exps.push_back(e); };
 
-        for (auto i = 0u; i < ns0.size(); ++i) { const auto& a = ns0[i];
-            for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) {
-                const auto& b = ns1[j];
+        for (auto i = 0u; i < ns0.size(); ++i) {                      const auto& a = ns0[i];
+            for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) { const auto& b = ns1[j];
                 if (a->v < b->v) form_compose(a, b, is_final, lambda); else
                                  form_compose(b, a, is_final, lambda);
             }
@@ -310,6 +311,7 @@ void calc24_inplace(const Rational& goal, const size_t n,
 }
 
 list<PtrE> calc24_algo(const Rational& goal, list<PtrE>& nums, Calc24Algo algo) {
+    // TODO: utilize exception mechanism for achieve stop on first found
     list<PtrE> exps;
     if (nums.size() == 1) {
         const auto& e = nums.front();
@@ -323,7 +325,7 @@ list<PtrE> calc24_algo(const Rational& goal, list<PtrE>& nums, Calc24Algo algo) 
         case DynProg:  exps = calc24_dynprog (goal, nums); break;
         case SplitSet: exps = calc24_splitset(goal, nums); break;
 
-        case Construct:     // don't worth to implement
+        case Construct:     // TODO: to be implemented
         case Inplace: {
             std::unordered_set<PtrE> eset;
             calc24_inplace(goal, nums.size(), nums, eset);
