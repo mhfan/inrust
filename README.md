@@ -71,7 +71,7 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [ ] C++ FFI
 + [x] doc-tests
 + [x] flamegraph
-+ [x] concurrency
++ [-] concurrency
 + [x] C FFI & build.rs
 + [x] benchmark/criterion
 + [x] Code coverage automatically

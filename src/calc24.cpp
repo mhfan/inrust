@@ -135,11 +135,10 @@ inline auto hash_combine(size_t lhs, auto rhs) {
 }
 
 using std::hash; // #include <functional>
-
 template <> struct std::hash<PtrE> {
     size_t operator()(const PtrE& e) const noexcept {
         if (e->op == Num) return hash_combine(e->v.n, e->v.d); else {  hash<PtrE> hasher;
-            return hash_combine(hasher(e->a), hasher(e->b)) ^ (char(e->op) << 13);
+            return hash_combine(hasher(e->a), hasher(e->b)) ^ (char(e->op) << 11);
         }
     }
 };
@@ -198,7 +197,7 @@ using std::list;
 #define list vector
 #endif
 
-list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
+void calc24_dynprog (const Rational& goal, const list<PtrE>& nums, auto&& each_found) {
     auto psn = 1 << nums.size();
 
     vector<list<PtrE>> vexp;       vexp.reserve(psn);
@@ -222,9 +221,7 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
         const auto is_final = x == psn - 1;
 
         auto lambda = [&](auto&& e) {
-            if (!is_final || e->v == goal) vexp[x].push_back(e);
-        };
-
+            if (!is_final) vexp[x].push_back(e); else if (e->v == goal) each_found(e); };
         for (auto i = 1; i < (x+1)/2; ++i) { if ((x & i) != i) continue;
 
             auto h0 = get_hash(i);
@@ -244,19 +241,20 @@ list<PtrE> calc24_dynprog (const Rational& goal, const list<PtrE>& nums) {
                 }
             }
         }   hv.clear();
-    }   return vexp[psn - 1];
+    }   //return vexp[psn - 1];
 }
 
-list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
+vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums, auto&& each_found) {
     static auto IR = Rational(0, 0);
     auto is_final = &goal != &IR;
     auto n = nums.size();
     auto psn = 1 << n;
-    list<PtrE> exps;
+    vector<PtrE> exps;
 
-    auto lambda = [&](auto&& e) { if (!is_final || e->v == goal) exps.push_back(e); };
-    vector<PtrE> ns0, ns1; ns0.reserve(n - 1); ns1.reserve(n - 1);
-    vector<size_t> hv; hv.reserve(psn - 2);
+    auto lambda = [&](auto&& e) {
+        if (!is_final) exps.push_back(e); else if (e->v == goal) each_found(e); };
+    vector<PtrE> ns0, ns1;   ns0.reserve(n - 1);    ns1.reserve(n - 1);
+    vector<size_t> hv;       hv.reserve(psn - 2);
 
     for (auto x = 1; x < psn/2; ++x) {  ns0.clear();    ns1.clear();    auto i = 0;
         for (const auto& e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
@@ -274,8 +272,9 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
         //for (const auto& e: ns0) std::cerr << ' ' << *e; std::cerr << ';';
         //for (const auto& e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
 
-        if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0);
-        if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1);
+        // TODO: can be parallelised
+        if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0, each_found);
+        if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1, each_found);
 
         for (auto i = 0u; i < ns0.size(); ++i) {                      const auto& a(ns0[i]);
             for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) { const auto& b(ns1[j]);
@@ -288,14 +287,14 @@ list<PtrE> calc24_splitset(const Rational& goal, const list<PtrE>& nums) {
 
 #include <unordered_set>
 void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
-    const size_t n, std::unordered_set<PtrE>& exps) {
+    const size_t n, auto&& each_found) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
     for (size_t i = 0; i < n - 1; ++i) {
         const auto a(std::move(nums[i]));
         auto lambda = [&](auto&& e) {
-            if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                nums[i] = std::move(e);     calc24_inplace(goal, nums, n - 1, exps); }
+            if (n == 2) { if (e->v == goal) each_found(e); } else {
+                nums[i] = std::move(e);     calc24_inplace(goal, nums, n - 1, each_found); }
         };
 
         for (size_t j = i + 1; j < n; ++j) {
@@ -312,25 +311,25 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
     }
 }
 
-void calc24_construct(const Rational& goal, const list<PtrE>& nums,
-    size_t j, std::unordered_set<PtrE>& exps) {
-    const auto n = nums.size();
+void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
+    size_t j, auto&& each_found) {  const auto n = nums.size();
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
-    for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
-        for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
-    //for (; j < n; ++j) {                    const auto& b(nums[j]);
-    //    for (size_t i = 0; i < j; ++i) {    const auto& a(nums[i]);
+    //for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
+    //    for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
+    for (; j < n; ++j) {                    const auto& b(nums[j]);
+        for (size_t i = 0; i < j; ++i) {    const auto& a(nums[i]);
             size_t h0 = hash_combine(hasher(a), hasher(b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
-            list<PtrE> nsub;  for (const auto& e: nums)
+            vector<PtrE> nsub;  nsub.reserve(n - 1);
+            for (const auto& e: nums)
                 if (e.get() != a.get() && e.get() != b.get()) nsub.push_back(e);
 
             auto lambda = [&](auto&& e) {
-                if (n == 2) { if (e->v == goal) exps.insert(e); } else {
-                    nsub.push_back(e);  calc24_construct(goal, nsub, j - 1, exps);
+                if (n == 2) { if (e->v == goal) each_found(e); } else {
+                    nsub.push_back(e);  calc24_construct(goal, nsub, j - 1, each_found);
                     nsub. pop_back();
                 }
             };
@@ -341,35 +340,47 @@ void calc24_construct(const Rational& goal, const list<PtrE>& nums,
     }
 }
 
-list<PtrE> calc24_algo(const Rational& goal, list<PtrE>& nums, Calc24Algo algo) {
-    // TODO: utilize exception mechanism for achieve stop on first found
-    list<PtrE> exps;
-    if (nums.size() == 1) {
-        const auto& e = nums.front();
-        if (e->v == goal) exps.push_back(e);
-        return exps;
-    }
+void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
+    Calc24Algo algo, auto&& each_found) {
+    if (rnv.size() == 1) { if (rnv[0] == goal)
+        each_found(std::make_shared<const Expr>(rnv[0]));   return; }
 
+    vector<PtrE> nums;       nums.reserve(rnv.size());
+    for (const auto& n: rnv) nums.push_back(std::make_shared<const Expr>(n));
+
+    std::unordered_set<size_t> eset;
+    auto hash_unify = [&](auto&& e) { if (eset.insert(hash<PtrE>{}(e)).second) each_found(e); };
     std::sort(nums.begin(), nums.end(),
         [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
+
     switch (algo) {
-        case DynProg:  exps = calc24_dynprog (goal, nums); break;
-        case SplitSet: exps = calc24_splitset(goal, nums); break;
-
-        case Inplace: {
-            std::unordered_set<PtrE> eset;
-            calc24_inplace(goal, nums, nums.size(), eset);
-            for (const auto& e: eset) exps.push_back(e);
-        }   break;
-
-        case Construct: {
-            std::unordered_set<PtrE> eset;
-            calc24_construct(goal, nums, 1, eset);
-            for (const auto& e: eset) exps.push_back(e);
-        }   break;
-
+        case DynProg:   calc24_dynprog  (goal, nums, each_found); break;
+        case SplitSet:  calc24_splitset (goal, nums, each_found); break;
+        case Inplace:   calc24_inplace  (goal, nums, nums.size(), hash_unify); break;
+        case Construct: calc24_construct(goal, nums, 1, hash_unify); break;
         default: ;
-    }   return exps;
+    }   //return exps;
+}
+
+using std::string;
+inline list<string> calc24_coll(const Rational& goal, const vector<Rational>& nums,
+    Calc24Algo algo) {  list<string> exps;
+    calc24_algo(goal, nums, algo, [&](auto&& e) {
+        std::stringstream ss; ss << *e; exps.push_back(ss.str());
+    }); return exps;
+}
+
+inline string calc24_first(const Rational& goal, const vector<Rational>& nums,
+    Calc24Algo algo) {  string es;
+    calc24_algo(goal, nums, algo,
+        [&](auto&& e) { std::stringstream ss(es); ss << *e; });     return es;
+    // FIXME: do sth. (throw exception?) to stop on first found?
+}
+
+inline size_t calc24_print(const Rational& goal, const vector<Rational>& nums,
+    Calc24Algo algo) {  size_t cnt = 0;
+    calc24_algo(goal, nums, algo,
+        [&](auto&& e) { std::cout << *e << std::endl; ++cnt; });    return cnt;
 }
 
 void calc24_algo(Calc24IO* calc24) {
@@ -379,11 +390,20 @@ void calc24_algo(Calc24IO* calc24) {
     for (auto i = 0u; i < calc24->ncnt; ++i) std::cerr << calc24->nums[i] << ", ";
     std::cerr << "]\n"; */
 
-    vector<PtrE> nums;
-    for (auto i = 0u; i < calc24->ncnt; ++i)
-        nums.push_back(std::make_shared<const Expr>(calc24->nums[i]));
-    const list<PtrE> exps = calc24_algo(calc24->goal, nums, calc24->algo);
-    calc24->ecnt = exps.size();     // TODO: handle results
+    vector<Rational> nums;  nums.reserve(calc24->ncnt);
+    for (auto i = 0u; i < calc24->ncnt; ++i) nums.push_back(calc24->nums[i]);
+
+    //vector<const char*> exps;
+    list<PtrE> exps;  //size_t cnt = 0;
+    calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
+        //std::stringstream ss; ss << *e; exps.push_back(std::move(ss.str()).c_str());
+        // FIXME: how to keep data out of string lifetime?
+        exps.push_back(e);  //(void)e;    ++cnt;
+    });
+
+    calc24->ecnt = exps.size(); //cnt;
+    calc24->exps = nullptr;
+    //calc24->exps = std::move(exps).data();
 }
 
 #include <iomanip>
@@ -423,22 +443,21 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 1, 2, 3, 4, 5 }, { }, 45 },
     };
 
-    for (auto it: cases) {
+    for (const auto& it: cases) {
         cout << "Test compute " << std::setw(3) << it.goal << " from [";
         for (auto n: it.nums) cout << std::setw(2) << n << ",";
         cout << "]" << endl;
 
-        vector<PtrE> nums;
-        Rational goal(it.goal);
-        for (auto n: it.nums) nums.push_back(std::make_shared<const Expr>(n));
+        vector<Rational> nums;
+        const Rational goal(it.goal);
+        for (auto n: it.nums) nums.push_back(n);
 
         auto assert_closure = [&](auto algo, auto algs) {
-            list<PtrE> exps = calc24_algo(goal, nums, algo);
+            list<string> exps = calc24_coll(goal, nums, algo);
 
-            for (const auto& e: exps) {
-                ss.str(""); ss << *e;   //cout << *e << endl;
+            for (const auto& es: exps) {
                 if (it.cnt < 1 && std::find(it.exps.begin(),
-                    it.exps.end(), ss.str()) == it.exps.end()) {
+                    it.exps.end(), es) == it.exps.end()) {
                     cerr << "Unexpect expr. by algo-" << algs << ": "
                          << ss.str() << endl;   abort();
                 }
@@ -448,7 +467,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
             cout << "  Got " << n << " expr. by algo-" << algs << endl;
 
             if (cnt < 1) cnt = it.exps.size();
-            if (n != cnt) {
+            if (cnt != n) {
                 cerr << "Unexpect count by algo-" << algs << ": "
                      << n << " != " << cnt << endl;     abort();
             }

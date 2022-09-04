@@ -39,7 +39,7 @@ fn bench_24calc(c: &mut Criterion) {
 
     let mut bench_closure = |algo| {
         group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
-            let mut exps = vec![];  // XXX:
+            let mut exps = vec![];  //cnt = 0;  // XXX: cnt += 1;
             calc24_algo(&goal, &nums, algo, &mut |e| {
                 exps.push(e);   Some(()) });    cnt = exps.len();
             //cnt = calc24_coll(&goal, &nums, algo).len();

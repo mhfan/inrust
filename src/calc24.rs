@@ -702,16 +702,17 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
         ecnt: 0, exps: core::ptr::null_mut(),
     };
 
-    // XXX: constraint according definition in C++
     debug_assert!(core::mem::size_of::<Rational>() == 8);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
     extern "C" { fn calc24_algo(calc24: *mut Calc24IO); }
 
     //core::ptr::addr_of_mut!(calc24);
-    unsafe { calc24_algo(&mut calc24);  // TODO:
-        /* assert!(!calc24.exps.is_null());
-        let exps = core::slice::from_raw_parts(calc24.exps, calc24.ecnt).iter().map(|es|
-            std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>(); */
+    unsafe { calc24_algo(&mut calc24);  // XXX:
+        if 0 < calc24.ecnt && !calc24.exps.is_null() {    //assert!(!calc24.exps.is_null());
+            let _exps = core::slice::from_raw_parts(calc24.exps,
+                calc24.ecnt).iter().map(|es|
+                std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
+        }
     }   calc24.ecnt
 }
 
@@ -814,7 +815,7 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
 
                 assert_closure_c(DynProg);
                 assert_closure_c(SplitSet);
-                if cnt < 100 { assert_closure_c(Inplace); }
+                assert_closure_c(Inplace);
                 assert_closure_c(Construct);
             }
 
@@ -836,7 +837,6 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
 
             assert_closure(DynProg);
             assert_closure(SplitSet);
-            if 100 < cnt { return }     // XXX: regarding speed
             assert_closure(Inplace);
             assert_closure(Construct);
 
