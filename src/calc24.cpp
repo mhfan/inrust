@@ -149,7 +149,7 @@ inline bool find_factor(const Rational& av, const PtrE& b, const Oper op) {
 }
 
 // several pruning rules to find inequivalent/unique expressions only
-void form_compose(const auto& a, const auto& b, bool is_final/*, bool ngoal*/, auto func) {
+void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto func) {
     // ((A . B) . b) => (A . (B . b), kept right sub-tree only
     const auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     const auto dmd = a->v.d * b->v.d;   Oper op;
@@ -174,8 +174,10 @@ void form_compose(const auto& a, const auto& b, bool is_final/*, bool ngoal*/, a
 
     // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x), ((A + x) - x) is only kept in final
     if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
-        (!is_final && find_factor(a->v, b, Add))))  // FIXME: select (a - b) if goal < 0?
-        func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
+        (!is_final && find_factor(a->v, b, Add)))) {    if (ngoal)
+            func(std::make_shared<const Expr>(Rational(nmd - dmn, dmd), op, a, b)); else
+            func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
+    }
 
     // (a / (A / B)) => ((a * B) / A)
     // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
@@ -197,7 +199,8 @@ using std::list;
 #define list vector
 #endif
 
-void calc24_dynprog (const Rational& goal, const list<PtrE>& nums, auto&& each_found) {
+void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
+    const bool ngoal, auto&& each_found) {
     auto psn = 1 << nums.size();
 
     vector<list<PtrE>> vexp;       vexp.reserve(psn);
@@ -236,15 +239,16 @@ void calc24_dynprog (const Rational& goal, const list<PtrE>& nums, auto&& each_f
             for (auto i = 0u; i < es0.size(); ++i) { const auto& a(es0[i]);
                 for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) {
                                                      const auto& b(es1[j]);
-                    if (a->v < b->v) form_compose(a, b, is_final, lambda); else
-                                     form_compose(b, a, is_final, lambda);
+                    if (a->v < b->v) form_compose(a, b, is_final, ngoal, lambda); else
+                                     form_compose(b, a, is_final, ngoal, lambda);
                 }
             }
         }   hv.clear();
     }   //return vexp[psn - 1];
 }
 
-vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums, auto&& each_found) {
+vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
+    const bool ngoal, auto&& each_found) {
     static auto IR = Rational(0, 0);
     auto is_final = &goal != &IR;
     auto n = nums.size();
@@ -273,13 +277,13 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums, aut
         //for (const auto& e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
 
         // TODO: can be parallelised
-        if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0, each_found);
-        if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1, each_found);
+        if (1 < ns0.size()) ns0 = calc24_splitset(IR, ns0, ngoal, each_found);
+        if (1 < ns1.size()) ns1 = calc24_splitset(IR, ns1, ngoal, each_found);
 
         for (auto i = 0u; i < ns0.size(); ++i) {                      const auto& a(ns0[i]);
             for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) { const auto& b(ns1[j]);
-                if (a->v < b->v) form_compose(a, b, is_final, lambda); else
-                                 form_compose(b, a, is_final, lambda);
+                if (a->v < b->v) form_compose(a, b, is_final, ngoal, lambda); else
+                                 form_compose(b, a, is_final, ngoal, lambda);
             }
         }
     }   return exps;
@@ -287,14 +291,16 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums, aut
 
 #include <unordered_set>
 void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
-    const size_t n, auto&& each_found) {
+    const size_t n, const bool ngoal, auto&& each_found) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
     for (size_t i = 0; i < n - 1; ++i) {
         const auto a(std::move(nums[i]));
         auto lambda = [&](auto&& e) {
             if (n == 2) { if (e->v == goal) each_found(e); } else {
-                nums[i] = std::move(e);     calc24_inplace(goal, nums, n - 1, each_found); }
+                nums[i] = std::move(e);
+                calc24_inplace(goal, nums, n - 1, ngoal, each_found);
+            }
         };
 
         for (size_t j = i + 1; j < n; ++j) {
@@ -304,15 +310,16 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
             const auto b(std::move(nums[j]));
 
             nums[j] = nums[n - 1];
-            if (b->v < a->v) form_compose(b, a, n == 2, lambda); else
-                             form_compose(a, b, n == 2, lambda);
+            if (b->v < a->v) form_compose(b, a, n == 2, ngoal, lambda); else
+                             form_compose(a, b, n == 2, ngoal, lambda);
             nums[j] = std::move(b);
         }   nums[i] = std::move(a);
     }
 }
 
 void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
-    size_t j, auto&& each_found) {  const auto n = nums.size();
+    size_t j, const bool ngoal, auto&& each_found) {
+    const auto n = nums.size();
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
     //for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
@@ -329,13 +336,14 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
 
             auto lambda = [&](auto&& e) {
                 if (n == 2) { if (e->v == goal) each_found(e); } else {
-                    nsub.push_back(e);  calc24_construct(goal, nsub, j - 1, each_found);
+                    nsub.push_back(e);
+                    calc24_construct(goal, nsub, j - 1, ngoal, each_found);
                     nsub. pop_back();
                 }
             };
 
-            if (b->v < a->v) form_compose(b, a, n == 2, lambda); else
-                             form_compose(a, b, n == 2, lambda);
+            if (b->v < a->v) form_compose(b, a, n == 2, ngoal, lambda); else
+                             form_compose(a, b, n == 2, ngoal, lambda);
         }
     }
 }
@@ -345,19 +353,19 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
     if (rnv.size() == 1) { if (rnv[0] == goal)
         each_found(std::make_shared<const Expr>(rnv[0]));   return; }
 
+    const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
     for (const auto& n: rnv) nums.push_back(std::make_shared<const Expr>(n));
+    std::sort(nums.begin(),  nums.end(),
+        [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
 
     std::unordered_set<size_t> eset;
     auto hash_unify = [&](auto&& e) { if (eset.insert(hash<PtrE>{}(e)).second) each_found(e); };
-    std::sort(nums.begin(), nums.end(),
-        [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
-
     switch (algo) {
-        case DynProg:   calc24_dynprog  (goal, nums, each_found); break;
-        case SplitSet:  calc24_splitset (goal, nums, each_found); break;
-        case Inplace:   calc24_inplace  (goal, nums, nums.size(), hash_unify); break;
-        case Construct: calc24_construct(goal, nums, 1, hash_unify); break;
+        case DynProg:   calc24_dynprog  (goal, nums, ngoal, each_found); break;
+        case SplitSet:  calc24_splitset (goal, nums, ngoal, each_found); break;
+        case Inplace:   calc24_inplace  (goal, nums, nums.size(), ngoal, hash_unify); break;
+        case Construct: calc24_construct(goal, nums, 1, ngoal, hash_unify); break;
         default: ;
     }   //return exps;
 }

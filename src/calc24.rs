@@ -215,7 +215,7 @@ impl Hash for Expr {
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
 // several pruning rules to find inequivalent/unique expressions only
-fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool/*, ngoal: bool*/,
+fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
     mut new_expr: F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
     let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
@@ -260,9 +260,13 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool/*, ngoal: bool*/,
     // (x - 0) => (0 + x), ((A + x) - x) is only kept in final
     if !(a.op.0 == op.0 || op.0 == b.op.0 || a.v.is_zero() ||
         (!is_final && find_factor(&a.v, b, Oper(b'+')))) {
-        new_expr(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
-                                m: Some((b.clone(), a.clone())), op }))?;
-        // FIXME: select (a - b) if goal < 0?
+        if ngoal {
+            new_expr(Rc::new(Expr { v: Rational::new_raw(nmd - dmn, dmd),
+                                    m: Some((a.clone(), b.clone())), op }))?;
+        } else {
+            new_expr(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
+                                    m: Some((b.clone(), a.clone())), op }))?;
+        }
     }
 
     let op = Oper(b'/');    // (a / (A / B)) => ((a * B) / A)
@@ -291,7 +295,7 @@ use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
 // faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
 
 // traversely top-down divide the number set by dynamic programming
-fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>],
+fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
     use core::cell::RefCell;       // for interior mutability, shared ownership
     let n = nums.len();     let psn = 1 << n; // size of powerset
@@ -331,7 +335,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>],
 
             es0.iter().enumerate().try_for_each(|(i, a)|
                 es1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b|
-                    form_compose(a, b, is_final, |e| {
+                    form_compose(a, b, is_final, ngoal, |e| {
                         if !is_final { exps.push(e) } else if e.v == *goal { each_found(e)? }
                         Some(())
                     })))?;
@@ -343,7 +347,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>],
 
 //#[async_recursion::async_recursion(?Send)] async
 // traversely top-down divide the number set straightforward
-fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>],
+fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
     each_found: &mut F) -> Vec<Rc<Expr>> where F: FnMut(Rc<Expr>) -> Option<()> {
     let (psn, mut exps) = (1 << nums.len(), vec![]);
     const IR: Rational = Rational::new_raw(0, 0);
@@ -376,15 +380,15 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>],
         }   #[cfg(feature = "debug")] eprintln!(r"pick");
         //}     // no gain no penality for performance
 
-        if 1 < ns0.len() { ns0 = calc24_splitset(&IR, &ns0, each_found); }
-        if 1 < ns1.len() { ns1 = calc24_splitset(&IR, &ns1, each_found); }
+        if 1 < ns0.len() { ns0 = calc24_splitset(&IR, &ns0, ngoal, each_found); }
+        if 1 < ns1.len() { ns1 = calc24_splitset(&IR, &ns1, ngoal, each_found); }
         //(ns0, ns1) = futures::join!(calc24_splitset(&IR, &ns0, ia),
         //                            calc24_splitset(&IR, &ns1, ia));
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         if  ns0.iter().enumerate().try_for_each(|(i, a)|
             ns1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b|
-                form_compose(a, b, is_final, |e| {
+                form_compose(a, b, is_final, ngoal, |e| {
                     if !is_final { exps.push(e) } else if e.v == *goal { each_found(e)? }
                     Some(())
                 }))).is_none() { break }
@@ -392,7 +396,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>],
 }
 
 // traversely construct expr. inplace bottom-up from numbers
-fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>],
+fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>], ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
     let (n, mut i) = (nums.len(), 0);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
@@ -406,9 +410,9 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>],
             if hv.contains(&h0) { j += 1; continue } else { hv.push(h0) }
 
             nums[j] = nums[n - 1].clone();  // the last j is n - 1
-            form_compose(&a, &b, n == 2, |e| {
+            form_compose(&a, &b, n == 2, ngoal, |e| {
                 if n == 2 { if e.v == *goal { each_found(e)? } } else {    nums[i] = e;
-                    calc24_inplace(goal, &mut nums[..n-1], each_found)?;
+                    calc24_inplace(goal, &mut nums[..n-1], ngoal, each_found)?;
                 }   Some(())
             })?; nums[j] = b;   j += 1;
         }        nums[i] = a;   i += 1;
@@ -416,7 +420,7 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>],
 }
 
 // traversely construct expr. bottom-up from numbers straightforward
-fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize,
+fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize, ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
     let n = nums.len();
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
@@ -435,9 +439,11 @@ fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize,
                 !Rc::ptr_eq(e, a) && !Rc::ptr_eq(e, b)) // core::ptr::eq
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
-            form_compose(a, b, nums.is_empty(), |e| {
-                if nums.is_empty() { if e.v == *goal { each_found(e)? } } else { nums.push(e);
-                    calc24_construct(goal, &nums, j - 1, each_found)?;      nums.pop();
+            form_compose(a, b, nums.is_empty(), ngoal, |e| {
+                if  nums.is_empty() { if e.v == *goal { each_found(e)? } } else {
+                    nums.push(e);
+                    calc24_construct(goal, &nums, j - 1, ngoal, each_found)?;
+                    nums.pop();
                 }   Some(())
             })}))
 }
@@ -477,9 +483,11 @@ pub  use Calc24Algo::*;
 #[inline] pub fn calc24_algo<F>(goal: &Rational, nums: &[Rational], algo: Calc24Algo,
     each_found: &mut F) where F: FnMut(Rc<Expr>) -> Option<()> {
     if nums.len() == 1 { return if nums[0] == *goal { each_found(Rc::new(nums[0].into())); } }
+    #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
         r"Required by algo. DynProg & SplitSet");
 
+    let ngoal = goal < &0.into();
     let mut nums = nums.iter().map(|&rn|
         Rc::new(rn.into())).collect::<Vec<Rc<Expr>>>();
     //quicksort(nums, |a, b| a.v.partial_cmp(&b.v));    // XXX:
@@ -493,14 +501,14 @@ pub  use Calc24Algo::*;
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
     };
 
-    // TODO: output all possible expr. forms?
-    #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
-    match algo {
-        DynProg   => { calc24_dynprog  (goal, &nums, each_found); }
-        SplitSet  => { calc24_splitset (goal, &nums, each_found); }
+    match algo {    // TODO: output all possible expr. forms?
+        DynProg   => { calc24_dynprog  (goal, &nums, ngoal, each_found); }
+        SplitSet  => { calc24_splitset (goal, &nums, ngoal, each_found); }
         //SplitSet  => { futures::executor::block_on(calc24_splitset(goal, nums, each_found)); }
-        Inplace   => { calc24_inplace  (goal, &mut nums, &mut hash_unify); }
-        Construct => { calc24_construct(goal, &nums, 1, &mut hash_unify); }
+        Inplace   => { calc24_inplace  (goal, &mut nums, ngoal, &mut hash_unify); }
+        Construct => {
+            calc24_construct(goal, &nums, 1, ngoal, &mut hash_unify);
+        }
     }
 }
 
