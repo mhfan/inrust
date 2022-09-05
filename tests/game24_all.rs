@@ -28,13 +28,13 @@
     let mut cnt = (0, 0);
     for result in rdr.records() {
         let record = result.unwrap();
-        cnt.1 += record.len() - 1;  cnt.0 += 1;
+        cnt.0 += 1usize;    cnt.1 += record.len() - 1;
 
         let nums = record[0].split(' ').map(|s|
             s.parse::<i32>().unwrap().into()).collect::<Vec<_>>();
         let exps = calc24_coll(&24.into(), &nums, DynProg);
 
-        if exps.len() != record.len() - 1 {
+        if  exps.len() != record.len() - 1 {
             eprint!(r"[{}]:", Paint::cyan(&record[0]));
             record.iter().skip(1).for_each(|s| eprint!(r" {}", Paint::magenta(s)));
 

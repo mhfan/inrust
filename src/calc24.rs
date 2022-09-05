@@ -148,6 +148,7 @@ impl Display for Expr {
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
             if  braket { write!(f, r")")? }     write!(f, r"{}", self.op.0 as char)?;
+            // XXX: '*' -> '×', '/' -> '÷'?
 
             let braket = self.op.0 == b'/' && matches!(b.op.0, b'*' | b'/') ||
                 self.op.0 != b'+' && matches!(b.op.0, b'+' | b'-');
@@ -401,7 +402,7 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>], ngoal: bool,
     let (n, mut i) = (nums.len(), 0);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
-    // XXX: skip duplicates over different combination order, as well in symmetric
+    // XXX: skip duplicates over different combination order, as well in symmetric style
     while i < n - 1 {   let (a, mut j) = (nums[i].clone(), i + 1);
         while j < n {   let b = nums[j].clone();
             let mut hasher = DefaultHasher::default();
@@ -425,7 +426,7 @@ fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize, ngoal: b
     let n = nums.len();
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
-    // XXX: skip duplicates in symmetric, e.g.: [1 1 5 5]
+    // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //nums.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
     nums.iter().enumerate().skip(minj).try_for_each(|(j, b)|
         nums.iter().take(j).try_for_each(|a| {
@@ -466,7 +467,7 @@ pub  use Calc24Algo::*;
 /// ```
 /// use inrust::calc24::*;
 /// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
-/// assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned())
+/// assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned());
 /// ```
 #[inline] pub fn calc24_first(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> String {
     let mut sexp = String::new();
@@ -474,8 +475,13 @@ pub  use Calc24Algo::*;
         sexp = e.to_string(); None });     sexp
 }
 
+/// ```
+/// use inrust::calc24::*;
+/// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
+/// assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
+/// ```
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
-    let mut cnt: usize = 0;
+    let mut cnt = 0;
     calc24_algo(goal, nums, algo, &mut |e| {
         println!(r"{}", Paint::green(e)); cnt += 1; Some(()) });    cnt
 }
@@ -487,7 +493,7 @@ pub  use Calc24Algo::*;
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
         r"Required by algo. DynProg & SplitSet");
 
-    let ngoal = goal < &0.into();
+    let ngoal = goal.is_negative(); //goal < &0.into();
     let mut nums = nums.iter().map(|&rn|
         Rc::new(rn.into())).collect::<Vec<Rc<Expr>>>();
     //quicksort(nums, |a, b| a.v.partial_cmp(&b.v));    // XXX:
@@ -501,7 +507,7 @@ pub  use Calc24Algo::*;
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
     };
 
-    match algo {    // TODO: output all possible expr. forms?
+    match algo {    // TODO: output/count all possible expr. forms?
         DynProg   => { calc24_dynprog  (goal, &nums, ngoal, each_found); }
         SplitSet  => { calc24_splitset (goal, &nums, ngoal, each_found); }
         //SplitSet  => { futures::executor::block_on(calc24_splitset(goal, nums, each_found)); }
@@ -535,10 +541,10 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
 
         if  exps.is_empty() { cnt.0 += 1; } else {
             cnt.1 += 1;       cnt.2 += exps.len();
+
             //nums.shuffle(&mut rng);
             nums.into_iter().for_each(|rn|
                 print!(r" {:2}", Paint::cyan(rn.numer())));    print!(r":");
-
             exps.into_iter().for_each(|e| print!(r" {}", Paint::green(e)));
             println!();
         }
@@ -549,8 +555,9 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_poker(n: usize, algo: Calc24Algo) {  // n = 4~6
-    let court = [ "T", "J", "Q", "K" ];     // Spade, Club, Diamond, Heart
+#[cfg(not(tarpaulin_include))]
+pub fn game24_poker(n: usize, algo: Calc24Algo) {   // n = 4~6?
+    let court = [ "T", "J", "Q", "K" ];  // Spade, Club, Diamond, Heart
     let suits = [ Color::Blue, Color::Magenta, Color::Cyan, Color::Red ];
     let mut poker= (0..52).collect::<Vec<_>>();
 

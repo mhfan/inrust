@@ -15,12 +15,12 @@
 suits=(S H C D);
 court=(T J Q K);
 for ((i=0; i < 4; i+=1)) do
-    n=1; mv $(printf %03d $((n*2-1+i*26))).svg A${suits[i]}.svg
+    n=1; mv $(printf %03d $((n*2-1+i*13*2))).svg A${suits[i]}.svg
     for ((n=2;  n < 10; n+=1)) do
-         mv $(printf %03d $((n*2-1+i*26))).svg ${n}${suits[i]}.svg
+         mv $(printf %03d $((n*2-1+i*13*2))).svg ${n}${suits[i]}.svg
     done
     for ((n=10; n < 14; n+=1)) do
-         mv $(printf %03d $((n*2-1+i*26))).svg ${court[$((n-10))]}${suits[i]}.svg
+         mv $(printf %03d $((n*2-1+i*13*2))).svg ${court[$((n-10))]}${suits[i]}.svg
     done
 done
 

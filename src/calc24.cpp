@@ -121,7 +121,8 @@ ostream& operator<<(ostream& os, const Expr& e) {
     if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
     if ((e.a->op == '+' || e.a->op == '-') && (e.op == '*' || e.op == '/'))
-        os << '(' << *e.a << ')'; else os << *e.a;  os << char(e.op);
+        os << '(' << *e.a << ')'; else os << *e.a;
+        os << char(e.op);   // XXX: '*' -> '×', '/' -> '÷'?
 
     if ((e.op == '/' && (e.b->op == '*' || e.b->op == '/')) ||
         (e.op != '+' && (e.b->op == '+' || e.b->op == '-')))
@@ -136,7 +137,7 @@ inline auto hash_combine(size_t lhs, auto rhs) {
 
 using std::hash; // #include <functional>
 template <> struct std::hash<PtrE> {
-    size_t operator()(const PtrE& e) const noexcept {
+    auto operator()(const PtrE& e) const noexcept {
         if (e->op == Num) return hash_combine(e->v.n, e->v.d); else {  hash<PtrE> hasher;
             return hash_combine(hasher(e->a), hasher(e->b)) ^ (char(e->op) << 11);
         }
@@ -294,6 +295,7 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
     const size_t n, const bool ngoal, auto&& each_found) {
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
+    // XXX: skip duplicates over different combination order, as well in symmetric style
     for (size_t i = 0; i < n - 1; ++i) {
         const auto a(std::move(nums[i]));
         auto lambda = [&](auto&& e) {
@@ -304,7 +306,7 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
         };
 
         for (size_t j = i + 1; j < n; ++j) {
-            size_t h0 = hash_combine(hasher(a), hasher(nums[j]));
+            auto h0 = hash_combine(hasher(a), hasher(nums[j]));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
             const auto b(std::move(nums[j]));
@@ -322,11 +324,12 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     const auto n = nums.size();
     hash<PtrE> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
 
+    // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
     //    for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
     for (; j < n; ++j) {                    const auto& b(nums[j]);
         for (size_t i = 0; i < j; ++i) {    const auto& a(nums[i]);
-            size_t h0 = hash_combine(hasher(a), hasher(b));
+            auto h0 = hash_combine(hasher(a), hasher(b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
@@ -386,7 +389,7 @@ inline string calc24_first(const Rational& goal, const vector<Rational>& nums,
 }
 
 inline size_t calc24_print(const Rational& goal, const vector<Rational>& nums,
-    Calc24Algo algo) {  size_t cnt = 0;
+    Calc24Algo algo) {  auto cnt = 0;
     calc24_algo(goal, nums, algo,
         [&](auto&& e) { std::cout << *e << std::endl; ++cnt; });    return cnt;
 }

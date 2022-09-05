@@ -49,10 +49,9 @@ pub fn fibonacci<T: Integer + Copy>() -> Fibonacci<T> {
  * pub fn powerset<T: Clone + Copy>(set: &[T]) -> Vec<Vec<T>>
  */
 pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
-    let m = set.len();
-    debug_assert!(m < std::mem::size_of::<usize>() * 8);
-    let n = (1 << m) as usize;
+    let m = set.len();  let n = 1 << m;
     let mut psv = Vec::with_capacity(n);
+    debug_assert!(m < std::mem::size_of::<usize>() * 8);
 
     for x in 0..n/2 {   // processing in pair wise more efficiently
         let (mut s0, mut s1) = (Vec::with_capacity(m), Vec::with_capacity(m));
