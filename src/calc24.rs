@@ -105,9 +105,9 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
     type Output = Self;
 } */
 
-#[derive(/*Debug, */Clone, Copy)] struct Oper(u8);  // newtype idiom
-//#[repr(C, u8)] enum Oper { Num, Add(u8), Sub(u8), Mul(u8), Div(u8), }
-//type Oper = char;   // type alias
+#[derive(/*Debug, */Clone, Copy, PartialEq)] //struct Oper(u8);  // newtype idiom
+#[repr(u8/*, C*/)] enum Oper { Num, Add = b'+', Sub = b'-', Mul = b'*', Div = b'/', }
+//type Oper = char;   // type alias     // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 
 //#[derive(Debug)] enum Value { None, Valid, R(Rational) }
 //type Value = Option<Rational>;
@@ -126,7 +126,9 @@ pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    #[inline] fn from(rn: Rational) -> Self { Self { v: rn/*.reduce()*/, m: None, op: Oper(0) } }
+    #[inline] fn from(rn: Rational) -> Self {
+        Self { v: rn/*.reduce()*/, m: None, op: Oper::Num }
+    }
 }
 
 #[cfg(feature = "debug")] impl Debug for Expr {
@@ -141,17 +143,15 @@ impl From<Rational> for Expr {
 }
 
 impl Display for Expr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {  use Oper::*;
         if let Some((a, b)) = &self.m {
-            let braket = matches!(a.op.0, b'+' | b'-') &&
-                matches!(self.op.0, b'*' | b'/');
+            let braket = matches!(a.op, Add | Sub) && matches!(self.op, Mul | Div);
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
-            if  braket { write!(f, r")")? }     write!(f, r"{}", self.op.0 as char)?;
-            // XXX: '*' -> '×', '/' -> '÷'?
+            if  braket { write!(f, r")")? }     write!(f, r"{}", self.op as u8 as char)?;
 
-            let braket = self.op.0 == b'/' && matches!(b.op.0, b'*' | b'/') ||
-                self.op.0 != b'+' && matches!(b.op.0, b'+' | b'-');
+            let braket = self.op == Div && matches!(b.op, Mul | Div) ||
+                self.op != Add && matches!(b.op, Add | Sub);
 
             if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
             if  braket { write!(f, r")")? }
@@ -174,7 +174,7 @@ impl PartialOrd for Expr {
             (Some(_), None) => Some(Ordering::Greater),
 
             (Some((la, lb)), Some((ra, rb))) => {
-                let ord = self.op.0.partial_cmp(&rhs.op.0);
+                let ord = (self.op as u8).partial_cmp(&(rhs.op as u8));
                 if  ord != Some(Ordering::Equal) { return ord }
                 let ord = la.partial_cmp(ra);   // recursive
                 if  ord != Some(Ordering::Equal) { return ord }
@@ -190,7 +190,7 @@ impl PartialEq for Expr {
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
             (Some((la, lb)), Some((ra, rb))) =>
-                self.op.0 == rhs.op.0 && la == ra && lb == rb,  // recursive
+                self.op == rhs.op && la == ra && lb == rb,  // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v
     }
@@ -201,7 +201,7 @@ impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
         //self.to_string().hash(state); return;
         if let Some((a, b)) = &self.m {
-            self.op.0.hash(state);  a.hash(state);  b.hash(state);  // recursive
+            (self.op as u8).hash(state);  a.hash(state);  b.hash(state);    // recursive
         } else { self.v.numer().hash(state); self.v.denom().hash(state); }
     }
 }
@@ -226,30 +226,31 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
     // ((A . B) . b) => (A . (B . b), kept right sub-tree only
 
-    let op = Oper(b'*');
+    use Oper::*;
+    let op = Mul;
     // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
     // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
-    if !(a.op.0 == op.0 || a.op.0 == b'/' || (b.op.0 == b'/' && !a.v.is_one()) ||
+    if !(a.op == op || a.op == Div || (Div == b.op && !a.v.is_one()) ||
         (!is_final && (a.v.is_one() || b.v.is_one())) ||
-        (op.0 == b.op.0 && if let Some((ba, _)) = &b.m {
+        (op == b.op && if let Some((ba, _)) = &b.m {
             ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
         new_expr(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(),
                     dmd), m: Some((a.clone(), b.clone())), op }))?;
     }
 
-    let op = Oper(b'+');
+    let op = Add;
     // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
     // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
-    if !(a.op.0 == op.0 || a.op.0 == b'-' || (b.op.0 == b'-' && !a.v.is_zero()) ||
+    if !(a.op == op || a.op == Sub || (Sub == b.op && !a.v.is_zero()) ||
         (!is_final && (a.v.is_zero() || b.v.is_zero())) ||
-        (op.0 == b.op.0 && if let Some((ba, _)) = &b.m {
+        (op == b.op && if let Some((ba, _)) = &b.m {
             ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
         new_expr(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
                                 m: Some((a.clone(), b.clone())), op }))?;
     }
 
     #[inline] fn find_factor(av: &Rational, b: &Rc<Expr>, op: Oper) -> bool {
-        b.op.0 == op.0 && if let Some((ba, bb)) = &b.m {
+        b.op == op && if let Some((ba, bb)) = &b.m {
             //(if ba.m.is_none() { &ba.v == av } else { find_factor(av, ba, op) } ||
             // if bb.m.is_none() { &bb.v == av } else { find_factor(av, bb, op) })
             &ba.v == av || find_factor(av, ba, op) ||
@@ -257,10 +258,10 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
         } else { false }
     }
 
-    let op = Oper(b'-');    // (b - (B - A)) => ((b + A) - B)
-    // (x - 0) => (0 + x), ((A + x) - x) is only kept in final
-    if !(a.op.0 == op.0 || op.0 == b.op.0 || a.v.is_zero() ||
-        (!is_final && find_factor(&a.v, b, Oper(b'+')))) {
+    let op = Sub;   //  (b - (B - A)) => ((b + A) - B)
+    // (x - 0) => (0 + x),    ((A + x) - x) is only kept in final
+    if !(a.op == op || op == b.op || a.v.is_zero() ||
+        (!is_final && find_factor(&a.v, b, Add))) {
         if ngoal {
             new_expr(Rc::new(Expr { v: Rational::new_raw(nmd - dmn, dmd),
                                     m: Some((a.clone(), b.clone())), op }))?;
@@ -270,17 +271,17 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
         }
     }
 
-    let op = Oper(b'/');    // (a / (A / B)) => ((a * B) / A)
+    let op = Div;   //  (a / (A / B)) => ((a * B) / A)
     // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
-    if !(a.op.0 == op.0 || op.0 == b.op.0) {
+    if !(a.op == op || op == b.op) {
         if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
-            find_factor(&b.v, a, Oper(b'*'))) {
+            find_factor(&b.v, a, Mul)) {
             new_expr(Rc::new(Expr { v: Rational::new_raw(nmd, dmn),
                                     m: Some((a.clone(), b.clone())), op }))?;
         }
 
         if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||   // order mattered only if a != b
-             nmd == dmn || find_factor(&a.v, b, Oper(b'*'))) {
+             nmd == dmn || find_factor(&a.v, b, Mul)) {
             new_expr(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
                                     m: Some((b.clone(), a.clone())), op }))?;
         }
@@ -449,7 +450,7 @@ fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize, ngoal: b
             })}))
 }
 
-#[derive(Debug, Clone, Copy)] #[repr(C/*, u8*/)]
+#[derive(Debug, Clone, Copy)] #[repr(u8/*, C*/)]
 pub enum Calc24Algo { DynProg, SplitSet, Inplace, Construct, }
 pub  use Calc24Algo::*;
 
@@ -733,7 +734,7 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
 
 #[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO: not works yet
     struct Rational { n: i32, d: i32 }
-    #[repr(u8)] enum Oper { Num, Add, Sub, Mul, Div, }
+    #[repr(u8)] enum Oper { Num, Add = b'+', Sub = b'-', Mul = b'*', Div = b'/', }
     struct Expr { v: Rational, a: SharedPtr<Expr>, b: SharedPtr<Expr>, op: Oper }
     #[repr(u8)] enum Calc24Algo { DynProg, SplitSet, Inplace, Construct }
 

@@ -15,6 +15,7 @@
     BufReader::new(File::open("tests/game24_all.fmh").unwrap())
         .lines().for_each(|line| line.unwrap().split(':')
             .last().unwrap().split(' ').for_each(|res| if !res.is_empty() {
+                //let res = res.replace('×', "*").replace('÷', "/");
                 assert_eq!((mexe::eval(res).unwrap() + 0.5) as u32, 24, "failed at: `{res}'");
             })  // split_ascii_whitespace
         );

@@ -25,7 +25,7 @@
 template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
 typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 
-//typedef char Oper;
+//typedef char Oper;    // XXX: '*' -> '×', '/' -> '÷'
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 
 struct Expr;
@@ -120,12 +120,11 @@ inline ostream& operator<<(ostream& os, const Rational& r) {
 ostream& operator<<(ostream& os, const Expr& e) {
     if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
-    if ((e.a->op == '+' || e.a->op == '-') && (e.op == '*' || e.op == '/'))
-        os << '(' << *e.a << ')'; else os << *e.a;
-        os << char(e.op);   // XXX: '*' -> '×', '/' -> '÷'?
+    if ((e.a->op == Add || e.a->op == Sub) && (e.op == Mul || e.op == Div))
+        os << '(' << *e.a << ')'; else os << *e.a;      os << char(e.op);
 
-    if ((e.op == '/' && (e.b->op == '*' || e.b->op == '/')) ||
-        (e.op != '+' && (e.b->op == '+' || e.b->op == '-')))
+    if ((e.op == Div && (e.b->op == Mul || e.b->op == Div)) ||
+        (e.op != Add && (e.b->op == Add || e.b->op == Sub)))
         os << '(' << *e.b << ')'; else os << *e.b;  return os;
 }
 
@@ -158,13 +157,13 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto 
 
     // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
     // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
-    if (!(a->op == (op = Mul) || a->op == '/' || (b->op == '/' && a->v.n != a->v.d) ||
+    if (!(a->op == (op = Mul) || a->op == Div || (Div == b->op && a->v.n != a->v.d) ||
         (!is_final && (a->v.n == a->v.d || b->v.n == b->v.d)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
     // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
     // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
-    if (!(a->op == (op = Add) || a->op == '-' || (b->op == '-' && a->v.n != 0) ||
+    if (!(a->op == (op = Add) || a->op == Sub || (Sub == b->op && a->v.n != 0) ||
         (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
         func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
 
