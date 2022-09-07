@@ -384,8 +384,8 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
 
         if 1 < ns0.len() { ns0 = calc24_splitset(&IR, &ns0, ngoal, each_found); }
         if 1 < ns1.len() { ns1 = calc24_splitset(&IR, &ns1, ngoal, each_found); }
-        //(ns0, ns1) = futures::join!(calc24_splitset(&IR, &ns0, ia),
-        //                            calc24_splitset(&IR, &ns1, ia));
+        //(ns0, ns1) = futures::join!(calc24_splitset(&IR, &ns0, ngoal, each_found),
+        //                            calc24_splitset(&IR, &ns1, ngoal, each_found));
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         if  ns0.iter().enumerate().try_for_each(|(i, a)|

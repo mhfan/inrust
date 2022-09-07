@@ -19,6 +19,7 @@ authors = ["MeiHui FAN <mhfan@ustc.edu>"]
 [workspace]
 #members = ["fuzz"]
 #exclude = ["hello-wasm"]
+#resolver = "2"  # default for 2021 edition?
 
 [dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8"
@@ -29,7 +30,10 @@ num-bigint  = "0.4"
 ahash = "0.8"   # https://github.com/tkaitchuck/aHash
 yansi = "0.5"
 atty  = "0.2"
+
 mexe  = "0.1"   # XXX: make it support rational number?
+#float_eq  = "1"
+#float-cmp = "0.9"
 
 #async-std = "1.12"
 #async-recursion = "1.0"
@@ -50,7 +54,7 @@ arbitrary = { version = "1.1", optional = true, features = ["derive"] }
 pprof = { version = "0.10", features = ["flamegraph", "criterion"] }
 criterion = "0.3"
 #bencher = "0.1"
-csv = "1.1"
+#csv = "1.1"
 
 [build-dependencies]
 cc = { version = "1.0", optional = true }
@@ -73,6 +77,12 @@ harness = false
 [lib]
 #crate-type = ["cdylib", "lib"]
 #proc-macro = true
+
+[profile.dev]
+opt-level = 1   # Enable a small amount of optimization in debug mode
+
+[profile.dev.package."*"]
+opt-level = 3   # Enable high optimizations for dependencies, but not for own code.
 
 [profile.release]
 incremental = true

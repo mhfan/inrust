@@ -17,33 +17,40 @@
             .last().unwrap().split(' ').for_each(|res| if !res.is_empty() {
                 //let res = res.replace('×', "*").replace('÷', "/");
                 assert_eq!((mexe::eval(res).unwrap() + 0.5) as u32, 24, "failed at: `{res}'");
-            })  // split_ascii_whitespace
-        );
+            }));    // split_ascii_whitespace
 
-    // TODO: try use tokio and scraper to extract url and parse html?
+    let mut cnt = (0, 0);   // https://4shu.net/solutions/allsolutions/
+    BufReader::new(File::open("tests/game24_all.txt").unwrap())
+        .lines().for_each(|line| if let Ok(line) = line {
+            let mut cols = line.split('\t');
+            let nstr = cols.next().unwrap();
+
+            let nums = nstr.split(' ').map(|s|
+                s.parse::<i32>().unwrap().into()).collect::<Vec<_>>();
+            let exps = calc24_coll(&24.into(), &nums, DynProg);
+
+            let sols = cols.collect::<Vec<_>>();
+            cnt.0 += 1usize;    cnt.1 += sols.len();
+
+            assert_eq!(exps.len(), sols.len(), r"[{}]: {:?}\n[{}]: {:?}",   // line,
+                Paint::cyan(nstr), Paint::magenta(sols), Paint::cyan(nstr), Paint::green(exps));
+        });
+
+    /* TODO: try use tokio and scraper to extract url and parse html?
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false).delimiter(b'\t').flexible(true)
         .trim(csv::Trim::All).from_path("tests/game24_all.txt").unwrap();
-        // https://4shu.net/solutions/allsolutions/
 
-    let mut cnt = (0, 0);
-    for result in rdr.records() {
-        let record = result.unwrap();
+    for record in rdr.records() {
+        let record = record.unwrap();
         cnt.0 += 1usize;    cnt.1 += record.len() - 1;
 
         let nums = record[0].split(' ').map(|s|
             s.parse::<i32>().unwrap().into()).collect::<Vec<_>>();
         let exps = calc24_coll(&24.into(), &nums, DynProg);
 
-        if  exps.len() != record.len() - 1 {
-            eprint!(r"[{}]:", Paint::cyan(&record[0]));
-            record.iter().skip(1).for_each(|s| eprint!(r" {}", Paint::magenta(s)));
-
-            eprint!(r"\n[{}]:", Paint::cyan(&record[0]));
-            exps.iter().for_each(|e| eprint!(r" {}", Paint::green(e))); eprintln!();
-        }
-
-        assert_eq!(exps.len(), record.len() - 1, r"{}", &record[0]);
-    }   assert!(cnt == (1362, 3017), r"records: {}, solutions: {}",
+        assert_eq!(exps.len(), record.len() - 1, r"{:?}\n[{}]: {:?}", record,
+            Paint::cyan(&record[0]), Paint::green(exps));
+    }*/ assert!(cnt == (1362, 3017), r"records: {}, solutions: {}",
             Paint::red(cnt.0), Paint::red(cnt.1));
 }

@@ -386,7 +386,6 @@ dependencies = [
  "atty",
  "cc",
  "criterion",
- "csv",
  "mexe",
  "num-bigint",
  "num-integer",
