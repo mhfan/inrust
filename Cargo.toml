@@ -79,6 +79,7 @@ harness = false
 #proc-macro = true
 
 [profile.dev]
+incremental = true
 opt-level = 1   # Enable a small amount of optimization in debug mode
 
 [profile.dev.package."*"]

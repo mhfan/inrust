@@ -64,7 +64,7 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 # 积累和 TODO
 
 + [ ] build timestamp & commit-ID
-+ [ ] internationalization (i18n)
++ [ ] internationalization (i18n) with [Fluent](https://projectfluent.org)
 + [ ] SVG/UI/WebAssembly/XR/Game
 + [ ] crates.io
 + [ ] CodeLLDB

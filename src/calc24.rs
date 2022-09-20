@@ -4,7 +4,7 @@
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 三, 31  8 2022 10:10:46 +0800       by mhfan #
+ * Last modified: 五, 09  9 2022 16:46:32 +0800       by mhfan #
  ****************************************************************/
 
 //pub mod calc24 {
@@ -558,13 +558,14 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
 
 #[cfg(not(tarpaulin_include))]
 pub fn game24_poker(n: usize, algo: Calc24Algo) {   // n = 4~6?
-    let court = [ "T", "J", "Q", "K" ];  // Spade, Club, Diamond, Heart
-    let suits = [ Color::Blue, Color::Magenta, Color::Cyan, Color::Red ];
+    let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
+    let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
     let mut poker= (0..52).collect::<Vec<_>>();
 
     use rand::{thread_rng, seq::SliceRandom};
     let mut rng = thread_rng();
 
+    // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
     // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
     println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
         r"Classic 24-game with poker (T=10, J=11, Q=12, K=13, A=1)").dimmed());
@@ -574,12 +575,13 @@ pub fn game24_poker(n: usize, algo: Calc24Algo) {   // n = 4~6?
         while  !rems.is_empty() {   let pkns;
             (pkns, rems) = rems.partial_shuffle(&mut rng, n);
             let nums = pkns.iter().map(|pkn| {
-                let (cid, mut num) = pkn.div_rem(&13);
-                num += 1;   //cid %= 4;
+                //let (num, sid) = ((pkn % 13) + 1, (pkn / 13)/* % 4 */);
+                let (sid, mut num) = pkn.div_rem(&13);
+                num += 1;   //sid %= 4;
 
                 print!(r" {}", Paint::new(if num == 1 { String::from("A") }
                     else if num < 10 { num.to_string() } else { court[num - 10].to_owned() })
-                    .bold().bg(suits[cid]));    (num as i32).into()
+                    .bold().bg(suits[sid]));    (num as i32).into()
             }).collect::<Vec<_>>();     print!(r": ");
 
             let exps = calc24_coll(&24.into(), &nums, algo);
