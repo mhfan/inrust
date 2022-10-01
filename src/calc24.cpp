@@ -6,7 +6,7 @@
  *                                                              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 二, 21  6 2022 14:07:41 +0800       by mhfan #
+ * Last modified: 四, 29  9 2022 14:42:33 +0800       by mhfan #
  ****************************************************************/
 
 // https://changkun.de/modern-cpp/zh-cn/00-preface/
@@ -18,6 +18,7 @@
 
 #ifndef CALC24_H
 #define CALC24_H
+//#pragma once
 
 #include <cstdint>
 #include <memory>   // shared_ptr
@@ -29,14 +30,15 @@ typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 
 struct Expr;
+//typedef const Expr* PtrE;     // TODO:
 typedef std::shared_ptr<const Expr> PtrE;
 
 struct Expr {
     Rational v; PtrE a, b; Oper op;     // anonymous structure
 
     Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
-    Expr(Rational&& r, Oper op = Num,   // a & b refer to left & right operands
-         const PtrE& a = nullptr, const PtrE& b = nullptr): v(r), a(a), b(b), op(op) {}
+    Expr(Rational&& r, Oper op = Num, const PtrE& a = nullptr, const PtrE& b = nullptr):
+        v(std::move(r)), a(a), b(b), op(op) {}  // a & b refer to left & right operands
 
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
@@ -79,15 +81,6 @@ inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;
 }
 
-/* inline auto operator+(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v + rhs.v, Add, &lhs, &rhs); }
-inline auto operator-(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v - rhs.v, Sub, &lhs, &rhs); }
-inline auto operator*(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v * rhs.v, Mul, &lhs, &rhs); }
-inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); } */
-
 auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
     auto lv = lhs.v.n * rhs.v.d, rv = lhs.v.d * rhs.v.n;
     if (lv  < rv) return true;
@@ -101,16 +94,25 @@ auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
     }   return false;
 }
 
+/* inline auto operator+(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v + rhs.v, Add, &lhs, &rhs); }
+inline auto operator-(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v - rhs.v, Sub, &lhs, &rhs); }
+inline auto operator*(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v * rhs.v, Mul, &lhs, &rhs); }
+inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); }
+
 // PtrE instead of Expr here regarding for implicit use in unordered_set
 inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept {
     if (lhs->op == Num && rhs->op == Num) return  lhs->v == rhs->v;
     if (lhs->op != Num && rhs->op != Num)
         return lhs->op == rhs->op && lhs->a == rhs->a && lhs->b == rhs->b;
     return false;
-}
+} */
 
 #include <sstream>
-using std::ostream;
+using std::ostream; //, std::istream;
 
 //inline istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
 inline ostream& operator<<(ostream& os, const Rational& r) {
@@ -149,7 +151,7 @@ inline bool find_factor(const Rational& av, const PtrE& b, const Oper op) {
 }
 
 // several pruning rules to find inequivalent/unique expressions only
-void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto func) {
+void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&& new_expr) {
     // ((A . B) . b) => (A . (B . b), kept right sub-tree only
     const auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     const auto dmd = a->v.d * b->v.d;   Oper op;
@@ -159,36 +161,36 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto 
     // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
     if (!(a->op == (op = Mul) || a->op == Div || (Div == b->op && a->v.n != a->v.d) ||
         (!is_final && (a->v.n == a->v.d || b->v.n == b->v.d)) || (op == b->op && *b->a < *a)))
-        func(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
+        new_expr(std::make_shared<const Expr>(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
     // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
     // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
     if (!(a->op == (op = Add) || a->op == Sub || (Sub == b->op && a->v.n != 0) ||
         (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
-        func(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
+        new_expr(std::make_shared<const Expr>(Rational(nmd + dmn, dmd), op, a, b));
 
     /* auto find_factor = [&](auto&& self, const auto& av, const auto& b, const auto op) {
-        return b->op == op && (b->a->v == av || self(self, av, b->a, op) ||
+        return b->op == op && (b->a->v == av || self(self, av, b->a, op) ||     // XXX:
                                b->b->v == av || self(self, av, b->b, op));
     }; */
 
     // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x), ((A + x) - x) is only kept in final
     if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
         (!is_final && find_factor(a->v, b, Add)))) {    if (ngoal)
-            func(std::make_shared<const Expr>(Rational(nmd - dmn, dmd), op, a, b)); else
-            func(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
+            new_expr(std::make_shared<const Expr>(Rational(nmd - dmn, dmd), op, a, b)); else
+            new_expr(std::make_shared<const Expr>(Rational(dmn - nmd, dmd), op, b, a));
     }
 
     // (a / (A / B)) => ((a * B) / A)
     // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
     if (!(a->op == (op = Div) || op == b->op)) {
         if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || find_factor(b->v, a, Mul)))
-            func(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
+            new_expr(std::make_shared<const Expr>(Rational(nmd, dmn), op, a, b));
 
         //std::swap(v.n, v.d);
         if (!(nmd == 0 || a->v.n == a->v.d || b->v.n == 0 ||
               nmd == dmn || find_factor(a->v, b, Mul))) // order mattered only if a != b
-            func(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
+            new_expr(std::make_shared<const Expr>(Rational(dmn, nmd), op, b, a));
     }
 }
 
@@ -408,7 +410,7 @@ void calc24_algo(Calc24IO* calc24) {
     calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
         //std::stringstream ss; ss << *e; exps.push_back(std::move(ss.str()).c_str());
         // FIXME: how to keep data out of string lifetime?
-        exps.push_back(e);  //(void)e;    ++cnt;
+        exps.push_back(std::move(e));   //++cnt;
     });
 
     calc24->ecnt = exps.size(); //cnt;

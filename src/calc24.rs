@@ -31,10 +31,7 @@ impl<T: Integer + Copy> RNum<T> {   #![allow(dead_code)]
     //#[inline] fn is_positive(&self) -> bool { T::zero() < self.0 * self.1 }
 
     #[inline] pub const fn new_raw(numer: T, denom: T) -> Self { Self(numer, denom) }
-    #[inline] pub fn new(numer: T, denom: T) -> Self {
-        let mut rn = Self::new_raw(numer, denom);
-        rn.reduce();    rn
-    }
+    #[inline] pub fn new(numer: T, denom: T) -> Self { *Self::new_raw(numer, denom).reduce() }
 
     /*pub */fn reduce(&mut self) -> &Self {
         #[inline] fn gcd<T: Integer + Copy>(mut a: T, mut b: T) -> T {
@@ -63,13 +60,13 @@ use std::fmt::{Debug, Display, Formatter};
 
 impl<T: Integer + Copy + Display> Display for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let srn = self; //.reduce();
+        let srn = self;     //srn.reduce();
         if  srn.1.is_zero() { write!(f, r"(INV)")? } else {
             let braket = srn.0 * srn.1 < T::zero() || !srn.1.is_one();
             if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
             if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }
             if  braket { write!(f, r")")? }
-        }   Ok(())  // FIXME: add padding?
+        }   Ok(())  // FIXME: add padding support?
     }
 }
 
@@ -112,15 +109,16 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
 //#[derive(Debug)] enum Value { None, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
-pub use std::rc::Rc;
+use std::rc::Rc;
+//type RcExpr = Rc<Expr>;   //*const Expr;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
 pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
-//pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }
+//pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }  // TODO:
 // a & b refer to left & right operands
 
 /* impl Expr {  #![allow(dead_code)]
-    #[inline] fn is_one (&self) -> bool { self.op.0 == 0 && self.v.numer() == self.v.denom() }
-    #[inline] fn is_zero(&self) -> bool { self.op.0 == 0 && self.v.numer() == &0 }
+    #[inline] fn is_zero(&self) -> bool { self.v.numer() == &0 }
+    #[inline] fn is_one (&self) -> bool { self.v.numer() == self.v.denom() }
 } */
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
@@ -135,7 +133,7 @@ impl From<Rational> for Expr {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if let Some((a, b)) = &self.m {
             if a.m.is_none() { write!(f, r"{a}")?; } else { write!(f, r"({a})")?; }
-            write!(f, r"{}", self.op.0 as char)?;
+            write!(f, r"{}", self.op as u8 as char)?;
             if b.m.is_none() { write!(f, r"{b}")?; } else { write!(f, r"({b})")?; }
         } else { write!(f, r"{}", self.v)? }    Ok(())
         //Display::fmt(self, f)
@@ -249,7 +247,7 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
                                 m: Some((a.clone(), b.clone())), op }))?;
     }
 
-    #[inline] fn find_factor(av: &Rational, b: &Rc<Expr>, op: Oper) -> bool {
+    #[inline] fn find_factor(av: &Rational, b: &Expr, op: Oper) -> bool {
         b.op == op && if let Some((ba, bb)) = &b.m {
             //(if ba.m.is_none() { &ba.v == av } else { find_factor(av, ba, op) } ||
             // if bb.m.is_none() { &bb.v == av } else { find_factor(av, bb, op) })
@@ -437,8 +435,9 @@ fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize, ngoal: b
             let h0 = hasher.finish();   // unify duplicate numbers
             if hv.contains(&h0) { return Some(()) } else { hv.push(h0) }
 
+            use core::ptr::eq as ptr_eq;    // Rc::ptr_eq
             let mut nums = nums.iter().filter(|&e|
-                !Rc::ptr_eq(e, a) && !Rc::ptr_eq(e, b)) // core::ptr::eq
+                !ptr_eq(e, a) && !ptr_eq(e, b))
                 .cloned().collect::<Vec<_>>();  // drop sub-expr.
 
             form_compose(a, b, nums.is_empty(), ngoal, |e| {
@@ -461,7 +460,7 @@ pub  use Calc24Algo::*;
 #[inline] pub fn calc24_coll (goal: &Rational, nums: &[Rational],
     algo: Calc24Algo) -> Vec<String> {
     let mut exps = vec![];
-    calc24_algo(goal, nums, algo, &mut |e: Rc<Expr>| {
+    calc24_algo(goal, nums, algo, &mut |e| {
         exps.push(e.to_string());   Some(()) });    exps
 }
 
