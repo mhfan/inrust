@@ -110,9 +110,9 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
 //type Value = Option<Rational>;
 
 use std::rc::Rc;
-//type RcExpr = Rc<Expr>;   //*const Expr;
+type RcExpr = Rc<Expr>;   //*const Expr;
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
-pub struct Expr { v: Rational, m: Option<(Rc<Expr>, Rc<Expr>)>, op: Oper }
+pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr)>, op: Oper }
 //pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }  // TODO:
 // a & b refer to left & right operands
 
@@ -214,8 +214,8 @@ impl Hash for Expr {
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
 // several pruning rules to find inequivalent/unique expressions only
-fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
-    mut new_expr: F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
+fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
+    mut new_expr: F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
     let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
 
@@ -232,8 +232,8 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
         (!is_final && (a.v.is_one() || b.v.is_one())) ||
         (op == b.op && if let Some((ba, _)) = &b.m {
             ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
-        new_expr(Rc::new(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(),
-                    dmd), m: Some((a.clone(), b.clone())), op }))?;
+        new_expr(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
+                        m: Some((a.clone(), b.clone())), op })?;
     }
 
     let op = Add;
@@ -243,8 +243,8 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
         (!is_final && (a.v.is_zero() || b.v.is_zero())) ||
         (op == b.op && if let Some((ba, _)) = &b.m {
             ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
-        new_expr(Rc::new(Expr { v: Rational::new_raw(nmd + dmn, dmd),
-                                m: Some((a.clone(), b.clone())), op }))?;
+        new_expr(Expr { v: Rational::new_raw(nmd + dmn, dmd),
+                        m: Some((a.clone(), b.clone())), op })?;
     }
 
     #[inline] fn find_factor(av: &Rational, b: &Expr, op: Oper) -> bool {
@@ -261,11 +261,11 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
     if !(a.op == op || op == b.op || a.v.is_zero() ||
         (!is_final && find_factor(&a.v, b, Add))) {
         if ngoal {
-            new_expr(Rc::new(Expr { v: Rational::new_raw(nmd - dmn, dmd),
-                                    m: Some((a.clone(), b.clone())), op }))?;
+            new_expr(Expr { v: Rational::new_raw(nmd - dmn, dmd),
+                            m: Some((a.clone(), b.clone())), op })?;
         } else {
-            new_expr(Rc::new(Expr { v: Rational::new_raw(dmn - nmd, dmd),
-                                    m: Some((b.clone(), a.clone())), op }))?;
+            new_expr(Expr { v: Rational::new_raw(dmn - nmd, dmd),
+                            m: Some((b.clone(), a.clone())), op })?;
         }
     }
 
@@ -274,14 +274,14 @@ fn form_compose<F>(a: &Rc<Expr>, b: &Rc<Expr>, is_final: bool, ngoal: bool,
     if !(a.op == op || op == b.op) {
         if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
             find_factor(&b.v, a, Mul)) {
-            new_expr(Rc::new(Expr { v: Rational::new_raw(nmd, dmn),
-                                    m: Some((a.clone(), b.clone())), op }))?;
+            new_expr(Expr { v: Rational::new_raw(nmd, dmn),
+                            m: Some((a.clone(), b.clone())), op })?;
         }
 
         if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||   // order mattered only if a != b
              nmd == dmn || find_factor(&a.v, b, Mul)) {
-            new_expr(Rc::new(Expr { v: Rational::new_raw(dmn, nmd),
-                                    m: Some((b.clone(), a.clone())), op }))?;
+            new_expr(Expr { v: Rational::new_raw(dmn, nmd),
+                            m: Some((b.clone(), a.clone())), op })?;
         }
     }   Some(())
 }
@@ -295,8 +295,8 @@ use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
 // faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
 
 // traversely top-down divide the number set by dynamic programming
-fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
-    each_found: &mut F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
+fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
+    each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     use core::cell::RefCell;       // for interior mutability, shared ownership
     let n = nums.len();     let psn = 1 << n; // size of powerset
     let mut vexp = vec![RefCell::new(vec![]); psn];
@@ -336,8 +336,8 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
             es0.iter().enumerate().try_for_each(|(i, a)|
                 es1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b|
                     form_compose(a, b, is_final, ngoal, |e| {
-                        if !is_final { exps.push(e) } else if e.v == *goal { each_found(e)? }
-                        Some(())
+                        if !is_final { exps.push(Rc::new(e)) }
+                        else if e.v == *goal { each_found(e)? }    Some(())
                     })))?;
         }   hv.clear();
     }   Some(())
@@ -347,8 +347,8 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
 
 //#[async_recursion::async_recursion(?Send)] async
 // traversely top-down divide the number set straightforward
-fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
-    each_found: &mut F) -> Vec<Rc<Expr>> where F: FnMut(Rc<Expr>) -> Option<()> {
+fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
+    each_found: &mut F) -> Vec<RcExpr> where F: FnMut(Expr) -> Option<()> {
     let (psn, mut exps) = (1 << nums.len(), vec![]);
     const IR: Rational = Rational::new_raw(0, 0);
     let is_final = !core::ptr::eq(goal, &IR);
@@ -389,15 +389,15 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[Rc<Expr>], ngoal: bool,
         if  ns0.iter().enumerate().try_for_each(|(i, a)|
             ns1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b|
                 form_compose(a, b, is_final, ngoal, |e| {
-                    if !is_final { exps.push(e) } else if e.v == *goal { each_found(e)? }
-                    Some(())
+                    if !is_final { exps.push(Rc::new(e)) }
+                    else if e.v == *goal { each_found(e)? }    Some(())
                 }))).is_none() { break }
     }   exps
 }
 
 // traversely construct expr. inplace bottom-up from numbers
-fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>], ngoal: bool,
-    each_found: &mut F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
+fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
+    each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     let (n, mut i) = (nums.len(), 0);
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
@@ -411,7 +411,7 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>], ngoal: bool,
 
             nums[j] = nums[n - 1].clone();  // the last j is n - 1
             form_compose(&a, &b, n == 2, ngoal, |e| {
-                if n == 2 { if e.v == *goal { each_found(e)? } } else {    nums[i] = e;
+                if n == 2 { if e.v == *goal { each_found(e)? } } else { nums[i] = Rc::new(e);
                     calc24_inplace(goal, &mut nums[..n-1], ngoal, each_found)?;
                 }   Some(())
             })?; nums[j] = b;   j += 1;
@@ -420,8 +420,8 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [Rc<Expr>], ngoal: bool,
 }
 
 // traversely construct expr. bottom-up from numbers straightforward
-fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize, ngoal: bool,
-    each_found: &mut F) -> Option<()> where F: FnMut(Rc<Expr>) -> Option<()> {
+fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], minj: usize, ngoal: bool,
+    each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     let n = nums.len();
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
@@ -442,7 +442,7 @@ fn calc24_construct<F>(goal: &Rational, nums: &[Rc<Expr>], minj: usize, ngoal: b
 
             form_compose(a, b, nums.is_empty(), ngoal, |e| {
                 if  nums.is_empty() { if e.v == *goal { each_found(e)? } } else {
-                    nums.push(e);
+                    nums.push(Rc::new(e));
                     calc24_construct(goal, &nums, j - 1, ngoal, each_found)?;
                     nums.pop();
                 }   Some(())
@@ -487,21 +487,21 @@ pub  use Calc24Algo::*;
 }
 
 #[inline] pub fn calc24_algo<F>(goal: &Rational, nums: &[Rational], algo: Calc24Algo,
-    each_found: &mut F) where F: FnMut(Rc<Expr>) -> Option<()> {
-    if nums.len() == 1 { return if nums[0] == *goal { each_found(Rc::new(nums[0].into())); } }
+    each_found: &mut F) where F: FnMut(Expr) -> Option<()> {
+    if nums.len() == 1 { return if nums[0] == *goal { each_found(nums[0].into()); } }
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
         r"Required by algo. DynProg & SplitSet");
 
     let ngoal = goal.is_negative(); //goal < &0.into();
     let mut nums = nums.iter().map(|&rn|
-        Rc::new(rn.into())).collect::<Vec<Rc<Expr>>>();
+        Rc::new(Expr::from(rn))).collect::<Vec<_>>();
     //quicksort(nums, |a, b| a.v.partial_cmp(&b.v));    // XXX:
     nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
     // so don't needs order-independent hasher
 
     let mut hexp = HashSet::new();
-    let mut hash_unify = |e: Rc<Expr>| {
+    let mut hash_unify = |e: Expr| {
         let mut hasher = DefaultHasher::default();
         e.hash(&mut hasher);
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
