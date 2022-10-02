@@ -30,19 +30,20 @@ typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 
 struct Expr;
-//typedef const Expr* PtrE;     // TODO:
-typedef std::shared_ptr<const Expr> PtrE;
+typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;     // TODO:
+#define make_ptre(args...) std::make_shared<Expr>(args)  //PtrE(new Expr(args))
 
 struct Expr {
-    Rational v; PtrE a, b; Oper op;     // anonymous structure
+    Rational v; const PtrE a, b; Oper op;   // anonymous structure
 
     Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
     Expr(Rational&& r, Oper op = Num, const PtrE& a = nullptr, const PtrE& b = nullptr):
         v(std::move(r)), a(a), b(b), op(op) {}  // a & b refer to left & right operands
 
-    //Expr(): Expr(Rational(0, 0)) {}
+    //Expr(Expr&&) = delete;
     //Expr(const Expr&) = delete;
-    //~Expr();
+    //Expr(): Expr(Rational(0, 0)) {}
+    //~Expr() { std::cerr << "Destruct: " << *this << std::endl; }
 };
 
 #include <vector>
@@ -56,7 +57,7 @@ typedef struct Calc24IO {
 
     size_t ecnt;
     const char* *exps;
-    //const PtrE const *exps;
+    //const PtrE* const exps;
     //const Expr* const *exps;
 }   Calc24IO;
 
@@ -103,12 +104,12 @@ inline auto operator*(const Expr& lhs, const auto& rhs) noexcept {
 inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
     return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); }
 
-// PtrE instead of Expr here regarding for implicit use in unordered_set
-inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept {
-    if (lhs->op == Num && rhs->op == Num) return  lhs->v == rhs->v;
-    if (lhs->op != Num && rhs->op != Num)
-        return lhs->op == rhs->op && lhs->a == rhs->a && lhs->b == rhs->b;
-    return false;
+// for implicit use in unordered_set
+inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
+inline auto operator==(const Expr& lhs, const Expr& rhs) noexcept {
+    if (lhs.op != rhs.op) return false; else
+    if (lhs.op == Num) return lhs.v == rhs.v; else
+        return lhs.op == rhs.op && lhs.a == rhs.a && lhs.b == rhs.b;
 } */
 
 #include <sstream>
@@ -130,24 +131,23 @@ ostream& operator<<(ostream& os, const Expr& e) {
         os << '(' << *e.b << ')'; else os << *e.b;  return os;
 }
 
-//Expr::~Expr() { std::cerr << "Destruct: " << *this << std::endl; }
-
 inline auto hash_combine(size_t lhs, auto rhs) {
   return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
 }
 
-using std::hash; // #include <functional>
 template <> struct std::hash<Expr> {
     auto operator()(const Expr& e) const noexcept {
-        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  hash<Expr> hasher;
-            return hash_combine(hasher(*e.a), hasher(*e.b)) ^ (char(e.op) << 11);
+        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {
+            return hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
         }
     }
 };
 
-inline bool find_factor(const Rational& av, const PtrE& b, const Oper op) {
-    return b->op == op && (b->a->v == av || find_factor(av, b->a, op) ||
-                           b->b->v == av || find_factor(av, b->b, op));
+static const std::hash<Expr> hash_expr;
+
+inline bool find_factor(const auto& av, const auto& b, const Oper op) {
+    return b.op == op && (b.a->v == av || find_factor(av, *b.a, op) ||
+                          b.b->v == av || find_factor(av, *b.b, op));
 }
 
 // several pruning rules to find inequivalent/unique expressions only
@@ -170,13 +170,13 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
         new_expr(Expr(Rational(nmd + dmn, dmd), op, a, b));
 
     /* auto find_factor = [&](auto&& self, const auto& av, const auto& b, const auto op) {
-        return b->op == op && (b->a->v == av || self(self, av, b->a, op) ||     // XXX:
-                               b->b->v == av || self(self, av, b->b, op));
+        return b.op == op && (b.a->v == av || self(self, av, *b.a, op) ||     // XXX:
+                              b.b->v == av || self(self, av, *b.b, op));
     }; */
 
     // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x), ((A + x) - x) is only kept in final
     if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
-        (!is_final && find_factor(a->v, b, Add)))) {    if (ngoal)
+        (!is_final && find_factor(a->v, *b, Add)))) {   if (ngoal)
             new_expr(Expr(Rational(nmd - dmn, dmd), op, a, b)); else
             new_expr(Expr(Rational(dmn - nmd, dmd), op, b, a));
     }
@@ -184,12 +184,12 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
     // (a / (A / B)) => ((a * B) / A)
     // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
     if (!(a->op == (op = Div) || op == b->op)) {
-        if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || find_factor(b->v, a, Mul)))
+        if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || find_factor(b->v, *a, Mul)))
             new_expr(Expr(Rational(nmd, dmn), op, a, b));
 
         //std::swap(v.n, v.d);
         if (!(nmd == 0 || a->v.n == a->v.d || b->v.n == 0 ||
-              nmd == dmn || find_factor(a->v, b, Mul))) // order mattered only if a != b
+              nmd == dmn || find_factor(a->v, *b, Mul)))    // order mattered only if a != b
             new_expr(Expr(Rational(dmn, nmd), op, b, a));
     }
 }
@@ -203,7 +203,7 @@ using std::list;
 
 void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
     const bool ngoal, auto&& each_found) {
-    auto psn = 1 << nums.size();
+    const auto psn = 1 << nums.size();
 
     vector<list<PtrE>> vexp;       vexp.reserve(psn);
     for (auto i = 0; i < psn; ++i) vexp.push_back(list<PtrE>());
@@ -211,13 +211,13 @@ void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
         for (const auto& e: nums)  vexp[1 << i++].push_back(e);
     }
 
-    vector<size_t> hv; hv.reserve(psn - 2);
-    auto get_hash = [&](auto x) {   auto i = 0, h0 = 0;
+    vector<size_t> hv;  hv.reserve(psn - 2);
+    const auto get_hash = [&](auto x)/* -> auto*/ {     auto i = 0, h0 = 0;
 #ifdef  LIST
-        for (const auto& e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash<Expr>{}(*e));
+        for (const auto& e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash_expr(*e));
 #else
         for (auto n = 1; n <= x; n <<= 1, ++i)
-            if (n & x) h0 = hash_combine(h0, hash<Expr>{}(*nums[i]));
+            if (n & x) h0 = hash_combine(h0, hash_expr(*nums[i]));
 #endif
         return h0;
     };
@@ -225,25 +225,24 @@ void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
     for (auto x = 3; x < psn; ++x) { if (!(x & (x - 1))) continue;
         const auto is_final = x == psn - 1;
 
-        auto lambda = [&](auto&& e) {
-            if (!is_final) vexp[x].push_back(std::make_shared<const Expr>(e)); else
+        const auto lambda = [&, is_final](auto&& e) {
+            if (!is_final) vexp[x].push_back(make_ptre(e)); else
             if (e.v == goal) each_found(e);
         };
 
         for (auto i = 1; i < (x+1)/2; ++i) { if ((x & i) != i) continue;
 
-            auto h0 = get_hash(i);
+            const auto h0 = get_hash(i);
                 if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                     continue; else hv.push_back(h0);
-            auto h1 = get_hash(x - i); if (h1 != h0) {
+            const auto h1 = get_hash(x - i);    if (h1 != h0) {
                 if (std::find(hv.begin(), hv.end(), h1) != hv.end())
                     continue; else hv.push_back(h1);
             }
 
             const auto &es0(vexp[i]), &es1(vexp[x - i]);
             for (auto i = 0u; i < es0.size(); ++i) { const auto& a(es0[i]);
-                for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) {
-                                                     const auto& b(es1[j]);
+                for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) { const auto& b(es1[j]);
                     if (a->v < b->v) form_compose(a, b, is_final, ngoal, lambda); else
                                      form_compose(b, a, is_final, ngoal, lambda);
                 }
@@ -254,28 +253,28 @@ void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
 
 vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
     const bool ngoal, auto&& each_found) {
-    static auto IR = Rational(0, 0);
-    auto is_final = &goal != &IR;
-    auto n = nums.size();
-    auto psn = 1 << n;
+    static const auto IR = Rational(0, 0);
+    const auto is_final = &goal != &IR;
+    const auto n = nums.size();
+    const auto psn = 1 << n;
     vector<PtrE> exps;
 
-    auto lambda = [&](auto&& e) {
-        if (!is_final) exps.push_back(std::make_shared<const Expr>(e)); else
+    const auto lambda = [&, is_final](auto&& e) {
+        if (!is_final) exps.push_back(make_ptre(e)); else
         if (e.v == goal) each_found(e);
     };
 
-    vector<PtrE> ns0, ns1;   ns0.reserve(n - 1);    ns1.reserve(n - 1);
     vector<size_t> hv;       hv.reserve(psn - 2);
+    vector<PtrE> ns0, ns1;  ns0.reserve(n - 1); ns1.reserve(n - 1);
 
     for (auto x = 1; x < psn/2; ++x) {  ns0.clear();    ns1.clear();    auto i = 0;
         for (const auto& e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
         auto h0 = 0, h1 = 0;
-        for (const auto& e: ns0) h0 = hash_combine(h0, hash<Expr>{}(*e));
+        for (const auto& e: ns0) h0 = hash_combine(h0, hash_expr(*e));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
-        for (const auto& e: ns1) h1 = hash_combine(h1, hash<Expr>{}(*e));
+        for (const auto& e: ns1) h1 = hash_combine(h1, hash_expr(*e));
         if (h1 != h0) {
             if (std::find(hv.begin(), hv.end(), h1) != hv.end())
                 continue; else hv.push_back(h1);
@@ -300,21 +299,20 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
 #include <unordered_set>
 void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
     const size_t n, const bool ngoal, auto&& each_found) {
-    hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
+    vector<size_t> hv;  hv.reserve(n * (n - 1) / 2);
 
     // XXX: skip duplicates over different combination order, as well in symmetric style
     for (size_t i = 0; i < n - 1; ++i) {
         const auto a(std::move(nums[i]));
 
-        auto lambda = [&](auto&& e) {
-            if (n == 2) { if (e.v == goal) each_found(e); } else {
-                nums[i] = std::make_shared<const Expr>(e);
+        const auto lambda = [&, n](auto&& e) {
+            if (n == 2) { if (e.v == goal) each_found(e); } else {  nums[i] = make_ptre(e);
                 calc24_inplace(goal, nums, n - 1, ngoal, each_found);
             }
         };
 
         for (size_t j = i + 1; j < n; ++j) {
-            auto h0 = hash_combine(hasher(*a), hasher(*nums[j]));
+            const auto h0 = hash_combine(hash_expr(*a), hash_expr(*nums[j]));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
             const auto b(std::move(nums[j]));
@@ -330,31 +328,30 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
 void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     size_t j, const bool ngoal, auto&& each_found) {
     const auto n = nums.size();
-    hash<Expr> hasher; vector<size_t> hv; hv.reserve(n * (n - 1) / 2);
+    vector<PtrE> nsub;  nsub.reserve(n - 1);
+    vector<size_t> hv;    hv.reserve(n * (n - 1) / 2);
 
     // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
     //    for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
     for (; j < n; ++j) {                    const auto& b(nums[j]);
+        const auto lambda = [&, n](auto&& e) {
+            if (n == 2) { if (e.v == goal) each_found(e); } else {
+                nsub.push_back(make_ptre(e));
+                calc24_construct(goal, nsub, j - 1, ngoal, each_found);
+                nsub. pop_back();
+            }
+        };
+
         for (size_t i = 0; i < j; ++i) {    const auto& a(nums[i]);
-            auto h0 = hash_combine(hasher(*a), hasher(*b));
+            const auto h0 = hash_combine(hash_expr(*a), hash_expr(*b));
             if (std::find(hv.begin(), hv.end(), h0) != hv.end())
                 continue; else hv.push_back(h0);
 
-            vector<PtrE> nsub;  nsub.reserve(n - 1);
-            for (const auto& e: nums)
-                if (e.get() != a.get() && e.get() != b.get()) nsub.push_back(e);
-
-            auto lambda = [&](auto&& e) {
-                if (n == 2) { if (e.v == goal) each_found(e); } else {
-                    nsub.push_back(std::make_shared<const Expr>(e));
-                    calc24_construct(goal, nsub, j - 1, ngoal, each_found);
-                    nsub. pop_back();
-                }
-            };
-
+            for (const auto& e: nums) if (e != a && e != b) nsub.push_back(e);
             if (b->v < a->v) form_compose(b, a, n == 2, ngoal, lambda); else
                              form_compose(a, b, n == 2, ngoal, lambda);
+            nsub.clear();
         }
     }
 }
@@ -365,12 +362,15 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
 
     const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
-    for (const auto& n: rnv) nums.push_back(std::make_shared<const Expr>(Expr(n)));
+    for (const auto& n: rnv) nums.push_back(make_ptre(n));
     std::sort(nums.begin(),  nums.end(),
         [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
 
     std::unordered_set<size_t> eset;
-    auto hash_unify = [&](auto&& e) { if (eset.insert(hash<Expr>{}(e)).second) each_found(e); };
+    const auto hash_unify = [&](auto&& e) {
+        if (eset.insert(hash_expr(e)).second) each_found(e);
+    };
+
     switch (algo) {
         case DynProg:   calc24_dynprog  (goal, nums, ngoal, each_found); break;
         case SplitSet:  calc24_splitset (goal, nums, ngoal, each_found); break;
@@ -416,12 +416,11 @@ void calc24_algo(Calc24IO* calc24) {
     calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
         //std::stringstream ss; ss << *e; exps.push_back(std::move(ss.str()).c_str());
         // FIXME: how to keep data out of string lifetime?
-        exps.push_back(std::move(e));   //++cnt;
+        exps.push_back(e);   //++cnt;
     });
 
     calc24->ecnt = exps.size(); //cnt;
-    calc24->exps = nullptr;
-    //calc24->exps = std::move(exps).data();
+    calc24->exps = nullptr; //std::move(exps).data();
 }
 
 #include <iomanip>
@@ -504,8 +503,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
 #ifdef  RUN_TEST
 int main(int argc, char* argv[]) {
     (void)argc;     (void)argv;
-    test_24calc();
-    return 0;
+    test_24calc();  return 0;
 }
 #endif
 
