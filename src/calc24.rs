@@ -81,20 +81,20 @@ impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
 }
 
 use core::cmp::{Eq, Ord, Ordering, PartialEq};
-impl<T: Integer + Copy>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
 impl<T: Integer + Copy> Ord for RNum<T> {
     fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
 }
 
 impl<T: Integer + Copy> PartialOrd for RNum<T> {
     #[inline] fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        //if self.1 == 0 || rhs.1 == 0 { None } else { //Some(self.cmp(rhs))
-            (self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
+        /*if self.1 == 0 || rhs.1 == 0 { None } else */ Some(self.cmp(rhs))
+        //(self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
     }
 }
 
+impl<T: Integer + Copy>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
 impl<T: Integer + Copy> PartialEq  for RNum<T> {
-    #[inline] fn eq(&self, rhs: &Self) -> bool { self.partial_cmp(rhs) == Some(Ordering::Equal) }
+    #[inline] fn eq(&self, rhs: &Self) -> bool { self.cmp(rhs) == Ordering::Equal }
 }
 
 /* impl<T: Integer + Copy> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
@@ -157,34 +157,30 @@ impl Display for Expr {
     }
 }
 
-/* impl Ord for Expr {
-    fn cmp(&self, other: &Self) -> Ordering { self.partial_cmp(other).unwrap() }
-} */
-
 impl PartialOrd for Expr {
-    fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        let ord = self.v.partial_cmp(&rhs.v);
-        if  ord != Some(Ordering::Equal) { return ord }
+    #[inline] fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> { Some(self.cmp(rhs)) }
+}
+
+impl Ord for Expr {
+    fn cmp(&self, rhs: &Self) -> Ordering {
+        let ord = self.v.cmp(&rhs.v);
+        if  ord != Ordering::Equal { return ord }
+        let ord = (self.op as u8).cmp(&(rhs.op as u8));
+        if  ord != Ordering::Equal { return ord }
 
         match (&self.m, &rhs.m) {
-            (None, None)    => Some(Ordering::Equal),
-            (None, Some(_)) => Some(Ordering::Less),
-            (Some(_), None) => Some(Ordering::Greater),
-
             (Some((la, lb)), Some((ra, rb))) => {
-                let ord = (self.op as u8).partial_cmp(&(rhs.op as u8));
-                if  ord != Some(Ordering::Equal) { return ord }
-                let ord = la.partial_cmp(ra);   // recursive
-                if  ord != Some(Ordering::Equal) { return ord }
-                lb.partial_cmp(rb)   // recursive
-            }
+                let ord = la.cmp(ra);   // recursive
+                if  ord != Ordering::Equal { return ord }   lb.cmp(rb)  // recursive
+            }   (None, None)  => Ordering::Equal, _ => unreachable!(),
+            //(None, Some(_)) => Ordering::Less, Some(_), None) => Ordering::Greater,
         }
     }
 }
 
-impl Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
+impl  Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl PartialEq for Expr {
-    fn eq(&self, rhs: &Self) -> bool { //self.partial_cmp(rhs) == Some(Ordering::Equal)
+    fn eq(&self, rhs: &Self) -> bool { //self.cmp(rhs) == Ordering::Equal
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
             (Some((la, lb)), Some((ra, rb))) =>
@@ -217,21 +213,41 @@ impl Hash for Expr {
 fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     mut new_expr: F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
-    let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
 
     // XXX: check overflow and reduce?
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
     // ((A . B) . b) => (A . (B . b), kept right sub-tree only
 
+    #[inline] fn found_same(e: &Expr, v: &Rational, op: Oper) -> bool {
+        e.op == op && if let Some((a, b)) = &e.m {
+            //(if a.m.is_none() { &a.v == v } else { found_same(a, v, op) } ||
+            // if b.m.is_none() { &b.v == v } else { found_same(b, v, op) })
+            &a.v == v || &b.v == v || found_same(a, v, op) || found_same(b, v, op)
+        } else { false }
+    }
+
+    struct  Cacher<T> where T: Fn() -> bool, { calc: T, v: Option<bool>, }
+
+    impl<T> Cacher<T> where T: Fn() -> bool, {
+        fn new(calc: T) -> Cacher<T> { Cacher { calc, v: None, } }
+
+        fn get(&mut self) -> bool {
+            match self.v {  Some(v) => v,
+                None => { let v = (self.calc)(); self.v = Some(v); v }
+            }   // memoization, lazy evaluation
+        }
+    }
+
+    let mut subl_cmp = Cacher::new(||
+        if let Some((ba, _)) = &b.m { ba.cmp(a) == Ordering::Less } else { false });
+
     use Oper::*;
     let op = Mul;
     // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
     // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
     if !(a.op == op || a.op == Div || (Div == b.op && !a.v.is_one()) ||
-        (!is_final && (a.v.is_one() || b.v.is_one())) ||
-        (op == b.op && if let Some((ba, _)) = &b.m {
-            ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
+        (!is_final && (a.v.is_one() || b.v.is_one())) || (op == b.op && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
                         m: Some((a.clone(), b.clone())), op })?;
     }
@@ -240,26 +256,15 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
     // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
     if !(a.op == op || a.op == Sub || (Sub == b.op && !a.v.is_zero()) ||
-        (!is_final && (a.v.is_zero() || b.v.is_zero())) ||
-        (op == b.op && if let Some((ba, _)) = &b.m {
-            ba.partial_cmp(a) == Some(Ordering::Less) } else { false })) {
+        (!is_final && (a.v.is_zero() || b.v.is_zero())) || (op == b.op && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(nmd + dmn, dmd),
                         m: Some((a.clone(), b.clone())), op })?;
-    }
-
-    #[inline] fn find_factor(av: &Rational, b: &Expr, op: Oper) -> bool {
-        b.op == op && if let Some((ba, bb)) = &b.m {
-            //(if ba.m.is_none() { &ba.v == av } else { find_factor(av, ba, op) } ||
-            // if bb.m.is_none() { &bb.v == av } else { find_factor(av, bb, op) })
-            &ba.v == av || find_factor(av, ba, op) ||
-            &bb.v == av || find_factor(av, bb, op)
-        } else { false }
     }
 
     let op = Sub;   //  (b - (B - A)) => ((b + A) - B)
     // (x - 0) => (0 + x),    ((A + x) - x) is only kept in final
     if !(a.op == op || op == b.op || a.v.is_zero() ||
-        (!is_final && find_factor(&a.v, b, Add))) {
+        (!is_final && found_same(b, &a.v, Add))) {
         if ngoal {
             new_expr(Expr { v: Rational::new_raw(nmd - dmn, dmd),
                             m: Some((a.clone(), b.clone())), op })?;
@@ -273,13 +278,13 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
     if !(a.op == op || op == b.op) {
         if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
-            find_factor(&b.v, a, Mul)) {
+            found_same(a, &b.v, Mul)) {
             new_expr(Expr { v: Rational::new_raw(nmd, dmn),
                             m: Some((a.clone(), b.clone())), op })?;
         }
 
         if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||   // order mattered only if a != b
-             nmd == dmn || find_factor(&a.v, b, Mul)) {
+             nmd == dmn || found_same(b, &a.v, Mul)) {
             new_expr(Expr { v: Rational::new_raw(dmn, nmd),
                             m: Some((b.clone(), a.clone())), op })?;
         }
@@ -334,11 +339,13 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
             }   #[cfg(feature = "debug")] eprintln!(r"pick");
 
             es0.iter().enumerate().try_for_each(|(i, a)|
-                es1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b|
+                es1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b| {
+                    let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                     form_compose(a, b, is_final, ngoal, |e| {
                         if !is_final { exps.push(Rc::new(e)) }
                         else if e.v == *goal { each_found(e)? }    Some(())
-                    })))?;
+                    })
+                }))?;
         }   hv.clear();
     }   Some(())
 
@@ -387,41 +394,46 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         if  ns0.iter().enumerate().try_for_each(|(i, a)|
-            ns1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b|
+            ns1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b| {
+                let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                 form_compose(a, b, is_final, ngoal, |e| {
                     if !is_final { exps.push(Rc::new(e)) }
                     else if e.v == *goal { each_found(e)? }    Some(())
-                }))).is_none() { break }
+                })
+            })).is_none() { break }
     }   exps
 }
 
 // traversely construct expr. inplace bottom-up from numbers
 fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
-    let (n, mut i) = (nums.len(), 0);
+    let n = nums.len();
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
     // XXX: skip duplicates over different combination order, as well in symmetric style
-    while i < n - 1 {   let (a, mut j) = (nums[i].clone(), i + 1);
-        while j < n {   let b = nums[j].clone();
+    for j in 1..n {     let b = nums[j].clone();
+        nums[j] = nums[n - 1].clone();  // the last j is n - 1
+        for i in 0..j { let a = nums[i].clone();
+
             let mut hasher = DefaultHasher::default();
             a.hash(&mut hasher);    b.hash(&mut hasher);
             let h0 = hasher.finish();   // unify duplicate numbers
-            if hv.contains(&h0) { j += 1; continue } else { hv.push(h0) }
+            if hv.contains(&h0) { continue } else { hv.push(h0) }
 
-            nums[j] = nums[n - 1].clone();  // the last j is n - 1
-            form_compose(&a, &b, n == 2, ngoal, |e| {
+            // XXX: compare expr. rather than value to avoid more duplicate combinations
+            let (ta, tb) = if b < a { (&b, &a) } else { (&a, &b) };
+            form_compose(ta, tb, n == 2, ngoal, |e| {
                 if n == 2 { if e.v == *goal { each_found(e)? } } else { nums[i] = Rc::new(e);
                     calc24_inplace(goal, &mut nums[..n-1], ngoal, each_found)?;
                 }   Some(())
-            })?; nums[j] = b;   j += 1;
-        }        nums[i] = a;   i += 1;
+            })?; nums[i] = a;
+        }        nums[j] = b;
     }   Some(())
 }
 
 // traversely construct expr. bottom-up from numbers straightforward
-fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], minj: usize, ngoal: bool,
-    each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
+fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
+    each_found: &mut F, minj: usize) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     let n = nums.len();
     let mut hv = Vec::with_capacity(n * (n - 1) / 2);
 
@@ -435,15 +447,15 @@ fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], minj: usize, ngoal: boo
             let h0 = hasher.finish();   // unify duplicate numbers
             if hv.contains(&h0) { return Some(()) } else { hv.push(h0) }
 
-            use core::ptr::eq as ptr_eq;    // Rc::ptr_eq
+            use core::ptr::eq as ptr_eq;    // Rc::ptr_eq   // drop sub-expr.
             let mut nums = nums.iter().filter(|&e|
-                !ptr_eq(e, a) && !ptr_eq(e, b))
-                .cloned().collect::<Vec<_>>();  // drop sub-expr.
+                !ptr_eq(e, a) && !ptr_eq(e, b)).cloned().collect::<Vec<_>>();
 
+            let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
             form_compose(a, b, nums.is_empty(), ngoal, |e| {
                 if  nums.is_empty() { if e.v == *goal { each_found(e)? } } else {
                     nums.push(Rc::new(e));
-                    calc24_construct(goal, &nums, j - 1, ngoal, each_found)?;
+                    calc24_construct(goal, &nums, ngoal, each_found, j - 1)?;
                     nums.pop();
                 }   Some(())
             })}))
@@ -496,14 +508,12 @@ pub  use Calc24Algo::*;
     let ngoal = goal.is_negative(); //goal < &0.into();
     let mut nums = nums.iter().map(|&rn|
         Rc::new(Expr::from(rn))).collect::<Vec<_>>();
-    //quicksort(nums, |a, b| a.v.partial_cmp(&b.v));    // XXX:
     nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
-    // so don't needs order-independent hasher
+    // so don't needs order-independent hasher  //quicksort(nums, |a, b| a.v < b.v);    // XXX:
 
     let mut hexp = HashSet::new();
     let mut hash_unify = |e: Expr| {
-        let mut hasher = DefaultHasher::default();
-        e.hash(&mut hasher);
+        let mut hasher = DefaultHasher::default();  e.hash(&mut hasher);
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
     };
 
@@ -513,7 +523,7 @@ pub  use Calc24Algo::*;
         //SplitSet  => { futures::executor::block_on(calc24_splitset(goal, nums, each_found)); }
         Inplace   => { calc24_inplace  (goal, &mut nums, ngoal, &mut hash_unify); }
         Construct => {
-            calc24_construct(goal, &nums, 1, ngoal, &mut hash_unify);
+            calc24_construct(goal, &nums, ngoal, &mut hash_unify, 1);
         }
     }
 }
@@ -521,7 +531,10 @@ pub  use Calc24Algo::*;
 /// ```
 /// use inrust::calc24::*;
 /// let expect = (458, 1362, 3017);
-/// assert_eq!(game24_solvable(DynProg), expect);
+/// assert_eq!(game24_solvable(DynProg),   expect);
+/// assert_eq!(game24_solvable(SplitSet),  expect);
+/// assert_eq!(game24_solvable(Construct), expect);
+/// assert_eq!(game24_solvable(Inplace),   expect);
 /// ```
 pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
     let (pkm, goal) = (13, Rational::from(24));
@@ -555,8 +568,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
 
-#[cfg(not(tarpaulin_include))]
-pub fn game24_poker(n: usize, algo: Calc24Algo) {   // n = 4~6?
+#[cfg(not(tarpaulin_include))] pub fn game24_poker(n: usize, algo: Calc24Algo) {    // n = 4~6?
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
     let mut poker= (0..52).collect::<Vec<_>>();
@@ -578,7 +590,7 @@ pub fn game24_poker(n: usize, algo: Calc24Algo) {   // n = 4~6?
                 let (sid, mut num) = pkn.div_rem(&13);
                 num += 1;   //sid %= 4;
 
-                print!(r" {}", Paint::new(if num == 1 { String::from("A") }
+                print!(r" {}", Paint::new(if num == 1 { "A".to_owned() }    // String::from
                     else if num < 10 { num.to_string() } else { court[num - 10].to_owned() })
                     .bold().bg(suits[sid]));    (num as i32).into()
             }).collect::<Vec<_>>();     print!(r": ");
@@ -649,7 +661,10 @@ pub fn game24_poker(n: usize, algo: Calc24Algo) {   // n = 4~6?
                 Err(e) => eprintln!(r"Error parsing ALGO: {}", Paint::red(e)),
             } } else { eprintln!(r"Lack parameter for ALGO!") }
         }
+    }
 
+    if let Some(opt) = nums.peek() {
+        let opt = opt.clone();
         if opt.eq_ignore_ascii_case("-g") {
             if opt == "-G" { want_exit = true }
             nums.next();
@@ -816,10 +831,8 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < cnt { cnt } else { res.len() };
             println!(r"Calculate {:3} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
-            let goal = goal.into();
-
-            #[cfg(feature = "cc")]
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
+            let goal = goal.into();
 
             #[cfg(feature = "cc")] {
                 let assert_closure_c = |algo| {
@@ -872,12 +885,11 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
     }
 
     #[cfg(feature = "cc")] /*#[test] */fn _solve24_c() {
-        /*#[link(name = "calc24")] */extern "C" { fn test_24calc(); }
+        /*#[link(name = "calc24")] */extern "C" { #[allow(dead_code)] fn test_24calc(); }
         unsafe { test_24calc(); }
     }
 
-    #[cfg(not(tarpaulin_include))]
-    /*#[test] #[bench] */fn _solve24_random() {
+    #[cfg(not(tarpaulin_include))] /*#[test] #[bench] */fn _solve24_random() {
         use std::time::{Instant, Duration};
         use rand::{Rng, thread_rng, distributions::Uniform};
 

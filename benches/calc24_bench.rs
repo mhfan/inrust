@@ -19,10 +19,8 @@ fn bench_24calc(c: &mut Criterion) {
 
     use yansi::Paint;
     println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(&nums));
-    let (mut cnt, goal) = (0, goal.into());
-
-    #[cfg(feature = "cc")]
     let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
+    let (mut cnt, goal) = (0, goal.into());
 
     #[cfg(feature = "cc")] {
         let mut bench_closure_c = |algo| {
@@ -42,14 +40,14 @@ fn bench_24calc(c: &mut Criterion) {
             let mut exps = vec![];  //cnt = 0;  // XXX: cnt += 1;
             calc24_algo(&goal, &nums, algo, &mut |e| {
                 exps.push(e);   Some(()) });    cnt = exps.len();
-            //cnt = calc24_coll(&goal, &nums, algo).len();
+            //cnt = calc24_coll(&goal, &nums, algo).len();  // got same performance
         }));
         if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
     };
 
     bench_closure(DynProg);
     //bench_closure(SplitSet);
-    //bench_closure(Inplace);
+    //bench_closure(Inplace);     // XXX: 6 times worse than Construct
     //bench_closure(Construct);
 
     group.finish();
