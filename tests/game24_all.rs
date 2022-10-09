@@ -14,9 +14,10 @@
     use std::{fs::File, io::{BufRead, BufReader}};
     BufReader::new(File::open("tests/game24_all.fmh").unwrap())
         .lines().for_each(|line| line.unwrap().split(':')
-            .last().unwrap().split(' ').for_each(|res| if !res.is_empty() {
-                //let res = res.replace('×', "*").replace('÷', "/");
-                assert_eq!((mexe::eval(res).unwrap() + 0.5) as u32, 24, "failed at: `{res}'");
+            .last().unwrap().split(' ').for_each(|str| if !str.is_empty() {
+                //let str = str.chars.map(|ch|
+                //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
+                assert_eq!((mexe::eval(str).unwrap() + 0.1) as i32, 24, "failed at: `{str}'");
             }));    // split_ascii_whitespace
 
     let mut cnt = (0, 0);   // https://4shu.net/solutions/allsolutions/

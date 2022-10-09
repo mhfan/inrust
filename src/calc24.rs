@@ -4,7 +4,7 @@
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 五, 09  9 2022 16:46:32 +0800       by mhfan #
+ * Last modified: 一, 10 10 2022 15:53:55 +0800       by mhfan #
  ****************************************************************/
 
 //pub mod calc24 {
@@ -30,8 +30,8 @@ impl<T: Integer + Copy> RNum<T> {   #![allow(dead_code)]
     #[inline] fn is_negative(&self) -> bool { self.0 * self.1 < T::zero() }
     //#[inline] fn is_positive(&self) -> bool { T::zero() < self.0 * self.1 }
 
-    #[inline] pub const fn new_raw(numer: T, denom: T) -> Self { Self(numer, denom) }
-    #[inline] pub fn new(numer: T, denom: T) -> Self { *Self::new_raw(numer, denom).reduce() }
+    #[inline] pub const fn new_raw(n: T, d: T) -> Self { Self(n, d) }
+    #[inline] pub fn new(num: T, den: T) -> Self { *Self::new_raw(num, den).reduce() }
 
     /*pub */fn reduce(&mut self) -> &Self {
         #[inline] fn gcd<T: Integer + Copy>(mut a: T, mut b: T) -> T {
@@ -102,7 +102,7 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
     type Output = Self;
 } */
 
-#[derive(/*Debug, */Clone, Copy, PartialEq)] //struct Oper(u8);  // newtype idiom
+#[derive(/*Debug, */Clone, Copy, PartialEq, Eq)] //struct Oper(u8);  // newtype idiom
 #[repr(u8/*, C*/)] enum Oper { Num, Add = b'+', Sub = b'-', Mul = b'*', Div = b'/', }
 //type Oper = char;   // type alias     // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 
@@ -116,17 +116,36 @@ pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr)>, op: Oper }
 //pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }  // TODO:
 // a & b refer to left & right operands
 
-/* impl Expr {  #![allow(dead_code)]
-    #[inline] fn is_zero(&self) -> bool { self.v.numer() == &0 }
-    #[inline] fn is_one (&self) -> bool { self.v.numer() == self.v.denom() }
+/* impl Expr {
+    pub fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
+        let (an, ad) = (a.v.numer(), a.v.denom());
+        let (bn, bd) = (b.v.numer(), b.v.denom());
+
+        let op: Oper;   let v = match ops {
+            '+' => { op = Oper::Add; Rational::new_raw(an * bd + ad * bn, ad * bd) }
+            '-' => { op = Oper::Sub; Rational::new_raw(an * bd - ad * bn, ad * bd) }
+            '*' | '×' => { op = Oper::Mul; Rational::new_raw(an * bn, ad * bd) }
+            '/' | '÷' => { op = Oper::Div;  //assert_ne!(bn, &0);
+                if *bn == 0 { return Err("Invalid divisor".to_owned()) }
+                Rational::new_raw(an * bd, ad * bn)
+            }   _ => return Err("Invalid operator".to_owned()) //unreachable!()
+        };
+
+        Ok(Self { v, m: Some((Rc::new(a), Rc::new(b))), op })
+    }
+
+    //#[inline] fn is_zero(&self) -> bool { self.v.numer() == &0 }
+    //#[inline] fn is_one (&self) -> bool { self.v.numer() == self.v.denom() }
 } */
+
+impl Default for Expr {
+    fn default() -> Self { Self { v: Rational::new_raw(0, 0), m: None, op: Oper::Num } }
+}
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    #[inline] fn from(rn: Rational) -> Self {
-        Self { v: rn/*.reduce()*/, m: None, op: Oper::Num }
-    }
+    #[inline] fn from(rn: Rational) -> Self { Self { v: rn, m: None, op: Oper::Num } }
 }
 
 #[cfg(feature = "debug")] impl Debug for Expr {
@@ -147,6 +166,7 @@ impl Display for Expr {
 
             if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
             if  braket { write!(f, r")")? }     write!(f, r"{}", self.op as u8 as char)?;
+            //write!(f, r" {} ", self.op as u8 as char)?;   // XXX: add spaces around operator
 
             let braket = self.op == Div && matches!(b.op, Mul | Div) ||
                 self.op != Add && matches!(b.op, Add | Sub);
@@ -537,17 +557,17 @@ pub  use Calc24Algo::*;
 /// assert_eq!(game24_solvable(Inplace),   expect);
 /// ```
 pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
-    let (pkm, goal) = (13, Rational::from(24));
+    let (smax, goal) = (13, Rational::from(24));
     let mut cnt = (0, 0, 0);
 
-    //let mut pks = (1..=pkm).collect::<Vec<_>>();
+    //let mut pks = (1..=smax).collect::<Vec<_>>();
     //use rand::{thread_rng, seq::SliceRandom};
     //let mut rng = thread_rng();
     //pks.shuffle(&mut rng);
 
     // TODO: solvable for 4~6 cards?
-    (1..=pkm).for_each(|a| (a..=pkm).for_each(|b|       // C^52_4 = 270725
-    (b..=pkm).for_each(|c| (c..=pkm).for_each(|d| {     // C^(13+4-1)_4 = 1820
+    (1..=smax).for_each(|a| (a..=smax).for_each(|b|       // C^52_4 = 270725
+    (b..=smax).for_each(|c| (c..=smax).for_each(|d| {     // C^(13+4-1)_4 = 1820
         let nums = [a, b, c, d].into_iter()
             .map(|n| n.into()).collect::<Vec<_>>();     // XXX: n -> pks[n - 1]
         let exps = calc24_coll(&goal, &nums, algo);
@@ -568,10 +588,10 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
         Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_poker(n: usize, algo: Calc24Algo) {    // n = 4~6?
+#[cfg(not(tarpaulin_include))] pub fn game24_cards(n: usize, algo: Calc24Algo) {    // n = 4~6?
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
-    let mut poker= (0..52).collect::<Vec<_>>();
+    let mut deck= (0..52).collect::<Vec<_>>();
 
     use rand::{thread_rng, seq::SliceRandom};
     let mut rng = thread_rng();
@@ -579,21 +599,21 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
     // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
     println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
-        r"Classic 24-game with poker (T=10, J=11, Q=12, K=13, A=1)").dimmed());
+        r"Classic 24-game with card (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
-    loop {  poker.shuffle(&mut rng);
-        let mut rems = poker.as_mut_slice();
-        while  !rems.is_empty() {   let pkns;
-            (pkns, rems) = rems.partial_shuffle(&mut rng, n);
-            let nums = pkns.iter().map(|pkn| {
-                //let (num, sid) = ((pkn % 13) + 1, (pkn / 13)/* % 4 */);
-                let (sid, mut num) = pkn.div_rem(&13);
+    loop {  deck.shuffle(&mut rng);
+        let mut pos = 0usize;
+        while pos + n <  deck.len() {
+            let nums = deck[pos..].partial_shuffle(&mut rng,
+                n).0.iter().map(|num| {     // dealer
+                //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
+                let (sid, mut num) = num.div_rem(&13);
                 num += 1;   //sid %= 4;
 
                 print!(r" {}", Paint::new(if num == 1 { "A".to_owned() }    // String::from
                     else if num < 10 { num.to_string() } else { court[num - 10].to_owned() })
                     .bold().bg(suits[sid]));    (num as i32).into()
-            }).collect::<Vec<_>>();     print!(r": ");
+            }).collect::<Vec<_>>();     print!(r": ");  pos += n;
 
             let exps = calc24_coll(&24.into(), &nums, algo);
             if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
@@ -612,7 +632,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
 
                 if  es.eq_ignore_ascii_case("quit") { return }
                 if let Ok(res) = mexe::eval(es) {
-                    if 24 == (res + 0.5) as i32 {
+                    if 24 == (res + 0.1) as i32 {
                         print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
                         exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
                         println!(); break
@@ -704,8 +724,8 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
                     }
                     Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
                 }   nums.next();
-            } else if first.eq_ignore_ascii_case("poker") {
-                game24_poker(4, algo);  nums.next();    continue;
+            } else if first.eq_ignore_ascii_case("cards") {     // poker?
+                game24_cards(4, algo);  nums.next();    continue;
             } else if first.eq_ignore_ascii_case("quit") { break }
         }       game24_helper(&goal, nums, algo);
     }

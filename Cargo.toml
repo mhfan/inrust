@@ -32,7 +32,7 @@ ahash = "0.8"   # https://github.com/tkaitchuck/aHash
 yansi = "0.5"
 atty  = "0.2"
 
-mexe  = "0.1"   # XXX: make it support rational number?
+mexe  = "0.2"   # XXX: make it support rational number?
 #float_eq  = "1"
 #float-cmp = "0.9"
 
