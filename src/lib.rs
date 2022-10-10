@@ -104,7 +104,8 @@ pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
 }
 
 #[cfg(not(tarpaulin_include))]
-pub fn calc_pi() {  // a streaming/spigot algorithm, https://rosettacode.org/wiki/Pi
+#[cfg(feature = "num-bigint")] pub fn calc_pi() {
+    // a streaming/spigot algorithm, https://rosettacode.org/wiki/Pi
     use num_bigint::BigInt;
     let mut first = true;
 

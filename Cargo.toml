@@ -26,9 +26,7 @@ authors = ["MeiHui FAN <mhfan@ustc.edu>"]
 rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer etc.
 num-integer = "0.1"
-num-bigint  = "0.4"
 #itertools = "0.10"
-ahash = "0.8"   # https://github.com/tkaitchuck/aHash
 yansi = "0.5"
 atty  = "0.2"
 
@@ -45,6 +43,8 @@ mexe  = "0.2"   # XXX: make it support rational number?
 #chrono = "0.4"
 #proc_macro2 = "1.0"
 
+ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
+num-bigint   = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
 arbitrary = { version = "1.1", optional = true, features = ["derive"] }
 
@@ -52,8 +52,8 @@ arbitrary = { version = "1.1", optional = true, features = ["derive"] }
 #dhat = { version = "0.3", optional = true }
 
 [dev-dependencies]
-pprof = { version = "0.10", features = ["flamegraph", "criterion"] }
-criterion = "0.3"
+#pprof = { version = "0.10", optional = true, features = ["flamegraph", "criterion"] }
+criterion = "0.4"
 #bencher = "0.1"
 #csv = "1.1"
 
@@ -64,7 +64,7 @@ cc = { version = "1.0", optional = true }
 
 [features]
 debug = []
-default = ["cc"] #, "ahash", "num-rational"
+default = ["cc"] #, "ahash", "num-rational", "num-bigint"
 #cxx = ["dep:cxx", "dep:cxx-build"]
 #dhat-heap = ["dep:dhat"]   # not needed, implied by optional dependency
 

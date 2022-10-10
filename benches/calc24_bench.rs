@@ -53,9 +53,10 @@ fn bench_24calc(c: &mut Criterion) {
     group.finish();
 }
 
-//criterion_group!(benches, bench_24calc);
-use pprof::criterion::{PProfProfiler, Output};
-criterion_group!{
+#[cfg(not(feature = "pprof"))] criterion_group!(benches, bench_24calc);
+
+#[cfg(feature = "pprof")] use pprof::criterion::{PProfProfiler, Output};
+#[cfg(feature = "pprof")] criterion_group!{
     name = benches;
     config = Criterion::default()
         .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));

@@ -314,9 +314,8 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
 //use crate::list::List;
 //use std::collections::LinkedList as List;   // both seems lower performance than Vec
 
-//use std::collections::{HashSet, hash_map::DefaultHasher};
-use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
-//use rustc_hash::{FxHashSet as HashSet, FxHasher as DefaultHasher};
+#[cfg(feature = "ahash")] use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
+#[cfg(not(feature = "ahash"))] use std::collections::{HashSet, hash_map::DefaultHasher};
 // faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
 
 // traversely top-down divide the number set by dynamic programming
