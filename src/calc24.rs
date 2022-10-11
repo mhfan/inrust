@@ -53,13 +53,13 @@ impl<T: Integer + Copy> From<T> for RNum<T> {
     fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
 }
 
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
 #[cfg(feature = "debug")] impl<T: Integer + Copy + Display> Debug for RNum<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result { Display::fmt(self, f) }
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { Display::fmt(self, f) }
 }
 
 impl<T: Integer + Copy + Display> Display for RNum<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
         let srn = self;     //srn.reduce();
         if  srn.1.is_zero() { write!(f, r"(INV)")? } else {
             let braket = srn.0 * srn.1 < T::zero() || !srn.1.is_one();
@@ -116,8 +116,8 @@ pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr)>, op: Oper }
 //pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }  // TODO:
 // a & b refer to left & right operands
 
-/* impl Expr {
-    pub fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
+impl Expr {     //#![allow(dead_code)]
+    fn _eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
         let (an, ad) = (a.v.numer(), a.v.denom());
         let (bn, bd) = (b.v.numer(), b.v.denom());
 
@@ -129,14 +129,29 @@ pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr)>, op: Oper }
                 if *bn == 0 { return Err("Invalid divisor".to_owned()) }
                 Rational::new_raw(an * bd, ad * bn)
             }   _ => return Err("Invalid operator".to_owned()) //unreachable!()
-        };
+        };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b))), op })
+    }
 
-        Ok(Self { v, m: Some((Rc::new(a), Rc::new(b))), op })
+    fn fmt(&self, f: &mut Formatter<'_>, dbg: bool, mdu: bool) -> fmtResult {
+        if let Some((a, b)) = &self.m {
+            let op = self.op;   use Oper::*;
+            let bracket = if dbg { a.m.is_some() } else {
+                matches!(a.op, Add | Sub) && matches!(op, Mul | Div)
+            };  if bracket { write!(f, r"({a})")? } else { write!(f, r"{a}")? }
+
+            if !mdu { write!(f, r"{}", op as u8 as char)? } else {  // XXX: add space around
+                write!(f, r" {} ", match op { Mul => '×', Div => '÷', _ => op as u8 as char })?
+            }
+
+            let bracket = if dbg { b.m.is_some() } else {
+                op == Div && matches!(b.op, Mul | Div) || op != Add && matches!(b.op, Add | Sub)
+            };  if bracket { write!(f, r"({b})")? } else { write!(f, r"{b}")? }
+        } else { write!(f, r"{}", self.v)? }    Ok(())
     }
 
     //#[inline] fn is_zero(&self) -> bool { self.v.numer() == &0 }
     //#[inline] fn is_one (&self) -> bool { self.v.numer() == self.v.denom() }
-} */
+}
 
 impl Default for Expr {
     fn default() -> Self { Self { v: Rational::new_raw(0, 0), m: None, op: Oper::Num } }
@@ -149,32 +164,11 @@ impl From<Rational> for Expr {
 }
 
 #[cfg(feature = "debug")] impl Debug for Expr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if let Some((a, b)) = &self.m {
-            if a.m.is_none() { write!(f, r"{a}")?; } else { write!(f, r"({a})")?; }
-            write!(f, r"{}", self.op as u8 as char)?;
-            if b.m.is_none() { write!(f, r"{b}")?; } else { write!(f, r"({b})")?; }
-        } else { write!(f, r"{}", self.v)? }    Ok(())
-        //Display::fmt(self, f)
-    }
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, true, false) }
 }
 
 impl Display for Expr {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {  use Oper::*;
-        if let Some((a, b)) = &self.m {
-            let braket = matches!(a.op, Add | Sub) && matches!(self.op, Mul | Div);
-
-            if  braket { write!(f, r"(")? }     write!(f, r"{a}")?;
-            if  braket { write!(f, r")")? }     write!(f, r"{}", self.op as u8 as char)?;
-            //write!(f, r" {} ", self.op as u8 as char)?;   // XXX: add spaces around operator
-
-            let braket = self.op == Div && matches!(b.op, Mul | Div) ||
-                self.op != Add && matches!(b.op, Add | Sub);
-
-            if  braket { write!(f, r"(")? }     write!(f, r"{b}")?;
-            if  braket { write!(f, r")")? }
-        } else { write!(f, r"{}", self.v)? }    Ok(())
-    }
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false, false) }
 }
 
 impl PartialOrd for Expr {
