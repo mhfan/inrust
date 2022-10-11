@@ -163,11 +163,11 @@ impl From<Rational> for Expr {
     #[inline] fn from(rn: Rational) -> Self { Self { v: rn, m: None, op: Oper::Num } }
 }
 
-#[cfg(feature = "debug")] impl Debug for Expr {
+#[cfg(feature = "debug")] impl Debug for Expr {     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, true, false) }
 }
 
-impl Display for Expr {
+impl Display for Expr {     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false, false) }
 }
 
@@ -592,7 +592,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
     // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
     println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
-        r"Classic 24-game with card (T=10, J=11, Q=12, K=13, A=1)").dimmed());
+        r"Classic 24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
     loop {  deck.shuffle(&mut rng);
         let mut pos = 0usize;
@@ -617,20 +617,21 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
                 std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
 
                 let es = es.trim_end();
-                if  es.eq_ignore_ascii_case("N") {
+                if  es.eq_ignore_ascii_case("N") || es.eq("?") {
                     print!(r"{}", Paint::new(r"Solution:").dimmed());
                     exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
                     println!();     break
                 }
 
                 if  es.eq_ignore_ascii_case("quit") { return }
-                if let Ok(res) = mexe::eval(es) {
+                if mexe::eval(es).ok().and_then(|res|
                     if 24 == (res + 0.1) as i32 {
                         print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
                         exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
-                        println!(); break
-                    }
-                } else { print!(r"{} ", Paint::new(r"Tryagain:").dimmed()); }
+                        println!();     Some(24.0)
+                    } else { None }).is_some() { break } else {
+                        print!(r"{} ", Paint::new(r"Tryagain:").dimmed());
+                }
             }
         }   println!();
     }
