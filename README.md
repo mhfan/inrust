@@ -1,9 +1,9 @@
 
-# Rust study project from scratch
-
 ![Build status](https://github.com/mhfan/inrust/actions/workflows/rust.yml/badge.svg)
 [![codecov](https://codecov.io/gh/mhfan/inrust/graph/badge.svg)](https://codecov.io/gh/mhfan/inrust)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+# Rust study project from scratch
 
 A project to accumulate my knowledge about Rust programming and engineering.
 
@@ -61,7 +61,7 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + 流式 Pi 值计算
 + 命令管道
 
-# 积累和 TODO
+## 积累和 TODO
 
 + [ ] build timestamp & commit-ID
 + [ ] internationalization (i18n) with [Fluent](https://projectfluent.org)
@@ -81,9 +81,9 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [x] conditional compilation
 + [x] Rust programming
 
-# References
+## References
 
-## 24-Game Solver
+### 24-Game Solver
 
 + <https://github.com/MaigoAkisame/enumerate-expressions>
 + <https://zhuanlan.zhihu.com/p/34015231>
@@ -91,3 +91,4 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + <https://github.com/auntyellow/24>
 + <https://github.com/mhfan/smonde>
 + <https://4shu.net/theory/>
+
