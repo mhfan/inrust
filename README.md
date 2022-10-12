@@ -31,6 +31,10 @@ A project to accumulate my knowledge about Rust programming and engineering.
     16+(17-14)*(13+15)
     (17-13)*(14+15)-16
 
+![24 cards game](assets/24-cards-cmdl.jpg?raw=true)
+
+PS: 用 Yew 框架开发了一个 [在线的交互界面](https://github.com/mhfan/inyew)。
+
 ### 自上而下分集计算法 (Top-down divide)
 
 全搜索的 [计算复杂度](http://oeis.org/A140606)：
@@ -52,10 +56,10 @@ C++ 实现的上述前三种算法，在 **(Apple M1, macOS, Clang)** 上性能�
 Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，个数越多性能差异越大；
 但它们在当前的主流 PC 上计算 9-10 个数的时间都难以忍受了；
 
-## Game guess number
-
 ## Code snippet gems
 
++ Game guess number
++ single linked list
 + 简单的幂集 (powerset) 算法
 + Fibonacci 数列迭代生成器
 + 流式 Pi 值计算
@@ -91,4 +95,3 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + <https://github.com/auntyellow/24>
 + <https://github.com/mhfan/smonde>
 + <https://4shu.net/theory/>
-
