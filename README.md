@@ -51,10 +51,14 @@ _在位递归构造_ vs _复制递归构造_
 
 ### 同样的算法用 C++ 实现并对比性能
 
-C++ 实现的上述前三种算法，在 **(Apple M1, macOS, Clang)** 上性能都比 Rust 的实现 _差 5%_；可能是因为该平台架构上 Rust 的编译器优化得更好？通过 GitHub Action/workflow 的 CI 测试发现，在 **(x86_64, Ubuntu, GCC)** 上 C++ 的实现比 Rust 要 _快 ~5%_。
+C++ 实现的上述前三种算法，在 **(Apple M1, macOS, Clang)** 上性能都比 Rust 的实现 _差_；通过 GitHub Action/workflow 的 [CI 测试](https://github.com/mhfan/inrust/actions/runs/3254281354/jobs/5342349987) 观察，在 **(x86_64, Ubuntu, GCC)** 上 Rust 的实现也比 C++ 要 _快_；是因为 Rust 的 Rc 实现比 C++ 的 SharedPtr 的性能好？
 
 Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，个数越多性能差异越大；
 但它们在当前的主流 PC 上计算 9-10 个数的时间都难以忍受了；
+
+![Performance of DynProg](assets/perf-dynprog.jpg)
+![Performance in Rust](assets/perf-rust.jpg)
+![Performance in C++](assets/perf-cxx.jpg)
 
 ## Code snippet gems
 

@@ -64,7 +64,7 @@ cc = { version = "1.0", optional = true }
 
 [features]
 debug = []
-default = ["cc"] #, "ahash", "num-rational", "num-bigint"
+default = ["cc", "ahash"] #, "num-rational", "num-bigint"
 #cxx = ["dep:cxx", "dep:cxx-build"]
 #dhat-heap = ["dep:dhat"]   # not needed, implied by optional dependency
 

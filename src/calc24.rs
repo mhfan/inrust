@@ -310,7 +310,7 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
 
 #[cfg(feature = "ahash")] use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
 #[cfg(not(feature = "ahash"))] use std::collections::{HashSet, hash_map::DefaultHasher};
-// faster than std version according to https://nnethercote.github.io/perf-book/hashing.html
+// 30+% faster than std version, refer to https://nnethercote.github.io/perf-book/hashing.html
 
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
@@ -327,9 +327,9 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         //    #[cfg(feature = "debug")] eprint!(r"{e} "); e.hash(&mut hasher) });
 
         let (mut n, mut i) = (1, 0);
-        while n <= x { if n & x != 0 {
-            #[cfg(feature = "debug")] eprint!(r"{} ", nums[i]);
-            nums[i].hash(&mut hasher) }     n <<= 1;    i += 1;
+        while n <= x {  if n & x != 0 {  nums[i].hash(&mut hasher);
+                #[cfg(feature = "debug")] eprint!(r"{} ", nums[i]);
+            }   n <<= 1;    i += 1;
         }   hasher.finish()
     };
 
@@ -380,7 +380,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         ns.hash(&mut hasher);   hasher.finish()
     };
 
-    //let mut used = HashSet::new();
+    //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
 
     for x in 1..psn/2 {
@@ -524,7 +524,7 @@ pub  use Calc24Algo::*;
     nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
     // so don't needs order-independent hasher  //quicksort(nums, |a, b| a.v < b.v);    // XXX:
 
-    let mut hexp = HashSet::new();
+    let mut hexp = HashSet::default();
     let mut hash_unify = |e: Expr| {
         let mut hasher = DefaultHasher::default();  e.hash(&mut hasher);
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
@@ -742,8 +742,7 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
     impl Drop for Cstr { fn drop(&mut self) { todo!() } }
 
     let mut calc24 = Calc24IO {
-        algo, goal: Rational::new_raw(*goal.numer(), *goal.denom()),
-        //goal: unsafe { core::mem::transmute(goal) },
+        algo, goal: *goal, //unsafe { core::mem::transmute(goal) },
         nums: nums.as_ptr(), ncnt: nums.len(),
         ecnt: 0, exps: core::ptr::null_mut(),
     };
