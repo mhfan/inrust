@@ -206,8 +206,7 @@ impl PartialEq for Expr {
 
 use std::hash::{Hash, Hasher};
 impl Hash for Expr {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        //self.to_string().hash(state); return;
+    fn hash<H: Hasher>(&self, state: &mut H) {  //self.to_string().hash(state); return;
         if let Some((a, b)) = &self.m {
             (self.op as u8).hash(state);  a.hash(state);  b.hash(state);    // recursive
         } else { self.v.numer().hash(state); self.v.denom().hash(state); }
@@ -242,7 +241,6 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     }
 
     struct  Cacher<T> where T: Fn() -> bool, { calc: T, v: Option<bool>, }
-
     impl<T> Cacher<T> where T: Fn() -> bool, {
         fn new(calc: T) -> Cacher<T> { Cacher { calc, v: None, } }
 
@@ -337,13 +335,13 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         let is_final = x == psn - 1;
 
         let mut exps = vexp[x].borrow_mut();
-        for i in 1..(x+1)/2 { if x & i != i { continue }
+        for i in 1..(x+1)/2 {   if x & i != i { continue }
             let (es0, es1) = (vexp[i].borrow(), vexp[x - i].borrow());
             #[cfg(feature = "debug")] eprintln!(r"{i:08b}{} | {:08b}{}",
                 if es0.is_empty() {"X"} else {"="}, x - i, if es1.is_empty() {"X"} else {"="});
 
             let h0 = get_hash(i); if hv.contains(&h0) { // skip duplicate combinations
-                #[cfg(feature = "debug")] eprintln!(r"~ dup"); continue
+                     #[cfg(feature = "debug")] eprintln!(r"~ dup"); continue
             } else { #[cfg(feature = "debug")] eprint!(r"~ "); hv.push(h0) }
 
             let h1 = get_hash(x - i); if h1 != h0 { if hv.contains(&h1) {
@@ -390,11 +388,11 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         #[cfg(feature = "debug")] eprint!(r"{:?} ~ {:?} ", ns0, ns1);
 
         //if !all_unique {  // skip duplicate (ns0, ns1)
-        let h0 = get_hash(&ns0); if hv.contains(&h0) {
+        let h0 = get_hash(&ns0);    if hv.contains(&h0) {
             #[cfg(feature = "debug")] eprintln!(r"dup"); continue
         } else { hv.push(h0) }
 
-        let h1 = get_hash(&ns1); if h1 != h0 { if hv.contains(&h1) {
+        let h1 = get_hash(&ns1);    if h1 != h0 {   if hv.contains(&h1) {
             #[cfg(feature = "debug")] eprintln!(r"dup"); continue
             } else { hv.push(h1) }
         }   #[cfg(feature = "debug")] eprintln!(r"pick");

@@ -135,7 +135,7 @@ inline auto hash_combine(size_t lhs, auto rhs) {
 
 template <> struct std::hash<Expr> {
     auto operator()(const Expr& e) const noexcept {
-        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {
+        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  // XXX:
             return hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
         }
     }
