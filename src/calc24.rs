@@ -312,7 +312,7 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
 
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
-    each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
+    mut each_found: F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     use core::cell::RefCell;       // for interior mutability, shared ownership
     let n = nums.len();     let psn = 1 << n; // size of powerset
     let mut vexp = vec![RefCell::new(vec![]); psn];
@@ -483,7 +483,7 @@ pub  use Calc24Algo::*;
 #[inline] pub fn calc24_coll (goal: &Rational, nums: &[Rational],
     algo: Calc24Algo) -> Vec<String> {
     let mut exps = vec![];
-    calc24_algo(goal, nums, algo, &mut |e| {
+    calc24_algo(goal, nums, algo, |e| {
         exps.push(e.to_string());   Some(()) });    exps
 }
 
@@ -494,8 +494,8 @@ pub  use Calc24Algo::*;
 /// ```
 #[inline] pub fn calc24_first(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> String {
     let mut sexp = String::new();
-    calc24_algo(goal, nums, algo, &mut |e| {
-        sexp = e.to_string(); None });     sexp
+    calc24_algo(goal, nums, algo, |e| {
+        sexp = e.to_string();   None });    sexp
 }
 
 /// ```
@@ -505,12 +505,12 @@ pub  use Calc24Algo::*;
 /// ```
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
     let mut cnt = 0;
-    calc24_algo(goal, nums, algo, &mut |e| {
+    calc24_algo(goal, nums, algo, |e| {
         println!(r"{}", Paint::green(e)); cnt += 1; Some(()) });    cnt
 }
 
 #[inline] pub fn calc24_algo<F>(goal: &Rational, nums: &[Rational], algo: Calc24Algo,
-    each_found: &mut F) where F: FnMut(Expr) -> Option<()> {
+    mut each_found: F) where F: FnMut(Expr) -> Option<()> {
     if nums.len() == 1 { return if nums[0] == *goal { each_found(nums[0].into()); } }
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
@@ -529,9 +529,10 @@ pub  use Calc24Algo::*;
     };
 
     match algo {    // TODO: output/count all possible expr. forms?
-        DynProg   => { calc24_dynprog  (goal, &nums, ngoal, each_found); }
-        SplitSet  => { calc24_splitset (goal, &nums, ngoal, each_found); }
-        //SplitSet  => { futures::executor::block_on(calc24_splitset(goal, nums, each_found)); }
+        DynProg   => { calc24_dynprog  (goal, &nums, ngoal, &mut each_found); }
+        SplitSet  => { calc24_splitset (goal, &nums, ngoal, &mut each_found);
+            //futures::executor::block_on(calc24_splitset(goal, &nums, ngoal, &mut each_found));
+        }
         Inplace   => { calc24_inplace  (goal, &mut nums, ngoal, &mut hash_unify); }
         Construct => {
             calc24_construct(goal, &nums, ngoal, &mut hash_unify, 1);
@@ -541,11 +542,9 @@ pub  use Calc24Algo::*;
 
 /// ```
 /// use inrust::calc24::*;
-/// let expect = (458, 1362, 3017);
-/// assert_eq!(game24_solvable(DynProg),   expect);
-/// assert_eq!(game24_solvable(SplitSet),  expect);
-/// assert_eq!(game24_solvable(Construct), expect);
-/// assert_eq!(game24_solvable(Inplace),   expect);
+/// for algo in [ DynProg, SplitSet, Inplace, Construct ] {
+///     assert_eq!(game24_solvable(algo), (458, 1362, 3017), r"failed on algo-{algo:?}");
+/// }
 /// ```
 pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
     let (smax, goal) = (13, Rational::from(24));
@@ -724,7 +723,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
 }
 
 #[cfg(feature = "cc")] #[inline]
-pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
+pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
     #[repr(C)] struct Calc24IO {
         algo: Calc24Algo, //ia: bool,
         goal: Rational, //nums: &[Rational],
@@ -745,13 +744,14 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
         ecnt: 0, exps: core::ptr::null_mut(),
     };
 
+    //core::ptr::addr_of_mut!(calc24);
     debug_assert!(core::mem::size_of::<Rational>() == 8);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
-    extern "C" { fn calc24_algo(calc24: *mut Calc24IO); }
 
-    //core::ptr::addr_of_mut!(calc24);
-    unsafe { calc24_algo(&mut calc24);  // XXX:
-        if 0 < calc24.ecnt && !calc24.exps.is_null() {    //assert!(!calc24.exps.is_null());
+    extern "C" { fn calc24_cffi(calc24: *mut Calc24IO); }
+    unsafe {   calc24_cffi(&mut calc24);  // XXX:
+
+        if 0 < calc24.ecnt && !calc24.exps.is_null() {
             let _exps = core::slice::from_raw_parts(calc24.exps,
                 calc24.ecnt).iter().map(|es|
                 std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
@@ -767,16 +767,9 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
 
     extern "Rust" { }
 
-    unsafe extern "C++" {
-        include!("calc24.h");
-
-        //type PtrE;// = cxx::SharedPtr<Expr>;
-
-        /* CxxVector cannot hold SharePtr<_>
-        fn calc24_dynprog (goal: &Rational, nums: &CxxVector<SharedPtr<Expr>>) ->
-            UniquePtr<CxxVector<SharedPtr<Expr>>>;
-        fn calc24_splitset(goal: &Rational, nums: &CxxVector<SharedPtr<Expr>>) ->
-            UniquePtr<CxxVector<SharedPtr<Expr>>>; */
+    unsafe extern "C++" {   include!("calc24.h");
+        fn calc24_coll(goal: &Rational, nums: &CxxVector<Rational>,
+            algo: Calc24Algo) -> CxxVector<CxxString>;
     }
 }
 
@@ -845,29 +838,22 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
             let goal = goal.into();
 
-            #[cfg(feature = "cc")] {
-                let assert_closure_c = |algo| {
-                    let elen = calc24_algo_c(&goal, &nums, algo);
+            #[cfg(feature = "cc")] let assert_closure_c = |algo| {
+                    let elen = calc24_cffi(&goal, &nums, algo);
                     println!(r"  {} solutions by algo-Cxx{:?}",
                         Paint::green(elen), Paint::green(algo));
                     assert!(elen == cnt, r"Unexpect count by algo-Cxx{:?}: {} != {}",
                         Paint::magenta(algo), Paint::red(elen), Paint::cyan(cnt));
-                };
-
-                assert_closure_c(DynProg);
-                assert_closure_c(SplitSet);
-                assert_closure_c(Inplace);
-                assert_closure_c(Construct);
-            }
+            };
 
             let assert_closure = |algo| {
                 let exps = calc24_coll(&goal, &nums, algo);
 
                 exps.iter().for_each(|e| {
-                    //println!(r"  {}", Paint::green(e));
+                    //eprintln!(r"  {}", Paint::green(e));
                     if res.is_empty() { return }
                     assert!(res.contains(&e.to_string().as_str()),
-                        r"Unexpect expr. by algo-{:?}: {}", Paint::magenta(algo), Paint::red(e));
+                         r"Unexpect expr. by algo-{:?}: {}", Paint::magenta(algo), Paint::red(e));
                 });
 
                 println!(r"  {} solutions by algo-{:?}",
@@ -876,10 +862,10 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
                     Paint::magenta(algo), Paint::red(exps.len()), Paint::cyan(cnt));
             };
 
-            assert_closure(DynProg);
-            assert_closure(SplitSet);
-            assert_closure(Inplace);
-            assert_closure(Construct);
+            for algo in [ DynProg, SplitSet, Inplace, Construct ] {
+                #[cfg(feature = "cc")] assert_closure_c(algo);
+                assert_closure(algo);
+            }
 
             #[cfg(feature = "cxx")] {
                 use cxx::{/*CxxVector, */memory::SharedPtr};
@@ -889,8 +875,8 @@ pub fn calc24_algo_c(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> us
                     }
                 }
 
-                //let goal: Rational = unsafe { core::mem::transmute(goal) };
-                //ffi_cxx::calc24_dynprog(&goal, &nums);    // FIXME:
+                let goal: Rational = unsafe { core::mem::transmute(goal) };
+                let exps = ffi_cxx::calc24_coll(&goal, &nums, DynProg);     // FIXME:
             }
         });
     }

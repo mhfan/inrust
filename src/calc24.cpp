@@ -59,7 +59,7 @@ typedef struct Calc24IO {
     //const Expr* const *exps;
 }   Calc24IO;
 
-extern "C" void calc24_algo(Calc24IO* calc24);
+extern "C" void calc24_cffi(Calc24IO* calc24);
 
 #else
 #include "calc24.h"
@@ -401,7 +401,7 @@ inline size_t calc24_print(const Rational& goal, const vector<Rational>& nums,
         [&](auto&& e) { std::cout << e << std::endl; ++cnt; });    return cnt;
 }
 
-void calc24_algo(Calc24IO* calc24) {
+void calc24_cffi(Calc24IO* calc24) {
     /*assert(sizeof(calc24->algo == 1 && sizeof(bool) == 1);
     std::cerr << "algo: " << calc24->algo << ", ia: " << calc24->ia
             << ", goal: " << calc24->goal << ", nums: [";
@@ -415,7 +415,7 @@ void calc24_algo(Calc24IO* calc24) {
     list<Expr> exps;  //size_t cnt = 0;
     calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
         //std::stringstream ss; ss << e; exps.push_back(std::move(ss.str()).c_str());
-        // FIXME: how to keep data out of string lifetime?
+        // FIXME: keep data buf by customized allocator?
         exps.push_back(e);   //++cnt;
     });
 

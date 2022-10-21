@@ -20,35 +20,27 @@ fn bench_24calc(c: &mut Criterion) {
     use yansi::Paint;
     println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(&nums));
     let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
-    let (mut cnt, goal) = (0, goal.into());
+    let (goal, mut cnt) = (goal.into(), 0);
 
+  for algo in [ DynProg, Construct ] {    // XXX: SplitSet, Inplace,
     #[cfg(feature = "cc")] {
         let mut bench_closure_c = |algo| {
             group.bench_function(format!("Cxx{:?}", algo), |b|
-                b.iter(|| { cnt = calc24_algo_c(&goal, &nums, algo); }));
+                b.iter(|| { cnt = calc24_cffi(&goal, &nums, algo); }));
             if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
-        };
-
-        bench_closure_c(DynProg);
-        //bench_closure_c(SplitSet);
-        //bench_closure_c(Inplace);
-        //bench_closure_c(Construct);
+        };  bench_closure_c(algo);
     }
 
     let mut bench_closure = |algo| {
         group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
-            let mut exps = vec![];  //cnt = 0;  // XXX: cnt += 1;
-            calc24_algo(&goal, &nums, algo, &mut |e| {
-                exps.push(e);   Some(()) });    cnt = exps.len();
             //cnt = calc24_coll(&goal, &nums, algo).len();  // got same performance
+            let mut exps = vec![];  //cnt = 0;  // XXX: cnt += 1;
+            calc24_algo(&goal, &nums, algo, |e| {
+                exps.push(e);   Some(()) });    cnt = exps.len();
         }));
         if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
-    };
-
-    bench_closure(DynProg);
-    //bench_closure(SplitSet);
-    //bench_closure(Inplace);     // XXX: 6 times worse than Construct
-    //bench_closure(Construct);
+    };  bench_closure(algo);
+  }
 
     group.finish();
 }
