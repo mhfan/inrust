@@ -4,7 +4,7 @@
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 一, 10 10 2022 15:53:55 +0800       by mhfan #
+ * Last modified: 一, 24 10 2022 10:10:08 +0800       by mhfan #
  ****************************************************************/
 
 //pub mod calc24 {
@@ -522,7 +522,7 @@ pub  use Calc24Algo::*;
     nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
     // so don't needs order-independent hasher  //quicksort(nums, |a, b| a.v < b.v);    // XXX:
 
-    let mut hexp = HashSet::default();
+    let mut hexp = HashSet::new();
     let mut hash_unify = |e: Expr| {
         let mut hasher = DefaultHasher::default();  e.hash(&mut hasher);
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
