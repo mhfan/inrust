@@ -74,28 +74,24 @@ pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
 
 /// ```
 /// let str = "Hello, World!";
-/// assert_eq!(inrust::shell_pipe("echo", &[str], ""), str.to_owned() + "\n");
+/// assert_eq!(inrust::shell_pipe("echo", &[str], "").unwrap(), str.to_owned() + "\n");
 /// ```
 // https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
-pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> String {
+pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> std::io::Result<String> {
     use std::process::{Command, Stdio};
-    //use std::io::prelude::*;
 
-    let proc = match Command::new(prog)
-        .args(args).stdin(Stdio::piped()).stdout(Stdio::piped()).spawn() {
-        Err(why) => panic!("Couldn't spawn {prog}: {why}"),
-        Ok(proc) => proc,
-    };
-
-    use std::io::{Read, Write};
-    if let Err(why) = proc.stdin.unwrap().write_all(inps.as_bytes()) {
-        panic!("Couldn't write to {prog}: {why}")
-    }
-
-    let mut outs = String::new();
-    if let Err(why) = proc.stdout.unwrap().read_to_string(&mut outs) {
-        panic!("Couldn't read from {prog}: {why}")
-    }   outs
+    Command::new(prog).args(args).stdin(Stdio::piped())
+        .stdout(Stdio::piped()).spawn().and_then(|proc| {
+            use std::io::{Read, Write, Error, ErrorKind::BrokenPipe};
+            proc.stdin .ok_or_else(|| Error::from(BrokenPipe))
+                .and_then(|mut stdin| stdin.write_all(inps.as_bytes()))?;
+            proc.stdout.ok_or_else(|| Error::from(BrokenPipe))
+                .and_then(|mut stdout| {
+                    let mut outs = String::new();
+                    stdout.read_to_string(&mut outs)?;
+                    Ok(outs)
+                })
+        })
 }
 
 pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
