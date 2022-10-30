@@ -87,7 +87,7 @@ impl<T: Integer + Copy> Ord for RNum<T> {
 
 impl<T: Integer + Copy> PartialOrd for RNum<T> {
     #[inline] fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
-        /*if self.1 == 0 || rhs.1 == 0 { None } else */ Some(self.cmp(rhs))
+        /*(self.1 == T::zero() || rhs.1 == T::zero()).then_some(..)*/Some(self.cmp(rhs))
         //(self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
     }
 }

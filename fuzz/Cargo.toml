@@ -20,9 +20,8 @@ libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
 features = ["arbitrary"]
 path = ".."
 
-# Prevent this from interfering with workspaces
 [workspace]
-members = ["."]
+members = ["."] # Prevent this from interfering with workspaces
 
 [[bin]]
 name = "calc24" # because of no main.rs

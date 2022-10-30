@@ -10,7 +10,8 @@ edition = "2021"    # use 'cargo fix' to fix for compatibility with different Ru
 license = "MIT OR Apache-2.0"
 description = "Accumulate knowledge of my study on Rust language"
 #repository = "https://github.com/mhfan/inrust"
-authors = ["MeiHui FAN <mhfan@ustc.edu>"]
+#homepage = "https://mhfan.github.io/inrust"
+authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
 #readme = "README.md"
 
 #exclude = ["tests", "benches"]
@@ -18,8 +19,8 @@ authors = ["MeiHui FAN <mhfan@ustc.edu>"]
 #build = false
 
 [workspace]
-#members = ["fuzz"]
-#exclude = ["hello-wasm"]
+#members = [ "fuzz" ]   # "inslint", "inegui", "inyew" "indiox", "inperse", "intauri"
+#exclude = [ "inwasm", "cortex-m" ]
 #resolver = "2"  # default for 2021 edition?
 
 [dependencies]  # 'cargo tree', to visualize the dependency graph
@@ -87,12 +88,12 @@ opt-level = 1   # Enable a small amount of optimization in debug mode
 opt-level = 3   # Enable high optimizations for dependencies, but not for own code.
 
 [profile.release]
-incremental = true
-panic = 'abort'
+codegen-units = 1   # Perform optimizations on all codegen units.
+panic = 'abort' # Do not perform backtrace for panic on release builds.
 #opt-level = 3   # default level
 #strip = true    # Automatically strip symbols from the binary.
 #debug = true    # for flamegraph
-#lto = true
+lto = true
 
 #[profile.release-lto]  # customized profile
 #inherits = "release"

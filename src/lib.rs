@@ -8,6 +8,7 @@
 pub mod calc24;
 pub mod list;
 
+pub mod misc {
 use num_integer::Integer;
 pub struct Fibonacci<T> { curr: T, next: T }
 impl<T: Integer + Copy> Iterator for Fibonacci<T> {
@@ -22,9 +23,10 @@ impl<T: Integer + Copy> Iterator for Fibonacci<T> {
 }
 
 /// ```
-/// assert_eq!(inrust::fibonacci().nth(0), Some(1));
-/// assert_eq!(inrust::fibonacci().nth(1), Some(1));
-/// assert_eq!(inrust::fibonacci().nth(4), Some(5));
+/// use inrust::misc::fibonacci;
+/// assert_eq!(fibonacci().nth(0), Some(1));
+/// assert_eq!(fibonacci().nth(1), Some(1));
+/// assert_eq!(fibonacci().nth(4), Some(5));
 /// ```
 // Returns a Fibonacci sequence generator
 pub fn fibonacci<T: Integer + Copy>() -> Fibonacci<T> {
@@ -40,7 +42,7 @@ pub fn fibonacci<T: Integer + Copy>() -> Fibonacci<T> {
  * positional bits are flipped on in each mask.
  ```
  let set = vec![1, 2, 3];
- let psv = inrust::powerset(&set);
+ let psv = inrust::misc::powerset(&set);
  assert_eq!(psv.len(), 1 << set.len());
  vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
      .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
@@ -74,7 +76,7 @@ pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
 
 /// ```
 /// let str = "Hello, World!";
-/// assert_eq!(inrust::shell_pipe("echo", &[str], "").unwrap(), str.to_owned() + "\n");
+/// assert_eq!(inrust::misc::shell_pipe("echo", &[str], "").unwrap(), str.to_owned() + "\n");
 /// ```
 // https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
 pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> std::io::Result<String> {
@@ -126,6 +128,7 @@ pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
             t *= &l;    l += 2;     r = nr;
         }
     }
+}
 }
 
 mod m {

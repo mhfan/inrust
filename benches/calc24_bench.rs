@@ -8,7 +8,7 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 
 fn bench_24calc(c: &mut Criterion) {
-    use inrust::{fibonacci, calc24::*};
+    use inrust::{misc::fibonacci, calc24::*};
     let mut group = c.benchmark_group("calc24");
     group.sample_size(10);
 
