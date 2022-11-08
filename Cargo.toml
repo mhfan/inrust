@@ -47,6 +47,7 @@ mexe  = "0.2"   # XXX: make it support rational number?
 ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
 num-bigint   = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
+serde = { version = "1", features = [ "derive" ], optional = true }
 arbitrary = { version = "1.1", optional = true, features = ["derive"] }
 
 #cxx  = { version = "1.0", optional = true }
@@ -65,7 +66,7 @@ cc = { version = "1.0", optional = true }
 
 [features]
 debug = []
-default = ["cc", "ahash"] #, "num-rational", "num-bigint"
+default = ["cc", "ahash"] #, "serde", "num-rational", "num-bigint"
 #cxx = ["dep:cxx", "dep:cxx-build"]
 #dhat-heap = ["dep:dhat"]   # not needed, implied by optional dependency
 

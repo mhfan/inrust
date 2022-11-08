@@ -18,6 +18,7 @@ use yansi::{Paint, Color};  // Style
 #[cfg(not(feature = "num-rational"))] pub type Rational = RNum<i32>;
 #[cfg(feature = "num-rational")] pub type Rational = num_rational::Ratio<i32>;
 
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
@@ -54,7 +55,7 @@ impl<T: Integer + Copy> From<T> for RNum<T> {
 }
 
 use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
-#[cfg(feature = "debug")] impl<T: Integer + Copy + Display> Debug for RNum<T> {
+/*#[cfg(feature = "debug")] */impl<T: Integer + Copy + Display> Debug for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { Display::fmt(self, f) }
 }
 
