@@ -1,0 +1,114 @@
+
+import { Button, SpinBox, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+Game24Button := Rectangle {
+    property<string> tips;
+    property text <=> text.text;
+    property font-size <=> text.font-size;
+
+    //callback clicked <=> touch.clicked;
+    //accessible-label <=> text.text;
+    //accessible-role: button;
+
+    border-width:  0;
+    border-radius: 5px;
+    border-color: background.darker(25%);
+    background: touch.pressed ? #6b8282 : touch.has-hover ? #6c616c : white;
+    height:    text.preferred-height +  8px;
+    min-width: text.preferred-width  + 12px;
+    //horizontal-stretch: 0;
+    //  vertical-stretch: 0;
+
+    text := Text {
+        font-size: 32px;
+        x: (parent.width  - width )/2 + (touch.pressed ? 2px : 0);
+        y: (parent.height - height)/2 + (touch.pressed ? 1px : 0);
+        color: touch.pressed ? #fff : black;
+        //font-family: monospace;
+    }
+
+    touch := TouchArea {
+        Rectangle {
+            visible: parent.has-hover;
+            states [ visible when visible: { opacity: 0.8; } ]
+            transitions [ in visible: { animate opacity { duration: 175ms; delay: 700ms; } } ]
+            height: tt_l.preferred-height;
+            width:  tt_l.preferred-width;
+            x: parent.mouse-x + 12px;
+            y: parent.mouse-y + 12px;
+            border-radius: 2px;
+            background: green;
+            opacity: 0;
+            tt_l := HorizontalLayout {
+                Text { text: root.tips; }
+                padding: 3px;
+            }
+        }
+    }
+}
+
+export Game24App := Window {
+    property<[int]> nums;
+    property<int> goal: 24;
+    property<int> ncnt: 4;
+    title: "Game24";
+
+    VerticalBox {
+        HorizontalBox {
+            alignment: center;
+            property<[image]> paths: [
+                @image-url("assets/poker-modern-qr-Maze/JokerR.svg"),
+                @image-url("assets/poker-modern-qr-Maze/AS.svg"),
+                @image-url("assets/poker-modern-qr-Maze/KH.svg"),
+                @image-url("assets/poker-modern-qr-Maze/back-maze.svg"),
+            ];
+
+            for pcp in paths: Image { width: 80px; source: pcp; }
+        }
+
+        HorizontalBox {
+            alignment: center;
+
+            for rn[i] in ncnt: Game24Button {
+                text: i < nums.length ? nums[i] : "N\{i+1}";
+                tips: "Click to select/unselect\nDrag over to exchange";
+            }
+
+            btn := Game24Button {
+                text: "=?≠";
+                tips: "Click to calculate";
+
+                //if touch.has-hover: id := { }
+                //clicked => { tooltips.show(); }
+            }
+
+            Game24Button {
+                text: goal;
+                border-width: 1px;
+            }
+        }
+
+        HorizontalBox {
+            alignment: center;
+            property<[string]> ops: [ "+", "-", "×", "÷" ];
+
+            for op in ops: Game24Button {
+                text: op;
+                //font-family: monospace;
+                //padding-left: 0; padding-right: 0;
+                tips: "Click to select/unselect\nDrag over to replace";
+            }
+        }
+
+        HorizontalBox {
+            alignment: center;
+            Button { text: "Restore"; }
+            SpinBox {
+                value <=> ncnt;
+                minimum: 4;
+                maximum: 6;
+            }
+            Button { text: "Refresh"; }
+        }
+    }
+}
