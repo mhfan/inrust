@@ -1,0 +1,38 @@
+
+[package]
+name = "indiox"
+edition = "2021"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
+description = "Page for 24-Game/Puzzle/Challenge"
+repository  = "https://github.com/mhfan/indiox"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dioxus = { version = "0.2", features = ["desktop"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+dioxus = { version = "0.2", features = ["web"] }
+wasm-logger = "0.2"     # WebAssembly Debug
+
+[dependencies]
+#dioxus = { git = "https://github.com/DioxusLabs/dioxus", optional = true }
+#console_error_panic_hook = { version = "0.1", optional = true }
+#wasm-logger = { version = "0.2", optional = true }
+log = "0.4"
+
+#[features]
+#default = [ "desktop" ]    # "web" or "dioxus/desktop"
+#web = [ "dioxus/web", "dep:wasm-logger" ]  #, "dep:console_error_panic_hook"
+
+#[profile.dev]
+#incremental = true
+
+#[profile.release]
+#codegen-units = 1
+#panic = 'abort'
+#opt-level = "s"
+#lto = true
+

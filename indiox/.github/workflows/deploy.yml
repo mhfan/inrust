@@ -1,0 +1,17 @@
+
+# https://github.com/DioxusLabs/deploy-action
+name: github pages
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Dioxus Deploy"
+        uses: DioxusLabs/deploy-action@v1
+        with:
+          toolSource: "mrxiaozhuox/dioxus-cli"

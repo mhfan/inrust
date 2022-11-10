@@ -1,0 +1,38 @@
+
+# cargo install --git https://github.com/Dioxuslabs/cli
+
+[application]
+name = "indiox"     # App (Project) Name
+out_dir = "dist"    # `build` & `serve` dist path
+asset_dir = "assets"	# resource (public) file folder
+
+# Dioxus App Default Platform: desktop, web, mobile, ssr
+# XXX: Why does the env 'CARGO=...' affect 'dioxus serve' when the platform is 'desktop'?
+default_platform = "web"
+
+[web.app]
+title = "24 Puzzle"     # HTML title tag content
+#index_on_404 = true
+#base_path = "indiox"
+
+[web.watcher]
+reload_html = true  # when watcher trigger, regenerate the `index.html`
+
+# which files or dirs will be watcher monitoring
+watch_path = [ "src", "assets" ]
+
+[web.resource]  # include `assets` in web platform
+style = [ "tailwind.css" ]  # CSS style file
+script = [] # Javascript code file
+
+[web.resource.dev]
+script = [] # Javascript code file, serve: [dev-server] only
+
+[application.tools]
+# use binaryen.wasm-opt for output Wasm file
+# binaryen just will trigger in `web` platform
+binaryen = { wasm_opt = true }
+
+# default value: input = "public/tailwind.css", config = "src/tailwind.config.js"
+#tailwindcss = { input = "tailwind_base.css", config = "tailwind.config.js" }
+#tailwindcss = { input = "main.css", config = "tailwind.config.js" }
