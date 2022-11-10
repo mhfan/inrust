@@ -18,11 +18,6 @@ authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
 #build = "build.rs"     # default
 #build = false
 
-[workspace]
-#members = [ "fuzz" ]   # "inslint", "inegui", "inyew" "indiox", "inperse", "intauri"
-#exclude = [ "inwasm", "cortex-m" ]
-#resolver = "2"  # default for 2021 edition?
-
 [dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer etc.
@@ -98,4 +93,10 @@ lto = true
 
 #[profile.release-lto]  # customized profile
 #inherits = "release"
+
+[workspace]
+members = [ "inperse", "indiox", #"inyew", "inyew/src-tauri",
+	    "inslint", "inegui", ]
+#exclude = [ "inwasm", "cortex-m" ]
+#resolver = "2"  # default for 2021 edition?
 
