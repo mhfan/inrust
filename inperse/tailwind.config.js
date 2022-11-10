@@ -1,0 +1,1 @@
+../indiox/tailwind.config.js
