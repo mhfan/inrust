@@ -1,0 +1,46 @@
+
+[package]
+name = "inegui"
+version = "0.1.0"
+edition = "2021"
+#rust-version = "1.60"   # minimal supported Rust version
+#default-run = "inegui"
+license = "MIT OR Apache-2.0"
+description = "Try for egui/eframe"
+authors = ["MeiHui FAN <mhfan@ustc.edu>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+#[[bin]]
+#name = "inegui"
+#path = "src/main.rs"
+
+#[lib]
+#crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+egui = "0.19"
+eframe = { version = "0.19", features = ["persistence"] }
+serde  = { version = "1", features = ["derive"] }   # only if you want app persistence
+rfd = "0.10"    # default-features = false
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]    # native:
+tracing-subscriber = "0.3"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]         # web:
+console_error_panic_hook = "0.1"
+tracing-wasm = "0.2"
+
+#[profile.release]
+#opt-level = 2   # fast and small wasm
+
+#[patch.crates-io]   # override dependencies with other copies
+
+# If you want to use the bleeding edge version of egui and eframe:
+#egui   = { git = "https://github.com/emilk/egui", branch = "master" }
+#eframe = { git = "https://github.com/emilk/egui", branch = "master" }
+
+# If you fork https://github.com/emilk/egui you can test with:
+#egui   = { path = "../egui/crates/egui" }
+#eframe = { path = "../egui/crates/eframe" }
+
