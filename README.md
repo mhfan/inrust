@@ -33,7 +33,7 @@ A project to accumulate my knowledge about Rust programming and engineering.
 
 ![24 cards game](assets/24-cards-cmdl.jpg?raw=true)
 
-PS: 用 Yew 框架开发了一个 [在线的交互界面](https://github.com/mhfan/inyew)。
+PS: 用 [Yew](https://yew.rs) 框架开发了一个 [在线的交互界面](https://github.com/mhfan/inyew)。
 
 ### 自上而下分集计算法 (Top-down divide)
 
@@ -72,20 +72,21 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 ## 积累和 TODO
 
 + [ ] build timestamp & commit-ID
-+ [ ] internationalization (i18n) with [Fluent](https://projectfluent.org)
-+ [ ] SVG/UI/WebAssembly/XR/Game
++ [ ] SVG//XR/Game
++ [ ] concurrency
 + [ ] crates.io
 + [ ] CodeLLDB
 + [ ] C++ FFI
 + [x] doc-tests
 + [x] flamegraph
-+ [-] concurrency
 + [x] C FFI & build.rs
 + [x] benchmark/criterion
 + [x] Code coverage automatically
++ [x] cargo/crate/module/workspace organization
++ [x] internationalization (i18n) with [Fluent](https://projectfluent.org)
++ [x] UI/WebAssembly ([Yew](https://yew.rs)/[Perseus](https://framesurge.sh/perseus/en-US)/[Sycamore](https://sycamore-rs.netlify.app)/[Dioxus](https://dioxuslabs.com)/[slint](https://github.com/slint-ui/slint)/[egui](https://github.com/emilk/egui))
 + [x] Continuous Integration/Deployment (Github Action)
 + [x] Continuous (Unit/Integrate/Fuzz) Test
-+ [x] cargo/crate/module organization
 + [x] conditional compilation
 + [x] Rust programming
 
