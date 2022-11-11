@@ -547,9 +547,9 @@ pub  use Calc24Algo::*;
 ///     assert_eq!(game24_solvable(algo), (458, 1362, 3017), r"failed on algo-{algo:?}");
 /// }
 /// ```
-pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
-    let (smax, goal) = (13, Rational::from(24));
-    let mut cnt = (0, 0, 0);
+pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
+    let (smax, goal) = (13, 24.into());
+    let mut cnts = (0, 0, 0);
 
     //let mut pks = (1..=smax).collect::<Vec<_>>();
     //use rand::{thread_rng, seq::SliceRandom};
@@ -563,20 +563,21 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
             .map(|n| n.into()).collect::<Vec<_>>();     // XXX: n -> pks[n - 1]
         let exps = calc24_coll(&goal, &nums, algo);
 
-        if  exps.is_empty() { cnt.0 += 1; } else {
-            cnt.1 += 1;       cnt.2 += exps.len();
+        if  exps.is_empty() { cnts.0 += 1; } else {
+            cnts.1 += 1;      cnts.2 += exps.len() as u16;
 
             //nums.shuffle(&mut rng);
             nums.into_iter().for_each(|rn|
-                print!(r" {:2}", Paint::cyan(rn.numer())));    print!(r":");
-            exps.into_iter().for_each(|e| print!(r" {}", Paint::green(e)));
-            println!();
+                print!(r" {:2}", Paint::cyan(rn.numer())));     print!(r":");
+            exps.into_iter().for_each(|e|
+                print!(r" {}", Paint::green(e)));               println!();
         }
     }))));
 
     // "1362 sets with 3017 solutions, 458 sets unsolvable."
-    eprintln!(r"{} sets with {} solutions, {} sets unsolvable.", Paint::green(cnt.1).bold(),
-        Paint::magenta(cnt.2), Paint::yellow(cnt.0).bold());  cnt
+    eprintln!(r"{} sets with {} solutions, {} sets unsolvable.",
+        Paint::green (cnts.1).bold(), Paint::magenta(cnts.2),
+        Paint::yellow(cnts.0).bold());  cnts
 }
 
 #[cfg(not(tarpaulin_include))] pub fn game24_cards(n: usize, algo: Calc24Algo) {    // n = 4~6?
@@ -594,7 +595,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (usize, usize, usize) {
 
     loop {  deck.shuffle(&mut rng);
         let mut pos = 0usize;
-        while pos + n <  deck.len() {
+        while pos + n < deck.len() {
             let nums = deck[pos..].partial_shuffle(&mut rng,
                 n).0.iter().map(|num| {     // dealer
                 //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
