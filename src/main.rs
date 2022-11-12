@@ -9,6 +9,7 @@
 
 // https://cheats.rs
 // https://course.rs
+// https://blessed.rs/crates
 // https://doc.rust-lang.org/book/
 // https://doc.rust-lang.org/reference/
 // https://doc.rust-lang.org/rust-by-example/index.html

@@ -74,7 +74,7 @@ inline auto operator*(const Rational& lhs, const auto& rhs) noexcept {
 inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
     return 0 == rhs.d ? Rational(0, 0) : Rational(lhs.n * rhs.d,  lhs.d * rhs.n); } */
 
-inline auto operator< (const auto& lhs, const auto& rhs) noexcept {
+inline auto operator< (const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.n * rhs.d < lhs.d * rhs.n; }
 inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;

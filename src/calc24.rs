@@ -103,17 +103,18 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
     type Output = Self;
 } */
 
-#[derive(/*Debug, */Clone, Copy, PartialEq, Eq)] //struct Oper(u8);  // newtype idiom
+#[derive(/*Debug, */Clone, Copy, PartialEq, Eq)]
 #[repr(u8/*, C*/)] enum Oper { Num, Add = b'+', Sub = b'-', Mul = b'*', Div = b'/', }
-//type Oper = char;   // type alias     // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
+//type Oper = char; // type alias   // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
+//struct Oper(u8);  // newtype idiom
 
 //#[derive(Debug)] enum Value { None, Valid, R(Rational) }
 //type Value = Option<Rational>;
 
 use std::rc::Rc;
 type RcExpr = Rc<Expr>;   //*const Expr;
-//#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)]
-pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr)>, op: Oper }
+//#[derive(/*Debug, */PartialEq, Eq, PartialOrd, Ord)] //#[repr(packed(4)/*, align(4)*/)]
+pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)> }
 //pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }  // TODO:
 // a & b refer to left & right operands
 
@@ -130,14 +131,14 @@ impl Expr {     //#![allow(dead_code)]
                 if *bn == 0 { return Err("Invalid divisor".to_owned()) }
                 Rational::new_raw(an * bd, ad * bn)
             }   _ => return Err("Invalid operator".to_owned()) //unreachable!()
-        };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b))), op })
+        };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b), op)) })
     }
 
     fn fmt(&self, f: &mut Formatter<'_>, dbg: bool, mdu: bool) -> fmtResult {
-        if let Some((a, b)) = &self.m {
-            let op = self.op;   use Oper::*;
+        if let Some((a, b, op)) = &self.m {
+            let op = *op;   use Oper::*;
             let bracket = if dbg { a.m.is_some() } else {
-                matches!(a.op, Add | Sub) && matches!(op, Mul | Div)
+                matches!(a.op(), Add | Sub) && matches!(op, Mul | Div)
             };  if bracket { write!(f, r"({a})")? } else { write!(f, r"{a}")? }
 
             if !mdu { write!(f, r"{}", op as u8 as char)? } else {  // XXX: add space around
@@ -145,9 +146,14 @@ impl Expr {     //#![allow(dead_code)]
             }
 
             let bracket = if dbg { b.m.is_some() } else {
-                op == Div && matches!(b.op, Mul | Div) || op != Add && matches!(b.op, Add | Sub)
+                op == Div && matches!(b.op(), Mul | Div) ||
+                op != Add && matches!(b.op(), Add | Sub)
             };  if bracket { write!(f, r"({b})")? } else { write!(f, r"{b}")? }
         } else { write!(f, r"{}", self.v)? }    Ok(())
+    }
+
+    #[inline] fn op(&self) -> Oper { //self.op
+        if let Some((.., op)) = &self.m { *op } else { Oper::Num }
     }
 
     //#[inline] fn is_zero(&self) -> bool { self.v.numer() == &0 }
@@ -155,17 +161,17 @@ impl Expr {     //#![allow(dead_code)]
 }
 
 impl Default for Expr {
-    fn default() -> Self { Self { v: Rational::new_raw(0, 0), m: None, op: Oper::Num } }
+    fn default() -> Self { Self { v: Rational::new_raw(0, 0), m: None } }
 }
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr {
-    #[inline] fn from(rn: Rational) -> Self { Self { v: rn, m: None, op: Oper::Num } }
+    #[inline] fn from(rn: Rational) -> Self { Self { v: rn, m: None } }
 }
 
-#[cfg(feature = "debug")] impl Debug for Expr {     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, true, false) }
+#[cfg(feature = "debug")] impl Debug for Expr {
+    #[inline] fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, true, false) }
 }
 
 impl Display for Expr {     #[inline]
@@ -180,15 +186,16 @@ impl Ord for Expr {
     fn cmp(&self, rhs: &Self) -> Ordering {
         let ord = self.v.cmp(&rhs.v);
         if  ord != Ordering::Equal { return ord }
-        let ord = (self.op as u8).cmp(&(rhs.op as u8));
-        if  ord != Ordering::Equal { return ord }
 
         match (&self.m, &rhs.m) {
-            (Some((la, lb)), Some((ra, rb))) => {
+            (Some((la, lb, lop)),
+             Some((ra, rb, rop))) => {
+                let ord = (*lop as u8).cmp(&(*rop as u8));
+                if  ord != Ordering::Equal { return ord }
                 let ord = la.cmp(ra);   // recursive
                 if  ord != Ordering::Equal { return ord }   lb.cmp(rb)  // recursive
-            }   (None, None)  => Ordering::Equal, _ => unreachable!(),
-            //(None, Some(_)) => Ordering::Less, Some(_), None) => Ordering::Greater,
+            }   (None, None) => Ordering::Equal, //_ => unreachable!(),
+            (Some(_) , None) => Ordering::Greater, (None, Some(_)) => Ordering::Less,
         }
     }
 }
@@ -198,8 +205,9 @@ impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool { //self.cmp(rhs) == Ordering::Equal
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
-            (Some((la, lb)), Some((ra, rb))) =>
-                self.op == rhs.op && la == ra && lb == rb,  // recursive
+            (Some((la, lop, lb)),
+             Some((ra, rop, rb))) =>
+                lop == rop && la == ra && lb == rb,  // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v
     }
@@ -208,8 +216,8 @@ impl PartialEq for Expr {
 use std::hash::{Hash, Hasher};
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {  //self.to_string().hash(state); return;
-        if let Some((a, b)) = &self.m {
-            (self.op as u8).hash(state);  a.hash(state);  b.hash(state);    // recursive
+        if let Some((a, b, op)) = &self.m {
+            (*op as u8).hash(state);  a.hash(state);  b.hash(state);    // recursive
         } else { self.v.numer().hash(state); self.v.denom().hash(state); }
     }
 }
@@ -232,12 +240,14 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
     // ((A . B) . b) => (A . (B . b), kept right sub-tree only
+    let (aop, bop) = (a.op(), b.op());   use Oper::*;
 
     #[inline] fn found_same(e: &Expr, v: &Rational, op: Oper) -> bool {
-        e.op == op && if let Some((a, b)) = &e.m {
+        if let Some((a, b, eop)) = &e.m {
             //(if a.m.is_none() { &a.v == v } else { found_same(a, v, op) } ||
             // if b.m.is_none() { &b.v == v } else { found_same(b, v, op) })
-            &a.v == v || &b.v == v || found_same(a, v, op) || found_same(b, v, op)
+            *eop == op && (&a.v == v || &b.v == v ||
+                found_same(a, v, op) || found_same(b, v, op))   // recursive
         } else { false }
     }
 
@@ -253,53 +263,52 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     }
 
     let mut subl_cmp = Cacher::new(||
-        if let Some((ba, _)) = &b.m { ba.cmp(a) == Ordering::Less } else { false });
+        if let Some((ba, ..)) = &b.m { ba.cmp(a) == Ordering::Less } else { false });
 
-    use Oper::*;
     let op = Mul;
     // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
     // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
-    if !(a.op == op || a.op == Div || (Div == b.op && !a.v.is_one()) ||
-        (!is_final && (a.v.is_one() || b.v.is_one())) || (op == b.op && subl_cmp.get())) {
+    if !(aop == op || aop == Div || (Div == bop && !a.v.is_one()) ||
+        (!is_final && (a.v.is_one() || b.v.is_one())) || (op == bop && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
-                        m: Some((a.clone(), b.clone())), op })?;
+                        m: Some((a.clone(), b.clone(), op)) })?;
     }
 
     let op = Add;
     // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
     // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
-    if !(a.op == op || a.op == Sub || (Sub == b.op && !a.v.is_zero()) ||
-        (!is_final && (a.v.is_zero() || b.v.is_zero())) || (op == b.op && subl_cmp.get())) {
+    if !(aop == op || aop == Sub || (Sub == bop && !a.v.is_zero()) ||
+        (!is_final && (a.v.is_zero() || b.v.is_zero())) || (op == bop && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(nmd + dmn, dmd),
-                        m: Some((a.clone(), b.clone())), op })?;
+                        m: Some((a.clone(), b.clone(), op)) })?;
     }
 
     let op = Sub;   //  (b - (B - A)) => ((b + A) - B)
     // (x - 0) => (0 + x),    ((A + x) - x) is only kept in final
-    if !(a.op == op || op == b.op || a.v.is_zero() ||
+    if !(aop == op || op == bop || a.v.is_zero() ||
         (!is_final && found_same(b, &a.v, Add))) {
         if ngoal {
             new_expr(Expr { v: Rational::new_raw(nmd - dmn, dmd),
-                            m: Some((a.clone(), b.clone())), op })?;
+                            m: Some((a.clone(), b.clone(), op)) })?;
         } else {
             new_expr(Expr { v: Rational::new_raw(dmn - nmd, dmd),
-                            m: Some((b.clone(), a.clone())), op })?;
+                            m: Some((b.clone(), a.clone(), op)) })?;
         }
     }
 
     let op = Div;   //  (a / (A / B)) => ((a * B) / A)
     // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
-    if !(a.op == op || op == b.op) {
+    if !(aop == op || op == bop) {
         if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
             found_same(a, &b.v, Mul)) {
             new_expr(Expr { v: Rational::new_raw(nmd, dmn),
-                            m: Some((a.clone(), b.clone())), op })?;
+                            m: Some((a.clone(), b.clone(), op)) })?;
         }
 
         if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||   // order mattered only if a != b
              nmd == dmn || found_same(b, &a.v, Mul)) {
             new_expr(Expr { v: Rational::new_raw(dmn, nmd),
-                            m: Some((b.clone(), a.clone())), op })?;
+                            m: Some((b.clone(), a.clone(), op)) })?;
         }
     }   Some(())
 }
