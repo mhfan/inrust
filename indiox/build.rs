@@ -13,8 +13,10 @@ fn main() {
     npx tailwindcss -m -i tailwind_base.css -o dist/tailwind.css #-c tailwind.config.js #-w
 
     sh -c "[ ! -d node_modules ] && npm i; npm run build_css"
- */
 
     std::process::Command::new("npx").args(&["tailwindcss", "-m", //"-c", twcfg,
         "-i", twcss, "-o", "dist/tailwind.css"]).status().unwrap();
+ */
+
+    std::process::Command::new("npm").args(&["run", "build_css"]).status().unwrap();
 }

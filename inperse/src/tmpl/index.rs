@@ -1,7 +1,6 @@
 
-use perseus::{t, web_log, Template, RenderFnResultWithCause};
-use sycamore::{prelude::{view, View, Html, Scope}};
-use sycamore::rt::Event;
+use perseus::{t, web_log, Template, RenderFnResult, RenderFnResultWithCause};
+use sycamore::{prelude::{view, View, Html, Scope}, rt::Event};
 
 use inrust::calc24::*;
 //use instant::Instant;
@@ -24,6 +23,7 @@ impl From<RNumI32> for Rational {
     goal: Rational,
     nums: Vec<Rational>,
 
+    //#[serde(skip)]
     deck: Vec<i32>, // hold all cards number
     spos: usize,    // shuffle position
 
@@ -53,8 +53,7 @@ impl Game24 {
 }
 
 #[sycamore::component] fn _show_solutions<G: Html>(cx: Scope) -> View<G> {
-    view! { cx,
-    }
+    view! { cx, }
 }
 
 #[perseus::template_rx] pub fn index_page<'a, G: Html>(cx: Scope<'a>,
@@ -99,7 +98,7 @@ impl Game24 {
         }
     };
 
-    let num_class = "px-4 py-2 my-4 w-fit appearance-none select-text
+    let num_class  = "px-4 py-2 my-4 w-fit appearance-none select-text
         read-only:bg-transparent bg-stone-200 border border-purple-200
         text-center text-2xl text-purple-600 font-semibold
         hover:text-white hover:bg-purple-600 hover:border-transparent
@@ -114,19 +113,36 @@ impl Game24 {
     use {sycamore::rt::JsCast, web_sys::HtmlInputElement};
     use  sycamore::reactive::{create_signal, create_effect};
 
-    //web_log!("try for debugging");  // perseus snoop serve/build
+    web_log!("try for debugging");  // perseus snoop serve/build
     //let game24 = create_signal(cx, Game24::new());
     let game24 = state.game24;
-    let nlen = game24.get().nums.len();
+    let nlen = game24.get_untracked().nums.len();
 
     let cnt_vs = create_signal(cx, nlen.to_string());
-    let resolve = create_signal(cx, false);
+    let resolve  = create_signal(cx, false);
 
     create_effect(cx, || {
         let cnt = cnt_vs.get().parse::<u8>().unwrap() as usize;
-        if 9 < cnt { web_log!("too big to support: {cnt}"); return }
+        debug_assert!(cnt < 10, "too big to solve!");
         resolve.set(false);     game24.modify().dealer(cnt);
     });
+
+    let num_editable = |e: Event| if 1 == game24.get().ncnt {
+        e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap().set_read_only(false);
+        //let end = inp.value().len() as u32; inp.set_selection_range(end, end).unwrap();
+    };
+
+    let num_changed = |e: Event| {
+        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
+        if  inp.read_only() { return }
+
+        if  inp.check_validity() {  inp.set_read_only(true);
+            let mut game24 = game24.modify();
+            let val = inp.value().parse::<Rational>().unwrap();
+            if let Ok(idx) = inp.get_attribute("id").unwrap().parse::<u8>() {
+                game24.nums[idx as usize] = val } else { game24.goal = val }
+        } else if inp.focus().is_ok() { inp.select() }
+    };
 
     view! { cx,     //header { } main { } footer { }
         // <!--#include file="gh-corner.html" -->
@@ -147,11 +163,9 @@ impl Game24 {
                 "the final expression will be determined automatically." br() br()
             }
 
-            //p { (t!((*state.greeting.get()).as_str(), cx)) }
-            //a(href="about", id="about-link") { "About!" }
-
-            div(id="ops-group", data-bs-toggle="tooltip", on:change = |_| { /*ops_checked*/ },
-                title="Click to (un)check\nDrag over to replace/exchange") {
+            fieldset(id="ops-group", on:change = |_| { web_log!("TODO: ops changed"); },
+                disabled={ let game24 = game24.get(); game24.ncnt == game24.nums.len() },
+                data-bs-toggle="tooltip", title=t!("ops-tips", cx)) {
                 (View::new_fragment([ "+", "-", "×", "÷" ].into_iter().map(|op| view! { cx,
                     div(class="mx-6 my-4 inline-block") {
                         input(type="radio", id=op, value=op, name="ops", class="hidden peer")
@@ -165,11 +179,15 @@ impl Game24 {
             }
 
             div(id="expr-skel") {
-                span(id="nums-group", data-bs-toggle="tooltip", //ref=self.grp_elm.clone(),
-                    title="Click to (un)check\nDouble click to input\nDrag over to exchange",
-                    //on:dblclick=num_editable, on:click=num_checked, on:blur=num_changed,
-                ) { (View::new_fragment(game24.get().nums
-                    .iter().enumerate().map(|(idx, &num)| {
+                span(id="nums-group", //ref=self.grp_elm.clone(),
+                    data-bs-toggle="tooltip", title=t!("num-tips", cx),
+                    on:dblclick=num_editable, on:focusout=num_changed, on:click=|e: Event| {
+                        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
+                        let attr = "aria-checked";  let ts = "true";
+                        inp.set_attribute(attr, if inp.get_attribute(attr) ==
+                            Some(ts.into()) { "false" } else { ts }).unwrap();  // FIXME:
+                    }) { //Indexed(iterable = game24.get().nums, view = |cx, num| view! { ... })
+                    (View::new_fragment(game24.get().nums.iter().enumerate().map(|(idx, &num)| {
                     /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
 
                     let court = [ "T", "J", "Q", "K" ];
@@ -180,37 +198,30 @@ impl Game24 {
                         _ => "?".to_owned() }, suits[sid as usize]);     //num  // TODO: */
 
                     view! { cx, // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
-                        input(type="text", value=num.to_string(), id=format!("N{idx}"),
-                            maxlength="3", size="3", readonly=true, draggable="true",
+                        input(type="text", id=format!("N{idx}"),
+                            value=num.to_string(), name="nums",
+                            maxlength="6", size="3", readonly=true, draggable="true",
                             placeholder="?", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
-                            class=format!("{num_class} rounded-full mx-2"))
+                            class=format!("{num_class} aria-checked:ring-purple-600
+                            aria-checked:ring rounded-full mx-2"))
                     }}).collect()   // https://regexr.com
                 ))}
 
                 // data-bs-toggle="collapse" data-bs-target="#all-solutions"
                 //       aria-expanded="false" aria-controls="all-solutions"
                 button(on:dblclick = |_| resolve.set(true), //ref=self.eqm_elm.clone(),
-                    class="px-4 py-2 m-4 text-3xl font-bold rounded-md
-                    hover:outline-none hover:ring-2 hover:ring-indigo-400
-                    focus:ring-indigo-500 focus:ring-offset-2", //text-white
-                    data-bs-toggle="tooltip", title="Double click to get solutions") { "≠?" }
+                    class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2
+                    aria-checked:text-lime-500 aria-checked:ring-lime-400
+                    aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
+                    aria-[checked=false]:ring-2 hover:outline-none hover:ring-indigo-400
+                    hover:ring-2 focus:ring-indigo-500 focus:ring-offset-2", //text-white
+                    data-bs-toggle="tooltip", title=t!("get-solutions", cx)) { "≠?" }
 
-                input(type="text", id="G", value = game24.get_untracked().goal.to_string(),
-                    readonly=true, on:dblclick = |e: Event| {
-                        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
-                            inp.set_read_only(false);
-                        //let end = inp.value().len() as u32;
-                        //inp.set_selection_range(end, end).unwrap();
-                    }, on:blur = |e: Event| {
-                        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
-                        if  inp.read_only() { return }
-
-                        if  inp.check_validity() { inp.set_read_only(true);
-                            game24.modify().goal = inp.value().parse::<Rational>().unwrap();
-                        } else { inp.focus().unwrap();   inp.select(); }
-                    }, placeholder="??", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
-                    maxlength="4", size="4", class=format!("{num_class} rounded-md"),
-                    data-bs-toggle="tooltip", title="Double click to input new goal")
+                input(type="text", id="G", value=game24.get_untracked().goal.to_string(),
+                    on:dblclick=num_editable, on:blur=num_changed, readonly=true,
+                    placeholder="??", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
+                    maxlength="8", size="4", class=format!("{num_class} rounded-md"),
+                    data-bs-toggle="tooltip", title=t!("input-goal", cx))
 
                 /*style { r"
                     [contenteditable='true'].single-line {
@@ -227,41 +238,53 @@ impl Game24 {
             }   // invisible vs hidden
 
             div(id="ctrl-btns") {
-                input(type="reset", value="Restore", class=ctrl_class, //on:click=restore,
-                    data-bs-toogle="tooltip", title="Click reset to initial")
+                input(type="reset", value=t!("dismiss", cx), class=ctrl_class,
+                    on:click=|_| game24.trigger_subscribers(),  // XXX:
+                    data-bs-toogle="tooltip", title=t!("dismiss-tips", cx))
 
                 select(class=format!("{ctrl_class} appearance-none"), bind:value = cnt_vs,
-                    data-bs-toogle="tooltip", title="Click to select numbers count") {
+                    data-bs-toogle="tooltip", title=t!("change-count", cx)) {
                     (View::new_fragment((4..=6).map(|n| view! { cx,
                         option(value=n.to_string(), selected = n == nlen) {
                             (format!("{n} nums")) } }).collect() ))
                 }
-                button(class=ctrl_class, on:click = move |_| {
-                    resolve.set(false);     game24.modify().dealer(nlen);
-                }, data-bs-toogle="tooltip", title="Click to refresh new") { "Refresh" }
+                button(class=ctrl_class, on:click = |_| {  resolve.set(false);
+                    game24.modify().dealer(game24.get().nums.len());
+                }, data-bs-toogle="tooltip", title=t!("refresh-tips", cx)) { (t!("refresh", cx)) }
             }
 
-            (if *resolve.get() { view! { cx,
-                div(id="all-solutions", class="overflow-y-auto ml-auto mr-auto
-                    w-fit text-left text-lime-500 text-xl",
-                    data-bs-toggle="tooltip", title="All inequivalent solutions") {
+            (if *resolve.get() { view! { cx, ul(id="all-solutions", class="overflow-y-auto
+                    ml-auto mr-auto w-fit text-left text-lime-500 text-xl",
+                    data-bs-toggle="tooltip", title=t!("solutions", cx)) {
 
-                    (View::new_fragment({ let game24 = game24.get();
-                        calc24_coll(&game24.goal, &game24.nums, DynProg).into_iter()
-                            .map(|str| { view! { cx, (str.chars().map(|ch| match ch {
-                                '*' => '×', '/' => '÷', _ => ch }).collect::<String>()) br()
-                            }}).collect() }))
-                }}
-            } else { view! { cx, } })
+                (View::new_fragment({      let game24 = game24.get();
+                    let exps = calc24_coll(&game24.goal, &game24.nums, DynProg);
+                    let cnt = exps.len();
+
+                    exps.into_iter().map(|str| view! { cx, li { (str.chars()
+                        .map(|ch| match ch { '*' => '×', '/' => '÷', _ => ch })
+                        .collect::<String>())}}).chain(std::iter::once_with(||
+                            if 5 < cnt { view! { cx, (t!("sol-total", { "cnt" = cnt }, cx))
+                            }} else { view! { cx, } })).collect()
+                }))
+            }}} else { view! { cx, } })
         }
 
-        // XXX: move to index_view/footer?
-        p(class="m-4") { "Copyright © 2022 " a(href="https://github.com/mhfan") { "mhfan" } }
+        p(class="m-4") { span { (t!("copyright", cx)) } " by "
+            a(href="https://github.com/mhfan") { "mhfan" } } // XXX: move to index_view/footer?
     }
 }
 
-#[perseus::head] pub fn head(cx: Scope, _props: IndexPageState) -> View<perseus::SsrNode> {
+#[perseus::head] pub fn add_head(cx: Scope, _props: IndexPageState) -> View<perseus::SsrNode> {
     view! { cx, title { (t!("title", cx)) } }
+}
+
+#[cfg(not(target_arch = "wasm32"))] use perseus::Request;
+// Unlike in build state, in request state we get access to the information that
+// the user sent with their HTTP request.
+#[perseus::request_state] pub async fn get_request_state(_path: String, _locale: String,
+    _req: Request) -> RenderFnResultWithCause<IndexPageState> {
+    Ok(IndexPageState { game24: Game24::new() })
 }
 
 // This function will be run when you build your app, to generate default state ahead-of-time
@@ -280,12 +303,22 @@ impl Game24 {
     Ok(true)
 }
 
+// This just returns a vector of all the paths we want to generate for underneath `build_paths`
+// (the template's name and root path). Like for build state, this function is asynchronous,
+// so you could fetch these paths from a database or the like. Note that everything you export
+// from here will be prefixed with `<template-name>/` when it becomes a URL in your app.
+//
+// Note also that there's almost no point in using build paths without build state, as every
+// page would come out exactly the same (unless you differentiated them on the client...)
+pub async fn get_build_paths() -> RenderFnResult<Vec<String>> { Ok(vec![]) }
+
 pub fn get_template<G: Html>() -> Template<G> {
-    Template::new("index").template(index_page).head(head)
-        .build_state_fn(get_build_state).incremental_generation()
-        .should_revalidate_fn(should_revalidate)
-        //.amalgamate_states_fn(amalgamate_states)
+    Template::new("index").template(index_page).head(add_head)
         //.revalidate_after(Duration::new(5, 0))    // "5s".to_string()
-        //.request_state_fn(get_request_state)
+        //.should_revalidate_fn(should_revalidate)
+        //.amalgamate_states_fn(amalgamate_states)
+        .request_state_fn(get_request_state)
+        //.build_state_fn(get_build_state)
         //.build_paths_fn(get_build_paths)
+        .incremental_generation()
 }

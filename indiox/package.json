@@ -1,9 +1,10 @@
 {
   "scripts": {
-    "build_css": "npx tailwindcss -m -i tailwind_base.css -o dist/tailwind.css"
+    "build_css_static": "[ ! -d node_modules ] && npm i; npx tailwindcss -m -i tailwind_base.css -o static/tailwind.css",
+    "build_css": "[ ! -d node_modules ] && npm i; npx tailwindcss -m -i tailwind_base.css -o dist/tailwind.css"
   },
   "devDependencies": {
-    "tailwindcss": "^3.2.1"
+    "tailwindcss": "^3.2.4"
   },
   "dependencies": {
     "tw-elements": "^1.0.0-alpha12"

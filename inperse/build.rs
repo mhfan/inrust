@@ -12,10 +12,12 @@ fn main() {
     npx tailwindcss init  # generate a mininum tailwind.config.js
     npx tailwindcss -m -i tailwind_base.css -o static/tailwind.css #-c tailwind.config.js #-w
 
-    sh -c "[ ! -d node_modules ] && npm i; npm run build_css"
- */
+    sh -c "[ ! -d node_modules ] && npm i; npm run build_css_static"
 
     std::process::Command::new("npx").args(&["tailwindcss", "-m", //"-c", twcfg,
         "-i", twcss, "-o", "static/tailwind.css"]).status().unwrap();
+ */
+
+    std::process::Command::new("npm").args(&["run", "build_css_static"]).status().unwrap();
 }
 
