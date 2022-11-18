@@ -87,16 +87,15 @@ opt-level = 3   # Enable high optimizations for dependencies, but not for own co
 codegen-units = 1   # Perform optimizations on all codegen units.
 panic = 'abort' # Do not perform backtrace for panic on release builds.
 #opt-level = 3   # default level
-#strip = true    # Automatically strip symbols from the binary.
 #debug = true    # for flamegraph
+strip = true	# Automatically strip symbols from the binary.
 lto = true
 
 #[profile.release-lto]  # customized profile
 #inherits = "release"
 
 [workspace]
-members = [ "inperse", "indiox", #"inyew", "inyew/src-tauri",
-	    "inslint", "inegui", ]
+members = [ "inperse", "indiox" ] #"inyew", "inyew/src-tauri", #"inslint", "inegui",
 #exclude = [ "inwasm", "cortex-m" ]
 #resolver = "2"  # default for 2021 edition?
 

@@ -44,3 +44,5 @@ tracing-wasm = "0.2"
 #egui   = { path = "../egui/crates/egui" }
 #eframe = { path = "../egui/crates/eframe" }
 
+[workspace]
+

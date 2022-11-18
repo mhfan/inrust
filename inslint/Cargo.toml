@@ -46,3 +46,5 @@ wasm-bindgen-test = "0.3"
 #crate-type = ["cdylib"]
 #path = "src/main.rs"
 
+[workspace]
+
