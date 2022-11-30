@@ -11,10 +11,10 @@ repository  = "https://github.com/mhfan/indiox"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-dioxus = { version = "0.2", features = ["desktop"] }
+dioxus = { version = "0.2", features = ["desktop"] }    #, "fermi"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-dioxus = { version = "0.2", features = ["web"] }
+dioxus = { version = "0.2", features = ["web"] }        #, "fermi"
 wasm-logger = "0.2"     # WebAssembly Debug
 
 [dependencies]
@@ -22,6 +22,11 @@ wasm-logger = "0.2"     # WebAssembly Debug
 #console_error_panic_hook = { version = "0.1", optional = true }
 #wasm-logger = { version = "0.2", optional = true }
 log = "0.4"
+
+mexe = "0.2"
+rand = "0.8"
+instant = "0.1"     # git = "https://github.com/mhfan/inrust"
+inrust = { path = "..", default-features = false, features = [ "ahash" ] }  #, "cc", "serde"
 
 #[features]
 #default = [ "desktop" ]    # "web" or "dioxus/desktop"
@@ -34,5 +39,6 @@ log = "0.4"
 #codegen-units = 1
 #panic = 'abort'
 #opt-level = "s"
+#strip = true
 #lto = true
 

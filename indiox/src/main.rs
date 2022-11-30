@@ -35,9 +35,10 @@ fn app(cx: Scope) -> Element {
         focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50
         dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
-    let nums_elm = [1, 2, 4, 4] //self.nums
+    let nums_elm = [1, 2, 3, 4] //self.nums
         .iter().enumerate().map(|(idx, num)| {
         /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
+        // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
 
         let court = [ "T", "J", "Q", "K" ];
         let suits = [ "S", "C", "D", "H" ];     // "♣♦♥♠"
@@ -45,14 +46,11 @@ fn app(cx: Scope) -> Element {
             2..=9 => num.to_string(), 10..=13 => court[(num - 10) as usize].to_owned(),
             _ => "?".to_owned() }, suits[sid as usize]);     //num  // TODO: */
 
-        rsx! { // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
-            input { "type": "text", id: "N{idx}", value: "{num}", name: "nums",
-                maxlength: "6", size: "3", readonly: "true", draggable: "true",
-                placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
-                class: "{num_class} aria-checked:ring-purple-600
-                                    aria-checked:ring rounded-full mx-2",
-            }
-        }       // https://regexr.com, https://regex101.com
+        rsx! { input { "type": "text", id: "N{idx}", value: "{num}", name: "nums",
+            maxlength: "6", size: "3", readonly: "true", draggable: "true",
+            placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
+            class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring
+            rounded-full mx-2" }}  // https://regexr.com, https://regex101.com
     });
 
     rsx!(cx, //cx.render(rsx!( //render_lazy!(rsx!(
@@ -107,10 +105,9 @@ fn app(cx: Scope) -> Element {
             }
 
             div { id: "expr-skel",
-                span { id: "nums-group", "data-bs-toggle": "tooltip",
+                span { id: "nums-group", "data-bs-toggle": "tooltip", //ref: self.grp_opd.clone(),
                     title: "Click to (un)check\nDouble click to input\nDrag over to exchange",
-                    //ondblclick: num_editable.clone(), onblur: num_changed.clone(),
-                    //ref: self.grp_opd.clone(), onclick: num_checked,
+                    //ondblclick: num_editable, onblur: num_changed, onclick: num_checked,
                     nums_elm
                 }
 
@@ -132,11 +129,11 @@ fn app(cx: Scope) -> Element {
                     "data-bs-toggle": "tooltip", title: "Double click to input new goal",
                 }
 
-                /*style { r"
-                    [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
-                    [contenteditable='true'].single-line br { display: none; }
-                    [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }
-                " }*/
+            /*style { r"
+                [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
+                [contenteditable='true'].single-line br { display: none; }
+                [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }
+            " }*/
             }
 
             p { class: "hidden peer-invalid:visible relative -top-[1rem] text-red-500 font-light",
