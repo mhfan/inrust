@@ -7,13 +7,8 @@ use std::collections::VecDeque;
 use inrust::calc24::*;
 //use instant::Instant;
 
-#[perseus::make_rx(IndexPageStateRx)] pub struct IndexPageState {
-    //pub greeting: String,
-    game24: Game24,
-}
-
-use serde::{Serialize, Deserialize};
-/*#[derive(Serialize, Deserialize)] #[serde(remote = "Rational")]
+/*use serde::{Serialize, Deserialize};
+#[derive(Serialize, Deserialize)] #[serde(remote = "Rational")]
 struct RNumI32(#[serde(getter = "Rational::numer")] i32,
                #[serde(getter = "Rational::denom")] i32);
 
@@ -21,7 +16,7 @@ impl From<RNumI32> for Rational {
     fn from(rn: RNumI32) -> Self { Self::new_raw(rn.0, rn.1) }
 }*/     //#[serde(with = "RNumI32")]...
 
-#[derive(Clone, Serialize, Deserialize)] struct Game24 {
+#[perseus::make_rx(Game24StateRx)] pub struct Game24State {
     goal: Rational,
     nums: Vec<Rational>,
 
@@ -36,25 +31,28 @@ impl From<RNumI32> for Rational {
     //#[serde(skip)] opr_elm:   Option<HtmlInputElement>,
 }
 
-impl Game24 {
+impl Game24State {
     fn new() -> Self {
-        let mut game = Self { goal: 24.into(), nums: vec![],
+        let mut game24 = Self { goal: 24.into(), nums: vec![],
             deck: (0..52).collect(), spos: 0, ncnt: 1, //tnow: Instant::now(),
             //opd_elq: VecDeque::new(), //opr_elm: None,
-        };  game.dealer(4);     game
+        };  game24.nums = Game24State::dealer(4, &mut game24.deck,
+            &mut game24.spos, &game24.goal);    game24
     }
 
-    fn dealer(&mut self, n: usize) {
+    fn dealer(n: usize, deck: &mut [i32], spos: &mut usize,
+        goal: &Rational) -> Vec<Rational> {
         use rand::{thread_rng, seq::SliceRandom};
         let mut rng = thread_rng();
+        let mut nums: Vec<Rational>;
 
-        loop {  if self.spos == 0 { self.deck.shuffle(&mut rng); }
-            self.nums = self.deck[self.spos..].partial_shuffle(&mut rng,
-                n).0.iter().map(|n| Rational::from((n % 13) + 1)).collect();
-            self.spos += n; if self.deck.len() < self.spos + n { self.spos = 0; }
+        loop {  if *spos == 0 { deck.shuffle(&mut rng); }
+            nums = deck[*spos..].partial_shuffle(&mut rng, n).0
+                .iter().map(|n| Rational::from((n % 13) + 1)).collect();
+            *spos += n;     if deck.len() < *spos + n { *spos = 0; }
 
-            if !calc24_first(&self.goal, &self.nums, DynProg).is_empty() { break }
-        }   //self.tnow = Instant::now();
+            if !calc24_first(goal, &nums, DynProg).is_empty() { break }
+        }   nums    //self.tnow = Instant::now();
     }
 }
 
@@ -68,7 +66,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 }
 
 #[perseus::template_rx] pub fn index_page<'a, G: Html>(cx: Scope<'a>,
-    state: IndexPageStateRx<'a>) -> View<G> {
+    game24: Game24StateRx<'a>) -> View<G> {
     //let gh_corner = view! { cx, };
     //#[component] fn gh_corner<G: Html>(cx: Scope) -> View<G> { }
 
@@ -87,15 +85,13 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
     use sycamore::prelude::*;
 
     web_log!("try for debugging");  // perseus snoop serve/build
-    //let game24 = create_signal(cx, Game24::new());
-    let game24 = state.game24;
     let resolve  = create_signal(cx, false);
 
     let opr_elm = create_signal(cx, Option::<HtmlInputElement>::None);
     let opd_elq = create_signal(cx, VecDeque::<HtmlInputElement>::new());
     //let node_ref = create_node_ref(cx);
 
-    let num_editable = |e: Event| if 1 == game24.get().ncnt {
+    let num_editable = |e: Event| if 1 == *game24.ncnt.get() {
         e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap().set_read_only(false);
         //let end = inp.value().len() as u32; inp.set_selection_range(end, end).unwrap();
     };
@@ -105,10 +101,10 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
         if  inp.read_only() { return }
 
         if  inp.check_validity() {  inp.set_read_only(true);
-            let mut game24 = game24.modify();
+            let mut nums = game24.nums.modify();
             let val = inp.value().parse::<Rational>().unwrap();
             if let Ok(idx) = inp.get_attribute("id").unwrap().parse::<u8>() {
-                game24.nums[idx as usize] = val } else { game24.goal = val }
+                nums[idx as usize] = val } else { game24.goal.set_silent(val) }
         } else if inp.focus().is_ok() { inp.select() }
     };
 
@@ -156,7 +152,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
             fieldset(id="ops-group", on:change=|e: Event| {
                     opr_elm.set(e.target().unwrap().dyn_into::<HtmlInputElement>().ok());
                     if opd_elq.get().len() == 2 { /*form_expr();*/ }
-                }, disabled={ let game24 = game24.get(); game24.ncnt == game24.nums.len() },
+                }, disabled= *game24.ncnt.get() == game24.nums.get().len(),
                 data-bs-toggle="tooltip", title=t!("ops-tips", cx)) {
                 (View::new_fragment([ "+", "-", "×", "÷" ].into_iter().map(|op| view! { cx,
                     div(class="mx-6 my-4 inline-block") {
@@ -175,7 +171,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     data-bs-toggle="tooltip", title=t!("num-tips", cx),
                     on:dblclick=num_editable, on:focusout=num_changed, on:click=num_checked) {
                     //Indexed(iterable = game24.get().nums, view = |cx, num| view! { ... })
-                    (View::new_fragment(game24.get().nums.iter().enumerate().map(|(idx, &num)| {
+                    (View::new_fragment(game24.nums.get().iter().enumerate().map(|(idx, &num)| {
                     /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
                     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
 
@@ -204,7 +200,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     hover:ring-2 focus:ring-indigo-500 focus:ring-offset-2", //text-white
                     data-bs-toggle="tooltip", title=t!("get-solutions", cx)) { "≠?" }
 
-                input(type="text", id="G", value=game24.get_untracked().goal.to_string(),
+                input(type="text", id="G", value=game24.goal.get_untracked().to_string(),
                     on:dblclick=num_editable, on:blur=num_changed, readonly=true,
                     placeholder="??", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
                     maxlength="8", size="4", class=format!("{num_class} rounded-md"),
@@ -226,30 +222,34 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             div(id="ctrl-btns", on:click=|_| resolve.set(false)) {
                 input(type="reset", value=t!("dismiss", cx), class=ctrl_class,
-                    on:click=|_| game24.trigger_subscribers(), // XXX:
+                    on:click=|_| game24.nums.trigger_subscribers(),
                     data-bs-toogle="tooltip", title=t!("dismiss-tips", cx))
 
                 select(class=format!("{ctrl_class} appearance-none"), on:change=|e: Event| {
                         let inp = e.target().unwrap().dyn_into::<HtmlSelectElement>().unwrap();
                         let cnt = inp.value().parse::<u8>().unwrap() as usize;
                         debug_assert!(cnt < 10, "too big to solve!");
-                        game24.modify().dealer(cnt);
+
+                        let nums = Game24State::dealer(cnt, &mut game24.deck.modify(),
+                            &mut game24.spos.modify(), &game24.goal.get());
+                        game24.nums.set(nums);
                     }, data-bs-toogle="tooltip", title=t!("change-count", cx)) {
                     (View::new_fragment((4..=6).map(|n| view! { cx, option(value=n.to_string(),
-                        selected=n == game24.get_untracked().nums.len()) {
+                        selected=n == game24.nums.get_untracked().len()) {
                             (format!("{n} nums")) } }).collect() ))
                 }
                 button(class=ctrl_class, data-bs-toogle="tooltip", title=t!("refresh-tips", cx),
-                    on:click=|_| game24.modify().dealer(game24.get().nums.len())) {
-                    (t!("refresh", cx)) }
+                    on:click=|_| game24.nums.set(Game24State::dealer(game24.nums.get().len(),
+                        &mut game24.deck.modify(), &mut game24.spos.modify(),
+                        &game24.goal.get()))) { (t!("refresh", cx)) }
             }
 
             (if *resolve.get() { view! { cx, ul(id="all-solutions", class="overflow-y-auto
                     ml-auto mr-auto w-fit text-left text-lime-500 text-xl",
                     data-bs-toggle="tooltip", title=t!("solutions", cx)) {
 
-                (View::new_fragment({      let game24 = game24.get();
-                    let exps = calc24_coll(&game24.goal, &game24.nums, DynProg);
+                (View::new_fragment({
+                    let exps = calc24_coll(&game24.goal.get(), &game24.nums.get(), DynProg);
                     let cnt = exps.len();
 
                     exps.into_iter().map(|str| view! { cx, li { (str.chars()
@@ -266,7 +266,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
     }
 }
 
-#[perseus::head] pub fn add_head(cx: Scope, _props: IndexPageState) -> View<perseus::SsrNode> {
+#[perseus::head] pub fn add_head(cx: Scope, _props: Game24State) -> View<perseus::SsrNode> {
     view! { cx, title { (t!("title", cx)) } }
 }
 
@@ -274,14 +274,14 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 // Unlike in build state, in request state we get access to the information that
 // the user sent with their HTTP request.
 #[perseus::request_state] pub async fn get_request_state(_path: String, _locale: String,
-    _req: Request) -> RenderFnResultWithCause<IndexPageState> {
-    Ok(IndexPageState { game24: Game24::new() })
+    _req: Request) -> RenderFnResultWithCause<Game24State> {
+    Ok(Game24State::new())
 }
 
 // This function will be run when you build your app, to generate default state ahead-of-time
 #[perseus::build_state] pub async fn get_build_state(_path: String, _locale: String) ->
-    RenderFnResultWithCause<IndexPageState> {
-    Ok(IndexPageState { game24: Game24::new() })
+    RenderFnResultWithCause<Game24State> {
+    Ok(Game24State::new())
 }
 
 // This will run every time `.revalidate_after()` permits the page to be revalidated.
