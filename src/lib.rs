@@ -23,7 +23,7 @@ impl<T: Integer + Copy> Iterator for Fibonacci<T> {
 }
 
 /// ```
-/// use inrust::misc::fibonacci;
+/// # use inrust::misc::fibonacci;
 /// assert_eq!(fibonacci().nth(0), Some(1));
 /// assert_eq!(fibonacci().nth(1), Some(1));
 /// assert_eq!(fibonacci().nth(4), Some(5));

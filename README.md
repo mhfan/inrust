@@ -77,8 +77,7 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [ ] concurrency
 + [ ] crates.io
 + [ ] CodeLLDB
-+ [ ] C++ FFI
-+ [x] doc-tests
++ [x] C/C++ FFI
 + [x] flamegraph
 + [x] C FFI & build.rs
 + [x] benchmark/criterion
@@ -87,7 +86,7 @@ Rust/C++ 版本前一类算法都比后一类算法性能高一个数量级，�
 + [x] internationalization (i18n) with [Fluent](https://projectfluent.org)
 + [x] UI/WebAssembly ([Yew](https://yew.rs)/[Perseus](https://framesurge.sh/perseus/en-US)/[Sycamore](https://sycamore-rs.netlify.app)/[Dioxus](https://dioxuslabs.com)/[slint](https://github.com/slint-ui/slint)/[egui](https://github.com/emilk/egui))
 + [x] Continuous Integration/Deployment (Github Action)
-+ [x] Continuous (Unit/Integrate/Fuzz) Test
++ [x] Continuous (Unit/Integrate/Fuzz/Doc) Test
 + [x] conditional compilation
 + [x] Rust programming
 

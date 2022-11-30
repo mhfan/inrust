@@ -498,7 +498,7 @@ pub  use Calc24Algo::*;
 }
 
 /// ```
-/// use inrust::calc24::*;
+/// # use inrust::calc24::*;
 /// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
 /// assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned());
 /// ```
@@ -509,7 +509,7 @@ pub  use Calc24Algo::*;
 }
 
 /// ```
-/// use inrust::calc24::*;
+/// # use inrust::calc24::*;
 /// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
 /// assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
 /// ```
@@ -551,7 +551,7 @@ pub  use Calc24Algo::*;
 }
 
 /// ```
-/// use inrust::calc24::*;
+/// # use inrust::calc24::*;
 /// for algo in [ DynProg, SplitSet, Inplace, Construct ] {
 ///     assert_eq!(game24_solvable(algo), (458, 1362, 3017), r"failed on algo-{algo:?}");
 /// }
@@ -608,13 +608,12 @@ pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
             let nums = deck[pos..].partial_shuffle(&mut rng,
                 n).0.iter().map(|num| {     // dealer
                 //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
-                let (sid, mut num) = num.div_rem(&13);
-                num += 1;   //sid %= 4;
+                let (sid, mut num) = num.div_rem(&13);  num += 1;   //sid %= 4;
 
-                print!(r" {}", Paint::new(if num == 1 { "A".to_owned() }    // String::from
-                    else if num < 10 { num.to_string() } else { court[num - 10].to_owned() })
-                    .bold().bg(suits[sid]));    (num as i32).into()
-            }).collect::<Vec<_>>();     print!(r": ");  pos += n;
+                print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
+                    2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
+                    .bold().bg(suits[sid as usize]));    num.into()
+            }).collect::<Vec<_>>();     print!(r": ");   pos += n;
 
             let exps = calc24_coll(&24.into(), &nums, algo);
             if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
