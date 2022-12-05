@@ -22,48 +22,65 @@ impl From<RNumI32> for Rational {
 
     //#[serde(skip)]
     deck: Vec<i32>, // hold all cards number
-    spos: usize,    // shuffle position
+    spos: u8,       // shuffle position
 
-    ncnt: usize,
+    ncnt: u8,
     //tnow: Instant,
-
-    //#[serde(skip)] opd_elq: VecDeque<HtmlInputElement>,
-    //#[serde(skip)] opr_elm:   Option<HtmlInputElement>,
 }
 
 impl Game24State {
     fn new() -> Self {
         let mut game24 = Self { goal: 24.into(), nums: vec![],
             deck: (0..52).collect(), spos: 0, ncnt: 1, //tnow: Instant::now(),
-            //opd_elq: VecDeque::new(), //opr_elm: None,
-        };  game24.nums = Game24State::dealer(4, &mut game24.deck,
-            &mut game24.spos, &game24.goal);    game24
+            //opd_elq: VecDeque::new(), opr_elm: None,
+        };  game24.nums = dealer(4, &mut game24.deck, &mut game24.spos,
+           &game24.goal);   game24
     }
+}
 
-    fn dealer(n: usize, deck: &mut [i32], spos: &mut usize,
+    fn dealer(n: u8, deck: &mut [i32], spos: &mut u8,
         goal: &Rational) -> Vec<Rational> {
         let mut rng = rand::thread_rng();
         let mut nums: Vec<Rational>;
         use rand::seq::SliceRandom;
 
         loop {  if *spos == 0 { deck.shuffle(&mut rng); }
-            nums = deck[*spos..].partial_shuffle(&mut rng, n).0
+            nums = deck[*spos as usize..].partial_shuffle(&mut rng, n as usize).0
                 .iter().map(|n| Rational::from((n % 13) + 1)).collect();
-            *spos += n;     if deck.len() < *spos + n { *spos = 0; }
+            *spos += n;     if deck.len() < (*spos + n) as usize { *spos = 0; }
 
             if !calc24_first(goal, &nums, DynProg).is_empty() { break }
         }   nums    //self.tnow = Instant::now();
     }
-}
+
+    fn form_expr(opd: &mut VecDeque<HtmlInputElement>, opr: &mut Option<HtmlInputElement>,
+        ncnt: &mut u8, nlen: u8, goal: &Rational) -> Option<bool> {
+        let opr_ref = opr.as_ref().unwrap();
+        let str = format!("({} {} {})", opd[0].value(), opr_ref.value(), opd[1].value());
+
+        opd[1].set_size(str.len() as u32);  opd[1].set_value(&str);
+        opd.iter().for_each(|elm| set_checked(elm, false));
+        opr_ref.set_checked(false);     opd[0].set_hidden(true);
+
+        opd.clear();    *opr = None;    *ncnt += 1;     if *ncnt == nlen {
+            let str = str.chars().map(|ch|
+                match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
+
+            // XXX: works for integer goal only
+            if Rational::from((mexe::eval(str).unwrap() + 0.1) as i32) == *goal {
+                //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
+                //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
+                     Some(true)
+            } else { Some(false) }
+        }     else { None }
+    }
 
 fn set_checked(elm: &HtmlElement, checked: bool) {
     if checked { elm.   set_attribute("aria-checked", "true").unwrap();
     } else {     elm.remove_attribute("aria-checked").unwrap(); }
 }
 
-#[sycamore::component] fn _show_solutions<G: Html>(cx: Scope) -> View<G> {
-    view! { cx, }
-}
+#[sycamore::component] fn _show_solutions<G: Html>(cx: Scope) -> View<G> { view! { cx, } }
 
 #[perseus::template_rx] pub fn index_page<'a, G: Html>(cx: Scope<'a>,
     game24: Game24StateRx<'a>) -> View<G> {
@@ -86,10 +103,11 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
     web_log!("try for debugging");  // perseus snoop serve/build
     let resolve  = create_signal(cx, false);
-
     let opr_elm = create_signal(cx, Option::<HtmlInputElement>::None);
     let opd_elq = create_signal(cx, VecDeque::<HtmlInputElement>::new());
-    //let node_ref = create_node_ref(cx);
+    let eqm_state = create_signal(cx, Option::<bool>::None);
+    //let eqm_node = create_node_ref(cx);
+    //let eqm_elm = eqm_node.get::<DomNode>().unchecked_into::<HtmlElement>();
 
     let num_editable = |e: Event| if 1 == *game24.ncnt.get() {
         e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap().set_read_only(false);
@@ -110,10 +128,6 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
     let num_checked = |e: Event| {
         let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
-        //let attr = "aria-checked";  let ts = "true";
-        //inp.set_attribute(attr, if inp.get_attribute(attr) == Some(ts.into())
-        //    { "false" } else { ts }).unwrap();
-
         let mut opd = opd_elq.modify();
         let mut idx = opd.len();
         //inp.blur().unwrap();
@@ -125,7 +139,13 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             if 1 < idx { set_checked(&opd.pop_front().unwrap(), false);
             }   opd.push_back(inp);
-            if 0 < idx && opr_elm.get().is_some() { /*self.form_expr();*/ }     // XXX:
+            let mut opr = opr_elm.modify();
+
+            if 0 < idx && opr.is_some() { let eqs =
+                form_expr(&mut opd, &mut opr, &mut  game24.ncnt.modify(),
+                    game24.nums.get().len() as u8, &game24.goal.get());
+                if eqs.is_some() { eqm_state.set(eqs); }
+            }
         }
     };
 
@@ -151,9 +171,15 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
             }
 
             fieldset(id="ops-group", on:change=|e: Event| {
-                    opr_elm.set(e.target().unwrap().dyn_into::<HtmlInputElement>().ok());
-                    if opd_elq.get().len() == 2 { /*form_expr();*/ }
-                }, disabled= *game24.ncnt.get() == game24.nums.get().len(),
+                    let (mut opr, mut opd) = (opr_elm.modify(), opd_elq.modify());
+                    *opr = e.target().unwrap().dyn_into::<HtmlInputElement>().ok();
+
+                    if opd.len() == 2 { let eqs = 
+                        form_expr(&mut opd, &mut opr, &mut game24.ncnt.modify(),
+                            game24.nums.get().len() as u8, &game24.goal.get());
+                        if eqs.is_some() { eqm_state.set(eqs); }
+                    }
+                }, disabled= *game24.ncnt.get() == game24.nums.get().len() as u8,
                 data-bs-toggle="tooltip", title=t!("ops-tips", cx)) {
                 (View::new_fragment([ "+", "-", "×", "÷" ].into_iter().map(|op| view! { cx,
                     div(class="mx-6 my-4 inline-block") {
@@ -193,13 +219,17 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
                 // data-bs-toggle="collapse" data-bs-target="#all-solutions"
                 //       aria-expanded="false" aria-controls="all-solutions"
-                button(on:dblclick=|_| resolve.set(true), //ref=self.eqm_elm.clone(),
+                button(on:dblclick=|_| resolve.set(true), //ref=eqm_node,
+                    aria-checked=match *eqm_state.get() {
+                        None => "".to_owned(), Some(bl) => bl.to_string() },
                     class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2
                     aria-checked:text-lime-500 aria-checked:ring-lime-400
                     aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
                     aria-[checked=false]:ring-2 hover:outline-none hover:ring-indigo-400
                     hover:ring-2 focus:ring-indigo-500 focus:ring-offset-2", //text-white
-                    data-bs-toggle="tooltip", title=t!("get-solutions", cx)) { "≠?" }
+                    data-bs-toggle="tooltip", title=t!("get-solutions", cx)) {
+                    (match *eqm_state.get() { None => "≠?", Some(true) => "=", _ => "≠" })
+                }
 
                 input(type="text", id="G", value=game24.goal.get_untracked().to_string(),
                     on:dblclick=num_editable, on:blur=num_changed, readonly=true,
@@ -223,26 +253,28 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             div(id="ctrl-btns", on:click=|_| resolve.set(false)) {
                 input(type="reset", value=t!("dismiss", cx), class=ctrl_class,
-                    on:click=|_| game24.nums.trigger_subscribers(),
+                    on:click=|_| { eqm_state.set(None); game24.ncnt.set(1);
+                        game24.nums.trigger_subscribers(); },
                     data-bs-toogle="tooltip", title=t!("dismiss-tips", cx))
 
                 select(class=format!("{ctrl_class} appearance-none"), on:change=|e: Event| {
-                        let inp = e.target().unwrap().dyn_into::<HtmlSelectElement>().unwrap();
-                        let cnt = inp.value().parse::<u8>().unwrap() as usize;
+                        let cnt = e.target().unwrap().dyn_into::<HtmlSelectElement>()
+                            .unwrap().value().parse::<u8>().unwrap();
                         debug_assert!(cnt < 10, "too big to solve!");
 
-                        let nums = Game24State::dealer(cnt, &mut game24.deck.modify(),
-                            &mut game24.spos.modify(), &game24.goal.get());
-                        game24.nums.set(nums);
+                        game24.nums.set(dealer(cnt, &mut game24.deck.modify(),
+                            &mut game24.spos.modify(),  &game24.goal.get()));
                     }, data-bs-toogle="tooltip", title=t!("change-count", cx)) {
                     (View::new_fragment((4..=6).map(|n| view! { cx, option(value=n.to_string(),
                         selected=n == game24.nums.get_untracked().len()) {
                             (format!("{n} nums")) } }).collect() ))
                 }
                 button(class=ctrl_class, data-bs-toogle="tooltip", title=t!("refresh-tips", cx),
-                    on:click=|_| game24.nums.set(Game24State::dealer(game24.nums.get().len(),
-                        &mut game24.deck.modify(), &mut game24.spos.modify(),
-                        &game24.goal.get()))) { (t!("refresh", cx)) }
+                    on:click=|_| { eqm_state.set(None); game24.ncnt.set(1);
+                        game24.nums.set(dealer(game24.nums.get().len() as u8,
+                            &mut game24.deck.modify(), &mut game24.spos.modify(),
+                            &game24.goal.get()));
+                    }) { (t!("refresh", cx)) }
             }
 
             (if *resolve.get() { view! { cx, ul(id="all-solutions", class="overflow-y-auto
