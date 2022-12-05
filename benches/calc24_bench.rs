@@ -12,8 +12,8 @@ fn bench_24calc(c: &mut Criterion) {
     let mut group = c.benchmark_group("calc24");
     group.sample_size(10);
 
-    /*use rand::{Rng, thread_rng, distributions::Uniform};
-    let (mut rng, dst) = (thread_rng(), Uniform::new(1, 100));
+    /*use rand::{Rng, distributions::Uniform};
+    let (mut rng, dst) = (rand::thread_rng(), Uniform::new(1, 100));
     let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
     */let (goal, nums) = (24, fibonacci().skip(3).take(7).collect::<Vec<i32>>());
 

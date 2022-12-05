@@ -557,17 +557,17 @@ pub  use Calc24Algo::*;
 /// }
 /// ```
 pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
-    let (smax, goal) = (13, 24.into());
+    let (smax, goal) = (13 + 1, 24.into());
     let mut cnts = (0, 0, 0);
 
-    //let mut pks = (1..=smax).collect::<Vec<_>>();
-    //use rand::{thread_rng, seq::SliceRandom};
-    //let mut rng = thread_rng();
+    //let mut pks = (1..smax).collect::<Vec<_>>();
+    //let mut rng = rand::thread_rng();
+    //use rand::seq::SliceRandom;
     //pks.shuffle(&mut rng);
 
     // TODO: solvable for 4~6 cards?
-    (1..=smax).for_each(|a| (a..=smax).for_each(|b|       // C^52_4 = 270725
-    (b..=smax).for_each(|c| (c..=smax).for_each(|d| {     // C^(13+4-1)_4 = 1820
+    (1..smax).for_each(|a| (a..smax).for_each(|b|       // C^52_4 = 270725
+    (b..smax).for_each(|c| (c..smax).for_each(|d| {     // C^(13+4-1)_4 = 1820
         let nums = [a, b, c, d].into_iter()
             .map(|n| n.into()).collect::<Vec<_>>();     // XXX: n -> pks[n - 1]
         let exps = calc24_coll(&goal, &nums, algo);
@@ -594,8 +594,8 @@ pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
     let mut deck= (0..52).collect::<Vec<_>>();
 
-    use rand::{thread_rng, seq::SliceRandom};
-    let mut rng = thread_rng();
+    let mut rng = rand::thread_rng();
+    use rand::seq::SliceRandom;
 
     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
     // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
@@ -603,7 +603,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
         r"Classic 24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
     loop {  deck.shuffle(&mut rng);
-        let mut pos = 0usize;
+        let mut pos = 0;
         while pos + n < deck.len() {
             let nums = deck[pos..].partial_shuffle(&mut rng,
                 n).0.iter().map(|num| {     // dealer
@@ -898,11 +898,12 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
 
     #[cfg(not(tarpaulin_include))] /*#[test] #[bench] */fn _solve24_random() {
         use std::time::{Instant, Duration};
-        use rand::{Rng, thread_rng, distributions::Uniform};
+        use rand::{Rng, distributions::Uniform};
 
         let (cnt, mut total_time) = (50, Duration::from_millis(0));
         for _ in 0..cnt {
-            let (mut rng, dst) = (thread_rng(), Uniform::new(1, 20));
+            let mut rng = rand::thread_rng();
+            let dst = Uniform::new(1, 20);
 
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());

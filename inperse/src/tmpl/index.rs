@@ -42,9 +42,9 @@ impl Game24State {
 
     fn dealer(n: usize, deck: &mut [i32], spos: &mut usize,
         goal: &Rational) -> Vec<Rational> {
-        use rand::{thread_rng, seq::SliceRandom};
-        let mut rng = thread_rng();
+        let mut rng = rand::thread_rng();
         let mut nums: Vec<Rational>;
+        use rand::seq::SliceRandom;
 
         loop {  if *spos == 0 { deck.shuffle(&mut rng); }
             nums = deck[*spos..].partial_shuffle(&mut rng, n).0
@@ -116,6 +116,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
         let mut opd = opd_elq.modify();
         let mut idx = opd.len();
+        //inp.blur().unwrap();
 
         if  opd.iter().enumerate().any(|(i, elm)|
             if elm.is_same_node(Some(inp.as_ref())) { idx = i; true } else { false }) {
