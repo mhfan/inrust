@@ -47,7 +47,7 @@ impl Game24State {
         loop {  if *spos == 0 { deck.shuffle(&mut rng); }
             nums = deck[*spos as usize..].partial_shuffle(&mut rng, n as usize).0
                 .iter().map(|n| Rational::from((n % 13) + 1)).collect();
-            *spos += n;     if deck.len() < (*spos + n) as usize { *spos = 0; }
+            *spos += n;     if (deck.len() as u8) < *spos + n { *spos = 0; }
 
             if !calc24_first(goal, &nums, DynProg).is_empty() { break }
         }   nums    //self.tnow = Instant::now();
