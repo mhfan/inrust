@@ -1625,7 +1625,10 @@ name = "indiox"
 version = "0.1.0"
 dependencies = [
  "dioxus",
+ "inrust",
+ "instant",
  "log",
+ "rand",
  "wasm-logger",
 ]
 
@@ -1636,7 +1639,6 @@ dependencies = [
  "getrandom",
  "inrust",
  "instant",
- "mexe",
  "perseus",
  "perseus-warp",
  "rand",
@@ -1656,10 +1658,11 @@ dependencies = [
  "atty",
  "cc",
  "criterion",
- "mexe",
  "num-bigint",
  "num-integer",
  "num-rational",
+ "pest",
+ "pest_derive",
  "rand",
  "serde",
  "yansi",
@@ -1842,12 +1845,6 @@ checksum = "5aa361d4faea93603064a027415f07bd8e1d5c88c9fbf68bf56a285428fd79ce"
 dependencies = [
  "autocfg",
 ]
-
-[[package]]
-name = "mexe"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d518d4b4324387d6e13950c59890305e6e7e5a3e5198431bc489bb3a2846d9cd"
 
 [[package]]
 name = "mime"
@@ -2335,12 +2332,46 @@ dependencies = [
 
 [[package]]
 name = "pest"
-version = "2.4.1"
+version = "2.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a528564cc62c19a7acac4d81e01f39e53e25e17b934878f4c6d25cc2836e62f8"
+checksum = "cc8bed3549e0f9b0a2a78bf7c0018237a2cdf085eecbbc048e52612438e4e9d0"
 dependencies = [
  "thiserror",
  "ucd-trie",
+]
+
+[[package]]
+name = "pest_derive"
+version = "2.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cdc078600d06ff90d4ed238f0119d84ab5d43dbaad278b0e33a8820293b32344"
+dependencies = [
+ "pest",
+ "pest_generator",
+]
+
+[[package]]
+name = "pest_generator"
+version = "2.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28a1af60b1c4148bb269006a750cff8e2ea36aff34d2d96cf7be0b14d1bed23c"
+dependencies = [
+ "pest",
+ "pest_meta",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "pest_meta"
+version = "2.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fec8605d59fc2ae0c6c1aefc0c7c7a9769732017c0ce07f7a9cfffa7b4404f20"
+dependencies = [
+ "once_cell",
+ "pest",
+ "sha1",
 ]
 
 [[package]]
