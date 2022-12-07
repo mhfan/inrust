@@ -99,8 +99,7 @@ impl<T: Integer + Copy> PartialEq  for RNum<T> {
 }
 
 /* impl<T: Integer + Copy> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
-    fn add(self, rhs: Self) -> Self::Output { todo!() }
-    type Output = Self;
+    fn add(self, rhs: Self) -> Self::Output { todo!() }     type Output = Self;
 } */
 
 #[derive(/*Debug, */Clone, Copy, PartialEq, Eq)]
@@ -119,7 +118,8 @@ pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)> }
 // a & b refer to left & right operands
 
 impl Expr {     //#![allow(dead_code)]
-    fn _eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
+    #[inline] pub fn value(&self) -> &Rational { &self.v }
+    fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, ExprError> {
         let (an, ad) = (a.v.numer(), a.v.denom());
         let (bn, bd) = (b.v.numer(), b.v.denom());
 
@@ -128,9 +128,9 @@ impl Expr {     //#![allow(dead_code)]
             '-' => { op = Oper::Sub; Rational::new_raw(an * bd - ad * bn, ad * bd) }
             '*' | '×' => { op = Oper::Mul; Rational::new_raw(an * bn, ad * bd) }
             '/' | '÷' => { op = Oper::Div;  //assert_ne!(bn, &0);
-                if *bn == 0 { return Err("Invalid divisor".to_owned()) }
+                if *bn == 0 { return Err(ExprError("Invalid divisor".to_owned())) }
                 Rational::new_raw(an * bd, ad * bn)
-            }   _ => return Err("Invalid operator".to_owned()) //unreachable!()
+            }   _ => return Err(ExprError("Invalid operator".to_owned())) //unreachable!()
         };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b), op)) })
     }
 
@@ -176,6 +176,53 @@ impl From<Rational> for Expr {
 
 impl Display for Expr {     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false, false) }
+}
+
+#[derive(Debug)] pub struct ExprError(String);
+impl From<std::num::ParseIntError> for ExprError {
+    fn from(err: std::num::ParseIntError)  -> Self { ExprError(err.to_string()) }
+}
+
+use {pest::Parser, pest_derive::Parser};
+#[derive(Parser)] #[grammar = "arith_expr.pest"] struct ArithExpr;
+
+impl From<pest::error::Error<Rule>> for ExprError {
+    fn from(err: pest::error::Error<Rule>) -> Self { ExprError(err.to_string()) }
+}
+
+/// ```
+/// # use inrust::calc24::{Expr, Rational};
+/// let es = "((0 + 1 * 2 + 3) * 1 * 2 - (4 / (5/-6) / 8 + 7) - 9 + 10)"; // = 23/5
+/// assert_eq!(es.parse::<Expr>().unwrap().value(), &Rational::new_raw(23, 5));
+/// ```
+impl FromStr for Expr {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        fn build_expr_ast(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ExprError> {
+            let mut ex = Option::<Expr>::None;
+            let mut op = Option::<char>::None;
+
+            for pair in pair.into_inner() {
+                let rule = pair.as_rule();  match rule {
+                    Rule::integer | Rule::expr | Rule::sum | Rule::product | Rule::value => {
+                        let e = if rule == Rule::integer {
+                            Rational::from(pair.as_str().parse::<i32>()?).into()
+                        } else { build_expr_ast(pair)? };
+
+                        if let Some(a) = ex {
+                            ex = Some(Expr::eval(a, e, op.unwrap())?);  op = None;
+                        } else { ex = Some(e); }
+                    }
+
+                    Rule::add | Rule::sub | Rule::mul | Rule::div =>
+                        op = pair.as_str().chars().next(),
+                    Rule::WHITESPACE | Rule::EOI => continue,
+                }
+            }   Ok(ex.unwrap())
+        }
+
+        //pest::state::<Rule, _>(s, |s| { Ok(s)}).unwrap();     // XXX:
+        build_expr_ast(ArithExpr::parse(Rule::expr, s)?.next().unwrap())
+    }   type Err = ExprError;
 }
 
 impl PartialOrd for Expr {
@@ -602,6 +649,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
     println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
         r"Classic 24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
+    let goal = 24.into();
     loop {  deck.shuffle(&mut rng);
         let mut pos = 0;
         while pos + n < deck.len() {
@@ -615,7 +663,7 @@ pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
                     .bold().bg(suits[sid as usize]));    num.into()
             }).collect::<Vec<_>>();     print!(r": ");   pos += n;
 
-            let exps = calc24_coll(&24.into(), &nums, algo);
+            let exps = calc24_coll(&goal, &nums, algo);
             if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
 
             loop {  use std::io::Write;
@@ -631,14 +679,11 @@ pub fn game24_solvable(algo: Calc24Algo) -> (u16, u16, u16) {
                 }
 
                 if  es.eq_ignore_ascii_case("quit") { return }
-                if mexe::eval(es).ok().and_then(|res|
-                    if 24 == (res + 0.1) as i32 {
-                        print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
-                        exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
-                        println!();     Some(24.0)
-                    } else { None }).is_some() { break } else {
-                        print!(r"{} ", Paint::new(r"Tryagain:").dimmed());
-                }
+                if  es.parse::<Expr>().unwrap().value() == &goal {
+                    print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
+                    exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
+                    println!();
+                } else { print!(r"{} ", Paint::new(r"Tryagain:").dimmed()); }
             }
         }   println!();
     }

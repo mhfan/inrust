@@ -17,7 +17,8 @@
             .last().unwrap().split(' ').for_each(|str| if !str.is_empty() {
                 //let str = str.chars.map(|ch|
                 //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
-                assert_eq!((mexe::eval(str).unwrap() + 0.1) as i32, 24, "failed at: `{str}'");
+                assert_eq!(str.parse::<Expr>().unwrap().value(),
+                    &24.into(), "failed at: `{str}'");
             }));    // split_ascii_whitespace
 
     let mut cnt = (0, 0);   // https://4shu.net/solutions/allsolutions/

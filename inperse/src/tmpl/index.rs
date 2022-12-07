@@ -66,8 +66,7 @@ impl Game24State {
             let str = str.chars().map(|ch|
                 match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
 
-            // XXX: works for integer goal only
-            if Rational::from((mexe::eval(str).unwrap() + 0.1) as i32) == *goal {
+            if str.parse::<Expr>().unwrap().value() == goal {
                 //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
                 //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
                      Some(true)

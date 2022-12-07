@@ -26,7 +26,9 @@ num-integer = "0.1"
 yansi = "0.5"
 atty  = "0.2"
 
-mexe  = "0.2"   # XXX: make it support rational number?
+pest  = "2.5"
+pest_derive = "2.5"
+#mexe  = "0.2"   # XXX: make it support rational number?
 #float_eq  = "1"
 #float-cmp = "0.9"
 

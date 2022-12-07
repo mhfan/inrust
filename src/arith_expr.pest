@@ -1,0 +1,32 @@
+
+//  https://pest.rs https://pest.rs/book/precedence.html
+//  https://en.wikipedia.org/wiki/Parsing_expression_grammar
+
+    expr        =  { SOI ~ sum ~ NEWLINE* ~ EOI }
+    sum         =  { product ~ ((add | sub) ~ product)* }
+    product     =  { value   ~ ((mul | div) ~   value)* }
+//  power       =  { value ~ (pow ~ power)? }   // exponential
+//  factorial   = @{ value ~ fac }
+//  negation    = @{ neg ~ value }
+//  rational    = @{ "("  ~ integer ~ "/" ~ integer ~ ")" }
+    value       =  { integer | ("(" ~ sum ~ ")") }
+    integer     = @{ "-"? ~ ('0'..'9')+ }
+    WHITESPACE  = _{ " " | "\t" }
+
+        add =  { "+" } // Addition
+        sub =  { "-" } // Subtraction
+        mul =  { "*" } // Multiplication
+        div =  { "/" } // Division
+//      pow =  { "^" } // Exponentiation
+//      neg =  { "-" } // Negation
+//      fac =  { "!" } // Factorial
+
+//  main    =  { SOI ~ expr ~ EOI }
+//  expr    =  { prefix* ~ primary ~ postfix* ~ (infix ~ prefix* ~ primary ~ postfix*)* }
+//  infix   = _{ add | sub | mul | div | pow }
+//  postfix = _{ fac }
+//  prefix  = _{ neg }
+//  primary = _{ int | "(" ~ expr ~ ")" }
+//  int     = @{ (ASCII_NONZERO_DIGIT ~ ASCII_DIGIT+ | ASCII_DIGIT) }
+//  WHITESPACE  = _{ " " | "\t" | NEWLINE }
+

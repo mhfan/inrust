@@ -16,7 +16,6 @@ perseus  = { version = "=0.4.0-beta.11", features = [ "hydrate", "translator-flu
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
 
-mexe = "0.2"
 rand = "0.8"
 instant = "0.1"     # git = "https://github.com/mhfan/inrust"
 inrust = { path = "..", default-features = false, features = [ "ahash", "serde" ] }  # "cc"

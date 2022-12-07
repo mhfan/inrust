@@ -23,7 +23,6 @@ wasm-logger = "0.2"     # WebAssembly Debug
 #wasm-logger = { version = "0.2", optional = true }
 log = "0.4"
 
-mexe = "0.2"
 rand = "0.8"
 instant = "0.1"     # git = "https://github.com/mhfan/inrust"
 inrust = { path = "..", default-features = false, features = [ "ahash" ] }  #, "cc", "serde"
