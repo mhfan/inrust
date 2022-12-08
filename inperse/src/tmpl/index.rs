@@ -66,12 +66,10 @@ impl Game24State {
             let str = str.chars().map(|ch|
                 match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
 
-            if str.parse::<Expr>().unwrap().value() == goal {
-                //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
-                //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
-                     Some(true)
-            } else { Some(false) }
-        }     else { None }
+            //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
+            //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
+            Some(str.parse::<Expr>().unwrap().value() == goal)
+        } else { None }
     }
 
 fn set_checked(elm: &HtmlElement, checked: bool) {

@@ -15,8 +15,8 @@
 
         add =  { "+" } // Addition
         sub =  { "-" } // Subtraction
-        mul =  { "*" } // Multiplication
-        div =  { "/" } // Division
+        mul =  { "*" } // Multiplication | "×"
+        div =  { "/" } // Division       | "÷"
 //      pow =  { "^" } // Exponentiation
 //      neg =  { "-" } // Negation
 //      fac =  { "!" } // Factorial

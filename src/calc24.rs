@@ -850,8 +850,8 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
 
 //}
 
-#[cfg(test)] mod tests {    // unit test
-    use super::*;   // Need to import items from parent module, to access non-public members.
+#[cfg(test)] mod tests {    use super::*;   // unit test
+    // Need to import items from parent module, to access non-public members.
 
     #[test] fn parse_disp_rn() {
         let cases = [
