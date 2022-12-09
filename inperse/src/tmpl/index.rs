@@ -38,39 +38,39 @@ impl Game24State {
     }
 }
 
-    fn dealer(n: u8, deck: &mut [i32], spos: &mut u8,
-        goal: &Rational) -> Vec<Rational> {
-        let mut rng = rand::thread_rng();
-        let mut nums: Vec<Rational>;
-        use rand::seq::SliceRandom;
+fn dealer(n: u8, deck: &mut [i32], spos: &mut u8,
+    goal: &Rational) -> Vec<Rational> {
+    let mut rng = rand::thread_rng();
+    let mut nums: Vec<Rational>;
+    use rand::seq::SliceRandom;
 
-        loop {  if *spos == 0 { deck.shuffle(&mut rng); }
-            nums = deck[*spos as usize..].partial_shuffle(&mut rng, n as usize).0
-                .iter().map(|n| Rational::from((n % 13) + 1)).collect();
-            *spos += n;     if (deck.len() as u8) < *spos + n { *spos = 0; }
+    loop {  if *spos == 0 { deck.shuffle(&mut rng); }
+        nums = deck[*spos as usize..].partial_shuffle(&mut rng, n as usize).0
+            .iter().map(|n| Rational::from((n % 13) + 1)).collect();
+        *spos += n;     if (deck.len() as u8) < *spos + n { *spos = 0; }
 
-            if !calc24_first(goal, &nums, DynProg).is_empty() { break }
-        }   nums    //self.tnow = Instant::now();
-    }
+        if !calc24_first(goal, &nums, DynProg).is_empty() { break }
+    }   nums    //self.tnow = Instant::now();
+}
 
-    fn form_expr(opd: &mut VecDeque<HtmlInputElement>, opr: &mut Option<HtmlInputElement>,
-        ncnt: &mut u8, nlen: u8, goal: &Rational) -> Option<bool> {
-        let opr_ref = opr.as_ref().unwrap();
-        let str = format!("({} {} {})", opd[0].value(), opr_ref.value(), opd[1].value());
+fn form_expr(opd: &mut VecDeque<HtmlInputElement>, opr: &mut Option<HtmlInputElement>,
+    ncnt: &mut u8, nlen: u8, goal: &Rational) -> Option<bool> {
+    let opr_ref = opr.as_ref().unwrap();
+    let str = format!("({} {} {})", opd[0].value(), opr_ref.value(), opd[1].value());
 
-        opd[1].set_size(str.len() as u32);  opd[1].set_value(&str);
-        opd.iter().for_each(|elm| set_checked(elm, false));
-        opr_ref.set_checked(false);     opd[0].set_hidden(true);
+    opd[1].set_size(str.len() as u32);  opd[1].set_value(&str);
+    opd.iter().for_each(|elm| set_checked(elm, false));
+    opr_ref.set_checked(false);     opd[0].set_hidden(true);
 
-        opd.clear();    *opr = None;    *ncnt += 1;     if *ncnt == nlen {
-            let str = str.chars().map(|ch|
-                match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
+    opd.clear();    *opr = None;    *ncnt += 1;     if *ncnt == nlen {
+        let str = str.chars().map(|ch|
+            match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
 
-            //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
-            //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
-            Some(str.parse::<Expr>().unwrap().value() == goal)
-        } else { None }
-    }
+        //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
+        //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
+        Some(str.parse::<Expr>().unwrap().value() == goal)
+    } else { None }
+}
 
 fn set_checked(elm: &HtmlElement, checked: bool) {
     if checked { elm.   set_attribute("aria-checked", "true").unwrap();

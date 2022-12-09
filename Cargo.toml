@@ -90,7 +90,7 @@ codegen-units = 1   # Perform optimizations on all codegen units.
 panic = 'abort' # Do not perform backtrace for panic on release builds.
 #opt-level = 3   # default level
 #debug = true    # for flamegraph
-strip = true	# Automatically strip symbols from the binary.
+#strip = true	# Automatically strip symbols from the binary.
 lto = true
 
 #[profile.release-lto]  # customized profile
