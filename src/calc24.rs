@@ -286,7 +286,7 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     // XXX: check overflow and reduce?
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
-    // ((A . B) . b) => (A . (B . b), kept right sub-tree only
+    // ((A . B) . b) => (A . (B . b)), kept right sub-tree only
     let (aop, bop) = (a.op(), b.op());   use Oper::*;
 
     #[inline] fn found_same(e: &Expr, v: &Rational, op: Oper) -> bool {

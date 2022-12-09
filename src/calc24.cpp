@@ -151,7 +151,7 @@ inline bool found_same(const auto& e, const auto& v, const Oper op) {
 
 // several pruning rules to find inequivalent/unique expressions only
 void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&& new_expr) {
-    // ((A . B) . b) => (A . (B . b), kept right sub-tree only
+    // ((A . B) . b) => (A . (B . b)), kept right sub-tree only
     const auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     const auto dmd = a->v.d * b->v.d;   Oper op;
     // XXX: check overflow and reduce?
