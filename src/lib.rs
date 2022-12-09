@@ -162,7 +162,7 @@ use proc_macro::TokenStream;
 //static BUILD_TIME: Lazy<DateTime<Utc>> = Lazy::new(Utc::now);
 
 #[proc_macro] pub fn build_time(input: TokenStream) -> TokenStream {
-    let current = chrono::Local::now();
+    let current = chrono::Local::now(); //BUILD_TIME;
     let timestr = if input.is_empty() { current.to_rfc3339() } else {
         let fmtstr = syn::parse_macro_input!(input as syn::LitStr);
         //let fmtstr: syn::LitStr = syn::parse(input).unwrap();

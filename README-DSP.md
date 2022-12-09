@@ -19,7 +19,10 @@
 * [fast_fp](https://github.com/standard-ai/fast_fp)
 
 * [Streamlining Digital Signal Processing: A Tricks of the Trade Guidebook](https://ieeexplore.ieee.org/book/6241055)
-* [https://crates.io/crates/fixed/reverse_dependencies]
-* [https://lib.rs/keywords/fixed]
+* <https://crates.io/crates/fixed/reverse_dependencies>
+* <https://lib.rs/keywords/fixed>
+
+* [RustFFT](https://github.com/ejmahler/RustFFT)
+* <https://www.integral-calculator.com>
 
 ***Keeps simple things simple and makes complex things possible.***

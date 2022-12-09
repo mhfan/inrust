@@ -211,6 +211,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-time"
+version = "0.1.2"
+source = "git+https://github.com/AlephAlpha/build-time#b86e76ffbc506c694a5ff0e75dc26345727fd9dc"
+dependencies = [
+ "chrono",
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1656,6 +1668,7 @@ dependencies = [
  "ahash 0.8.0",
  "arbitrary",
  "atty",
+ "build-time",
  "cc",
  "criterion",
  "num-bigint",

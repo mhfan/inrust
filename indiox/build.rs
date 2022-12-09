@@ -6,7 +6,6 @@ fn main() {
     println!("cargo:rerun-if-changed={twcfg}");
     println!("cargo:rerun-if-changed={twcss}");
     println!("cargo:rerun-if-changed=src/");
-    //println!("cargo:rerun-if-changed=build.rs");    // XXX: prevent re-run indead
 
 /*  npm install -D tailwindcss; npm install tw-elements
     npx tailwindcss init  # generate a mininum tailwind.config.js
@@ -18,5 +17,6 @@ fn main() {
         "-i", twcss, "-o", "dist/tailwind.css"]).status().unwrap();
  */
 
-    std::process::Command::new("npm").args(&["run", "build_css"]).status().unwrap();
+    std::process::Command::new("npm").args(["run", "build_css"]).status().unwrap();
+    //println!("cargo:rerun-if-changed=build.rs");    // XXX: prevent re-run indead
 }
