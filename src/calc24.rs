@@ -783,7 +783,7 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
         let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
         if let Some(&first) = nums.peek() {
-            if first.starts_with(&['g', 'G']) {
+            if first.starts_with(['g', 'G']) {
                 match first[1..].parse::<Rational>() {
                     Ok(_goal) => {  goal = _goal;
                         println!(r"### Reset GOAL to {} ###", Paint::magenta(&goal).bold());

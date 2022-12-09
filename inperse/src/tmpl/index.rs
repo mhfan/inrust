@@ -38,8 +38,7 @@ impl Game24State {
     }
 }
 
-fn dealer(n: u8, deck: &mut [i32], spos: &mut u8,
-    goal: &Rational) -> Vec<Rational> {
+fn dealer(n: u8, deck: &mut [i32], spos: &mut u8, goal: &Rational) -> Vec<Rational> {
     let mut rng = rand::thread_rng();
     let mut nums: Vec<Rational>;
     use rand::seq::SliceRandom;
