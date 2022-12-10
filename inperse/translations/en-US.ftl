@@ -15,6 +15,7 @@ change-count = {click} to select numbers count
 get-solutions = Double click to get solutions
 input-goal = Double click to input new goal
 solutions = All inequivalent solutions
+time-calc = Time for calculation
 drag-over = Drag over to replace/exchange
 ops-tips = {click-check}
            {drag-over}

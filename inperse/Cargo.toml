@@ -16,9 +16,9 @@ perseus  = { version = "=0.4.0-beta.11", features = [ "hydrate", "translator-flu
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
 
-rand = "0.8"
-instant = "0.1"     # git = "https://github.com/mhfan/inrust"
+rand = "0.8"    # git = "https://github.com/mhfan/inrust",
 inrust = { path = "..", default-features = false, features = [ "ahash", "serde" ] }  # "cc"
+instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]    # Engine-only dependencies go here
 tokio = { version = "1", features = [ "macros", "rt", "rt-multi-thread" ] }
@@ -27,7 +27,6 @@ perseus-warp = { version = "=0.4.0-beta.11", features = [ "dflt-server" ] }
 # perseus-(integration, warp, axum, actix-web)
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]     # Browser-only dependencies go here
-#instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 getrandom = { version = "0.2", features = [ "js" ] }
 #wee_alloc = "0.4"
 

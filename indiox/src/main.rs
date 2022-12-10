@@ -159,6 +159,9 @@ fn app(cx: Scope) -> Element {
                 }
             }
 
+            div { id: "timer", class: "mx-1 font-sans text-yellow-600 absolute left-0",
+                "data-bs-toggle": "tooltip", title: "Time for calculation", }
+
             // XXX: resolve.then(|| rsx! {})
             div { id: "all-solutions", //ref: self.sol_elm.clone(),
                 class: "overflow-y-auto ml-auto mr-auto w-fit text-left text-lime-500 text-xl",

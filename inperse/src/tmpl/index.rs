@@ -5,7 +5,7 @@ use web_sys::{HtmlElement, HtmlInputElement, HtmlSelectElement};
 use std::collections::VecDeque;
 
 use inrust::calc24::*;
-//use instant::Instant;
+use instant::Instant;
 
 /*use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize)] #[serde(remote = "Rational")]
@@ -25,16 +25,14 @@ impl From<RNumI32> for Rational {
     spos: u8,       // shuffle position
 
     ncnt: u8,
-    //tnow: Instant,
 }
 
 impl Game24State {
-    fn new() -> Self {
-        let mut game24 = Self { goal: 24.into(), nums: vec![],
-            deck: (0..52).collect(), spos: 0, ncnt: 1, //tnow: Instant::now(),
-            //opd_elq: VecDeque::new(), opr_elm: None,
-        };  game24.nums = dealer(4, &mut game24.deck, &mut game24.spos,
-           &game24.goal);   game24
+    fn new() -> Self {      //(1..=4).map(Rational::from).collect(),
+        let mut game24 = Self {  goal: 24.into(), nums: vec![],
+            deck: (0..52).collect(), spos: 0, ncnt: 1,
+        };  game24.nums = dealer(4, &mut game24.deck, &mut game24.spos, &game24.goal);
+            game24
     }
 }
 
@@ -49,11 +47,11 @@ fn dealer(n: u8, deck: &mut [i32], spos: &mut u8, goal: &Rational) -> Vec<Ration
         *spos += n;     if (deck.len() as u8) < *spos + n { *spos = 0; }
 
         if !calc24_first(goal, &nums, DynProg).is_empty() { break }
-    }   nums    //self.tnow = Instant::now();
+    }   nums
 }
 
 fn form_expr(opd: &mut VecDeque<HtmlInputElement>, opr: &mut Option<HtmlInputElement>,
-    ncnt: &mut u8, nlen: u8, goal: &Rational) -> Option<bool> {
+    ncnt: &mut u8, nlen: u8, goal: &Rational) -> Option<bool> {     // XXX:
     let opr_ref = opr.as_ref().unwrap();
     let str = format!("({} {} {})", opd[0].value(), opr_ref.value(), opd[1].value());
 
@@ -64,9 +62,6 @@ fn form_expr(opd: &mut VecDeque<HtmlInputElement>, opr: &mut Option<HtmlInputEle
     opd.clear();    *opr = None;    *ncnt += 1;     if *ncnt == nlen {
         let str = str.chars().map(|ch|
             match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
-
-        //let dur = self.tnow.elapsed();  self.tnow = Instant::now();
-        //log::info!("timing: {:.1}s", dur.as_secs_f32());    // TODO: show it on page
         Some(str.parse::<Expr>().unwrap().value() == goal)
     } else { None }
 }
@@ -98,12 +93,22 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
     use sycamore::prelude::*;
 
     web_log!("try for debugging");  // perseus snoop serve/build
-    let resolve  = create_signal(cx, false);
+    let resolve = create_signal(cx, false);
+    let tnow = create_signal(cx, Instant::now());
     let opr_elm = create_signal(cx, Option::<HtmlInputElement>::None);
     let opd_elq = create_signal(cx, VecDeque::<HtmlInputElement>::new());
     let eqm_state = create_signal(cx, Option::<bool>::None);
-    //let eqm_node = create_node_ref(cx);
-    //let eqm_elm = eqm_node.get::<DomNode>().unchecked_into::<HtmlElement>();
+
+    create_effect(cx, || { game24.nums.track(); game24.ncnt.set(1); eqm_state.set(None); });
+
+    /*use std::time::Duration;
+    use sycamore::motion::create_tweened_signal;
+    let tweened = create_tweened_signal(cx, 0.0f32,
+        Duration::from_millis(100), |v| v + 0.1);
+    tweened.set(100.0);     // set target value
+
+    //let eqm_node = create_node_ref(cx);   // XXX:
+    //let eqm_elm = eqm_node.get::<DomNode>().unchecked_into::<HtmlElement>(); */
 
     let num_editable = |e: Event| if 1 == *game24.ncnt.get() {
         e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap().set_read_only(false);
@@ -137,9 +142,9 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
             }   opd.push_back(inp);
             let mut opr = opr_elm.modify();
 
-            if 0 < idx && opr.is_some() { let eqs =
+            if 0 < idx && opr.is_some() {   let eqs =
                 form_expr(&mut opd, &mut opr, &mut  game24.ncnt.modify(),
-                    game24.nums.get().len() as u8, &game24.goal.get());
+                    game24.nums.get_untracked().len() as u8, &game24.goal.get_untracked());
                 if eqs.is_some() { eqm_state.set(eqs); }
             }
         }
@@ -170,16 +175,19 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     let (mut opr, mut opd) = (opr_elm.modify(), opd_elq.modify());
                     *opr = e.target().unwrap().dyn_into::<HtmlInputElement>().ok();
 
-                    if opd.len() == 2 { let eqs = 
+                    if opd.len() == 2 {     let eqs =
                         form_expr(&mut opd, &mut opr, &mut game24.ncnt.modify(),
-                            game24.nums.get().len() as u8, &game24.goal.get());
+                             game24.nums.get_untracked().len() as u8,
+                            &game24.goal.get_untracked());
                         if eqs.is_some() { eqm_state.set(eqs); }
                     }
                 }, disabled= *game24.ncnt.get() == game24.nums.get().len() as u8,
                 data-bs-toggle="tooltip", title=t!("ops-tips", cx)) {
+
                 (View::new_fragment([ "+", "-", "×", "÷" ].into_iter().map(|op| view! { cx,
                     div(class="mx-6 my-4 inline-block") {
                         input(type="radio", id=op, value=op, name="ops", class="hidden peer")
+
                         label(for=op, draggable="true",
                             class="px-4 py-2 bg-indigo-600 text-white text-3xl font-bold
                             hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2
@@ -193,6 +201,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                 span(id="nums-group", //ref=self.grp_elm.clone(),
                     data-bs-toggle="tooltip", title=t!("num-tips", cx),
                     on:dblclick=num_editable, on:focusout=num_changed, on:click=num_checked) {
+
                     //Indexed(iterable = game24.get().nums, view = |cx, num| view! { ... })
                     (View::new_fragment(game24.nums.get().iter().enumerate().map(|(idx, &num)| {
                     /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
@@ -218,6 +227,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                 button(on:dblclick=|_| resolve.set(true), //ref=eqm_node,
                     aria-checked=match *eqm_state.get() {
                         None => "".to_owned(), Some(bl) => bl.to_string() },
+
                     class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2
                     aria-checked:text-lime-500 aria-checked:ring-lime-400
                     aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
@@ -249,8 +259,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             div(id="ctrl-btns", on:click=|_| resolve.set(false)) {
                 input(type="reset", value=t!("dismiss", cx), class=ctrl_class,
-                    on:click=|_| { eqm_state.set(None); game24.ncnt.set(1);
-                        game24.nums.trigger_subscribers(); },
+                    on:click=|_| game24.nums.trigger_subscribers(),
                     data-bs-toogle="tooltip", title=t!("dismiss-tips", cx))
 
                 select(class=format!("{ctrl_class} appearance-none"), on:change=|e: Event| {
@@ -259,18 +268,28 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                         debug_assert!(cnt < 10, "too big to solve!");
 
                         game24.nums.set(dealer(cnt, &mut game24.deck.modify(),
-                            &mut game24.spos.modify(),  &game24.goal.get()));
+                            &mut game24.spos.modify(),  &game24.goal.get_untracked()));
+                        tnow.set_silent(Instant::now());
                     }, data-bs-toogle="tooltip", title=t!("change-count", cx)) {
+
                     (View::new_fragment((4..=6).map(|n| view! { cx, option(value=n.to_string(),
                         selected=n == game24.nums.get_untracked().len()) {
                             (format!("{n} nums")) } }).collect() ))
                 }
                 button(class=ctrl_class, data-bs-toogle="tooltip", title=t!("refresh-tips", cx),
-                    on:click=|_| { eqm_state.set(None); game24.ncnt.set(1);
-                        game24.nums.set(dealer(game24.nums.get().len() as u8,
-                            &mut game24.deck.modify(), &mut game24.spos.modify(),
-                            &game24.goal.get()));
+                    on:click=|_| { game24.nums.set(dealer(
+                         game24.nums.get_untracked().len() as u8,
+                        &mut game24.deck.modify(), &mut game24.spos.modify(),
+                        &game24.goal.get_untracked()));     tnow.set_silent(Instant::now());
                     }) { (t!("refresh", cx)) }
+            }
+
+            div(id="timer", class="mx-1 font-sans text-yellow-600 absolute left-0",
+                data-bs-toggle="tooltip", title=t!("time-calc", cx)) {
+                (match *eqm_state.get() { Some(true) =>
+                        format!("{:.1}s", tnow.get_untracked().elapsed().as_secs_f32()),
+                    _ => "".to_owned(),
+                })
             }
 
             (if *resolve.get() { view! { cx, ul(id="all-solutions", class="overflow-y-auto
@@ -285,7 +304,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                         .map(|ch| match ch { '*' => '×', '/' => '÷', _ => ch })
                         .collect::<String>())}}).chain(std::iter::once_with(||
                             if 5 < cnt { view! { cx, (t!("sol-total", { "cnt" = cnt }, cx))
-                            }} else { view! { cx, } })).collect()
+                            }}    else { view! { cx, } })).collect()
                 }))
             }}} else { view! { cx, } })
         }
