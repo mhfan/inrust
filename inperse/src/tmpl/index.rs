@@ -120,11 +120,16 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
         if  inp.read_only() { return }
 
         if  inp.check_validity() {  inp.set_read_only(true);
-            let mut nums = game24.nums.modify();
+            let mut nums = game24.nums.get_untracked().to_vec();
             let val = inp.value().parse::<Rational>().unwrap();
-            if let Ok(idx) = inp.get_attribute("id").unwrap().parse::<u8>() {
-                nums[idx as usize] = val } else { game24.goal.set_silent(val) }
-        } else if inp.focus().is_ok() { inp.select() }
+            if let Ok(idx) = inp.get_attribute("id").unwrap().get(1..).unwrap()
+                .parse::<u8>() {    nums[idx as usize] = val;
+                     game24.nums.set_silent(nums);
+            } else { game24.goal.set_silent(val); }
+        } else if inp.focus().is_ok() { inp.select(); }
+
+        tnow.set_silent(Instant::now());
+        resolve.set(false);
     };
 
     let num_checked = |e: Event| {
