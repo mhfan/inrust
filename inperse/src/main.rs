@@ -1,5 +1,5 @@
 
-use perseus::{Html, PerseusApp, Template, ErrorPages};
+use perseus::{Html, PerseusApp, Template, ErrorPages/*, plugins::Plugins*/};
 use sycamore::prelude::{view, Scope, View};
 
 // XXX: PERSEUS_BASE_PATH=https://mhfan.github.io/inperse perseus export/serve
@@ -32,6 +32,13 @@ pub fn main<G: Html>() -> PerseusApp<G> {
         }   body { perseus::PerseusRoot() }
         // Quirk: this creates a wrapper `<div>` around the root `<div>` by necessity
         }}).error_pages(get_error_pages)
+
+        /*.plugins(Plugins::new().plugin(perseus_size_opt::perseus_size_opt,
+            perseus_size_opt::SizeOpts::default()))
+        .plugins(Plugins::new().plugin(perseus_tailwind::get_tailwind_plugin,
+            perseus_tailwind::TailwindOptions { in_file: "src/tailwind.css".into(),
+                // Don't put this in /static, it will trigger build loops
+                out_file: "generated/tailwind.css".into() }))*/
 }
 
 #[perseus::template_rx] fn about_page<G: Html>(cx: Scope) -> View<G> {

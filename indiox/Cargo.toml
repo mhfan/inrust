@@ -21,11 +21,11 @@ wasm-logger = "0.2"     # WebAssembly Debug
 #dioxus = { git = "https://github.com/DioxusLabs/dioxus", optional = true }
 #console_error_panic_hook = { version = "0.1", optional = true }
 #wasm-logger = { version = "0.2", optional = true }
-log = "0.4"
+log  = "0.4"
 
-rand = "0.8"
-instant = "0.1"     # git = "https://github.com/mhfan/inrust"
-inrust = { path = "..", default-features = false, features = [ "ahash" ] }  #, "cc", "serde"
+rand = "0.8"    # git = "https://github.com/mhfan/inrust",
+inrust = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde"
+instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 
 #[features]
 #default = [ "desktop" ]    # "web" or "dioxus/desktop"

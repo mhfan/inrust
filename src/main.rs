@@ -24,7 +24,7 @@ use yansi::Paint;   // Color, Style
 //#![no_main]
 // src/main.rs (default application entry point)
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
-    eprintln!(r"{} v{}-g{}, {}, {}", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
+    eprintln!(r"{} v{}-g{}, {}, {} 🦀", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
         env!("BUILD_GIT_HASH"), build_time::build_time_local!("%H:%M:%S%:z %Y-%m-%d"),
         env!("CARGO_PKG_AUTHORS"));     //option_env!("ENV_VAR_NAME");
     //std::env::args().skip(1).for_each(|it| eprint!(" {it:?}") );

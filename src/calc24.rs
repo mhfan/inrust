@@ -733,13 +733,13 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
     }
 
     let (mut goal, mut algo) = (24.into(), DynProg);
-    let mut nums = std::env::args().peekable();
+    let  mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
 
     let mut want_exit = false;
-    if let Some(opt) = nums.peek() {
+    if  let Some(opt) = nums.peek() {
         let opt = opt.clone();
-        if opt.eq("-A") {   nums.next();
+        if  opt.eq("-A") {   nums.next();
             if let Some(gs) = nums.next() { match gs.parse::<u32>() {
                 Ok(n) => algo = match n {
                     1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg,
@@ -749,9 +749,9 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
         }
     }
 
-    if let Some(opt) = nums.peek() {
+    if  let Some(opt) = nums.peek() {
         let opt = opt.clone();
-        if opt.eq_ignore_ascii_case("-g") {
+        if  opt.eq_ignore_ascii_case("-g") {
             if opt == "-G" { want_exit = true }
             nums.next();
 
@@ -816,7 +816,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
     let mut calc24 = Calc24IO {
         algo, goal: *goal, //unsafe { core::mem::transmute(goal) },
         nums: nums.as_ptr(), ncnt: nums.len(),
-        ecnt: 0, exps: core::ptr::null_mut(),
+        ecnt: 0,  exps: core::ptr::null_mut(),
     };
 
     //core::ptr::addr_of_mut!(calc24);

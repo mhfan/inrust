@@ -291,7 +291,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             div(id="timer", class="mx-1 font-sans text-yellow-600 absolute left-0",
                 data-bs-toggle="tooltip", title=t!("time-calc", cx)) {
-                (match *eqm_state.get() { Some(true) =>
+                (match *eqm_state.get() { Some(true) =>     // XXX:
                         format!("{:.1}s", tnow.get_untracked().elapsed().as_secs_f32()),
                     _ => "".to_owned(),
                 })
