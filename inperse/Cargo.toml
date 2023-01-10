@@ -1,12 +1,16 @@
 
 [package]
 name = "inperse"
+
 edition = "2021"
 version = "0.1.0"
-license = "MIT OR Apache-2.0"
-authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
-description = "Page for 24-Game/Puzzle/Challenge"
-repository  = "https://github.com/mhfan/inperse"
+#edition.workspace = true
+#version.workspace = true
+#license.workspace = true
+#authors.workspace = true
+#   homepage.workspace = true
+# repository.workspace = true
+#description.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -29,6 +33,9 @@ perseus-warp = { version = "=0.4.0-beta.11", features = [ "dflt-server" ] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]     # Browser-only dependencies go here
 getrandom = { version = "0.2", features = [ "js" ] }
 #wee_alloc = "0.4"
+
+[dependencies.perseus-macro]
+version  = "=0.4.0-beta.11"
 
 [dependencies.web-sys]
 features = [ "HtmlInputElement", "HtmlSelectElement", ]

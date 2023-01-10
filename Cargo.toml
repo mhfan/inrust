@@ -1,22 +1,31 @@
 
 # https://doc.rust-lang.org/cargo/reference/manifest.html
+# rustup override set nightly
 
 [package]
 name = "inrust"
-version = "0.3.4"
 
-# rustup override set nightly
-edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
-license = "MIT OR Apache-2.0"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+authors.workspace = true
+   homepage.workspace = true
+ repository.workspace = true
 description = "Accumulate knowledge of my study on Rust language"
-#repository = "https://github.com/mhfan/inrust"
-#homepage = "https://mhfan.github.io/inrust"
-authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
+
+#build = "build.rs"     # default, build = false
+
+[workspace.package]
+edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
+version = "0.3.5"
 #readme = "README.md"
+license = "MIT OR Apache-2.0"
+authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
+   homepage = "https://mhfan.github.io/inrust"
+ repository = "https://github.com/mhfan/inrust"
+description = "Algorithms and WebUI for 24-Game/Puzzle/Challenge"
 
 #exclude = ["tests", "benches"]
-#build = "build.rs"     # default
-#build = false
 
 [dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8"
