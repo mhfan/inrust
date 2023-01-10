@@ -1,14 +1,14 @@
 
-use perseus::{t, web_log, Template, RenderFnResult, RenderFnResultWithCause};
+use perseus::{t, web_log, engine_only_fn, prelude::{Template, BuildPaths, StateGeneratorInfo}};
 use sycamore::{prelude::{view, View, Html, Scope}, rt::{Event, JsCast}};
 use web_sys::{HtmlElement, HtmlInputElement, HtmlSelectElement};
+use serde::{Serialize, Deserialize};
 use std::collections::VecDeque;
 
 use inrust::calc24::*;
 use instant::Instant;
 
-/*use serde::{Serialize, Deserialize};
-#[derive(Serialize, Deserialize)] #[serde(remote = "Rational")]
+/*#[derive(Serialize, Deserialize)] #[serde(remote = "Rational")]
 struct RNumI32(#[serde(getter = "Rational::numer")] i32,
                #[serde(getter = "Rational::denom")] i32);
 
@@ -16,7 +16,8 @@ impl From<RNumI32> for Rational {
     fn from(rn: RNumI32) -> Self { Self::new_raw(rn.0, rn.1) }
 }*/     //#[serde(with = "RNumI32")]...
 
-#[perseus::make_rx(Game24StateRx)] pub struct Game24State {
+#[derive(Serialize, Deserialize, Clone, perseus::ReactiveState)]
+#[rx(alias = "Game24StateRx")] struct Game24State {
     goal: Rational,
     nums: Vec<Rational>,
 
@@ -73,8 +74,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
 #[sycamore::component] fn _show_solutions<G: Html>(cx: Scope) -> View<G> { view! { cx, } }
 
-#[perseus::template_rx] pub fn index_page<'a, G: Html>(cx: Scope<'a>,
-    game24: Game24StateRx<'a>) -> View<G> {
+#[perseus::auto_scope] fn index_page<G: Html>(cx: Scope, game24: &Game24StateRx) -> View<G> {
     //let gh_corner = view! { cx, };
     //#[component] fn gh_corner<G: Html>(cx: Scope) -> View<G> { }
 
@@ -319,33 +319,28 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
     }
 }
 
-#[perseus::head] pub fn add_head(cx: Scope, _props: Game24State) -> View<perseus::SsrNode> {
+#[engine_only_fn] fn add_head(cx: Scope) -> View<sycamore::prelude::SsrNode> {
     view! { cx, title { (t!("title", cx)) } }
 }
 
-#[cfg(not(target_arch = "wasm32"))] use perseus::Request;
 // Unlike in build state, in request state we get access to the information that
 // the user sent with their HTTP request.
-#[perseus::request_state] pub async fn get_request_state(_path: String, _locale: String,
-    _req: Request) -> RenderFnResultWithCause<Game24State> {
-    Ok(Game24State::new())
-}
+#[engine_only_fn] async fn get_request_state(_info: StateGeneratorInfo<()>,
+    _req: perseus::Request) -> Game24State { Game24State::new() }
+    //Result<Game24State, BlamedError<std::convert::Infallible>>
 
 // This function will be run when you build your app, to generate default state ahead-of-time
-#[perseus::build_state] pub async fn get_build_state(_path: String, _locale: String) ->
-    RenderFnResultWithCause<Game24State> {
-    Ok(Game24State::new())
-}
+#[engine_only_fn] async fn get_build_state(_info: StateGeneratorInfo<()>) ->
+    //Result<Game24State, BlamedError<std::io::Error>>
+    Game24State { Game24State::new() }
 
 // This will run every time `.revalidate_after()` permits the page to be revalidated.
 // This acts as a secondary check, and can perform arbitrary logic to check
 // if we should actually revalidate a page
-#[perseus::should_revalidate] pub async fn should_revalidate(_path: String, _locale: String,
-    _req: perseus::Request) -> RenderFnResultWithCause<bool> {
+#[engine_only_fn] async fn should_revalidate(_info: StateGeneratorInfo<()>,
+    _req: perseus::Request) -> bool { true }
     // For simplicity's sake, this will always say we should revalidate,
     // but you could make this check any condition
-    Ok(true)
-}
 
 // This just returns a vector of all the paths we want to generate for underneath `build_paths`
 // (the template's name and root path). Like for build state, this function is asynchronous,
@@ -354,10 +349,10 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 //
 // Note also that there's almost no point in using build paths without build state, as every
 // page would come out exactly the same (unless you differentiated them on the client...)
-pub async fn get_build_paths() -> RenderFnResult<Vec<String>> { Ok(vec![]) }
+async fn get_build_paths() -> BuildPaths { BuildPaths { paths: vec![], extra: ().into() } }
 
 pub fn get_template<G: Html>() -> Template<G> {
-    Template::new("index").template(index_page).head(add_head)
+    Template::build("index").view_with_state(index_page)
         //.revalidate_after(Duration::new(5, 0))    // "5s".to_string()
         //.should_revalidate_fn(should_revalidate)
         //.amalgamate_states_fn(amalgamate_states)
@@ -365,4 +360,5 @@ pub fn get_template<G: Html>() -> Template<G> {
         //.build_state_fn(get_build_state)
         //.build_paths_fn(get_build_paths)
         .incremental_generation()
+        .head(add_head).build()
 }

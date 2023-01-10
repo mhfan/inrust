@@ -2096,18 +2096,18 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.5.8"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5826b7f970b71559e98460aafa900837a3ea29d533cb4d319f4968c1baec2d75"
+checksum = "cf5395665662ef45796a4ff5486c5d41d29e0c09640af4c5f17fd94ee2c119c9"
 dependencies = [
  "num_enum_derive",
 ]
 
 [[package]]
 name = "num_enum_derive"
-version = "0.5.8"
+version = "0.5.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcf29f406cea75713169aeadb41f34a4d2afd2de46e8cd6c0120ac235a255ac3"
+checksum = "3b0498641e53dd6ac1a4f22547548caa6864cc4933784319cd1775271c5a46ce"
 dependencies = [
  "proc-macro-crate 1.2.1",
  "proc-macro2",
@@ -2251,9 +2251,9 @@ checksum = "478c572c3d73181ff3c2539045f6eb99e5491218eae919370993b890cdbdd98e"
 
 [[package]]
 name = "perseus"
-version = "0.4.0-beta.11"
+version = "0.4.0-beta.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1cb536b3105ff6fea418c4e06eb0a68df0117967efa2223c602a2e1c4be7bfa"
+checksum = "12c88ef1b12324a9247e4843dd08d363cbf595dd3ed27dcb0dd4c8273e42a92a"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2285,34 +2285,23 @@ dependencies = [
 
 [[package]]
 name = "perseus-macro"
-version = "0.4.0-beta.11"
+version = "0.4.0-beta.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ffca7ffcb9a08b8c58d96f558328fbb7bed80b3ef713dbf3646adbab3689157"
+checksum = "5ae27d95e7a6015fcf3dcbe27f801e90c5212cc9413bf201f386bc440e7c2b29"
 dependencies = [
  "darling 0.13.4",
  "proc-macro2",
  "quote",
- "regex",
- "serde_json",
- "sycamore-reactive",
  "syn",
 ]
 
 [[package]]
 name = "perseus-warp"
-version = "0.4.0-beta.11"
+version = "0.4.0-beta.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c68f69dbe05b0d17dc6ac2a193cb77f739b6409190adec8ea362a7366b45ea4"
+checksum = "c20f6f01d204a2865dde808f11f6ce3048e000eb1a94dc50fc4c8378381b9b90"
 dependencies = [
- "fmterr",
- "futures",
  "perseus",
- "serde",
- "serde_json",
- "sycamore",
- "thiserror",
- "tokio",
- "urlencoding",
  "warp-fix-171",
 ]
 
@@ -2893,16 +2882,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67817393b3c9828db84614f64db9a1ebb94729ce3a3751c41e7ff23d3f8e7f00"
 dependencies = [
  "ahash 0.7.6",
+ "futures",
  "html-escape",
  "indexmap",
  "js-sys",
  "once_cell",
  "paste",
  "sycamore-core",
+ "sycamore-futures",
  "sycamore-macro",
  "sycamore-reactive",
  "sycamore-web",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
 ]
 
