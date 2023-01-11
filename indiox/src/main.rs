@@ -1,28 +1,25 @@
 
 use dioxus::prelude::*;
 
-fn main() {
-    #[cfg(not(target_arch = "wasm32"))] //dioxus::desktop::launch(app);
-    dioxus::desktop::launch_cfg(app, |cfg|
-        cfg.with_window(|win|
-                win.with_title(env!("CARGO_PKG_NAME")))
+fn main() {                           //dioxus_desktop::launch(app);
+    #[cfg(not(target_arch = "wasm32"))] dioxus_desktop::launch_cfg(app,
+        dioxus_desktop::Config::new().with_window(
+            dioxus_desktop::WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
            .with_custom_head("<link rel='stylesheet' href='dist/tailwind.css'/>".into())
-        //   .with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
-        //   .with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
+           //.with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
+           //.with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
     );
 
-    #[cfg(target_arch = "wasm32")] {
+    #[cfg(target_arch = "wasm32")] { //Config::new(log::Level::Trace)
         wasm_logger::init(wasm_logger::Config::default());  // init debug tool for WebAssembly
-        //console_error_panic_hook::set_once();     // did in dioxus::web::launch?
-        dioxus::web::launch(app);
+        //console_error_panic_hook::set_once();     // did in dioxus_web::launch?
+        dioxus_web::launch(app);
     }
 }
 
-//fn not_found(cx: Scope) -> Element { cx.render(rsx! { Redirect{ to: "/" } }) }
+//fn not_found(cx: Scope) -> Element { rsx!(cx, Redirect{ to: "/" }) }
 
-fn app(cx: Scope) -> Element {
-    //let win = dioxus::desktop::use_window(&cx);
-
+fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
     let num_class = "px-4 py-2 my-4 w-fit appearance-none select-text
         read-only:bg-transparent bg-stone-200 border border-purple-200
         text-center text-2xl text-purple-600 font-semibold
@@ -53,7 +50,7 @@ fn app(cx: Scope) -> Element {
             rounded-full mx-2" }}  // https://regexr.com, https://regex101.com
     });
 
-    rsx!(cx, //cx.render(rsx!( //render_lazy!(rsx!(
+    cx.render(rsx! {    //render_lazy!(rsx!( //rsx!(cx,
         /* Router { // XXX:
             Route { to: "/indiox", self::homepage{} }
             Route { to: "", self::not_found{} }
@@ -65,9 +62,9 @@ fn app(cx: Scope) -> Element {
         //link { rel: "stylesheet",
         //    href: "https://cdn.jsdelivr.net/npm/tw-elements/dist/css/index.min.css" }
 
-        style { [ "html { background-color: #15191D; color: #DCDCDC; }",
-            "body { font-family: Courier, Monospace; text-align: center; height: 100vh; }"
-        ] }
+        style { r"html {{ background-color: #15191D; color: #DCDCDC; }}
+            body {{ font-family: Courier, Monospace; text-align: center; height: 100vh; }}"
+        }
 
         header { class: "text-4xl m-4",
             a { href: format_args!("{}", env!("CARGO_PKG_REPOSITORY")),
@@ -172,6 +169,6 @@ fn app(cx: Scope) -> Element {
         footer { class: "m-4", "Copyright © 2022 by " 
             a { href: "https://github.com/mhfan", "mhfan" }
         }
-    )
+    })
 }
 

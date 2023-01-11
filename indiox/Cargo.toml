@@ -15,25 +15,25 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-dioxus = { version = "0.2", features = ["desktop"] }    #, "fermi"
+dioxus-desktop = "0.3"
+#log  = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-dioxus = { version = "0.2", features = ["web"] }        #, "fermi"
+getrandom = { version = "0.2", features = [ "js" ] }
+#console_error_panic_hook = "0.1"
 wasm-logger = "0.2"     # WebAssembly Debug
+dioxus-web  = "0.3"
 
 [dependencies]
-#dioxus = { git = "https://github.com/DioxusLabs/dioxus", optional = true }
-#console_error_panic_hook = { version = "0.1", optional = true }
-#wasm-logger = { version = "0.2", optional = true }
-log  = "0.4"
+dioxus = "0.3"  # git = "https://github.com/DioxusLabs/dioxus"
 
 rand = "0.8"    # git = "https://github.com/mhfan/inrust",
-inrust = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde"
+inrust  = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde"
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 
 #[features]
-#default = [ "desktop" ]    # "web" or "dioxus/desktop"
-#web = [ "dioxus/web", "dep:wasm-logger" ]  #, "dep:console_error_panic_hook"
+#default = [ "dioxus-desktop" ]    # or "web"
+#web = [ "dioxus-web", "dep:wasm-logger" ]  #, "dep:console_error_panic_hook"
 
 #[profile.dev]
 #incremental = true
