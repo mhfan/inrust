@@ -352,7 +352,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 async fn get_build_paths() -> BuildPaths { BuildPaths { paths: vec![], extra: ().into() } }
 
 pub fn get_template<G: Html>() -> Template<G> {
-    Template::build("index").view_with_state(index_page)
+    Template::build("index").view_with_state(index_page).head(add_head)
         //.revalidate_after(Duration::new(5, 0))    // "5s".to_string()
         //.should_revalidate_fn(should_revalidate)
         //.amalgamate_states_fn(amalgamate_states)
@@ -360,5 +360,5 @@ pub fn get_template<G: Html>() -> Template<G> {
         //.build_state_fn(get_build_state)
         //.build_paths_fn(get_build_paths)
         .incremental_generation()
-        .head(add_head).build()
+        .build()
 }

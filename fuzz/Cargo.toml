@@ -28,3 +28,4 @@ name = "calc24" # because of no main.rs
 path = "src/calc24_fuzz.rs"
 test = false
 doc  = false
+

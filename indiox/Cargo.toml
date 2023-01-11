@@ -26,6 +26,7 @@ dioxus-web  = "0.3"
 
 [dependencies]
 dioxus = "0.3"  # git = "https://github.com/DioxusLabs/dioxus"
+#dioxus-logger = "0.3"
 
 rand = "0.8"    # git = "https://github.com/mhfan/inrust",
 inrust  = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde"

@@ -2,12 +2,13 @@
 use dioxus::prelude::*;
 
 fn main() {                           //dioxus_desktop::launch(app);
+    //dioxus_logger::init(log::LevelFilter::Info).expect("failed to init logger");
     #[cfg(not(target_arch = "wasm32"))] dioxus_desktop::launch_cfg(app,
         dioxus_desktop::Config::new().with_window(
             dioxus_desktop::WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
-           .with_custom_head("<link rel='stylesheet' href='dist/tailwind.css'/>".into())
-           //.with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
-           //.with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
+        .with_custom_head("<link rel='stylesheet' href='dist/tailwind.css'/>".into())
+        //.with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
+        //.with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
     );
 
     #[cfg(target_arch = "wasm32")] { //Config::new(log::Level::Trace)
@@ -50,6 +51,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
             rounded-full mx-2" }}  // https://regexr.com, https://regex101.com
     });
 
+    //log::info!("");
     cx.render(rsx! {    //render_lazy!(rsx!( //rsx!(cx,
         /* Router { // XXX:
             Route { to: "/indiox", self::homepage{} }
@@ -101,7 +103,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                 })
             }
 
-            div { id: "expr-skel",
+            div { id: "expr-skel",  // TODO: reactive
                 span { id: "nums-group", "data-bs-toggle": "tooltip", //ref: self.grp_opd.clone(),
                     title: "Click to (un)check\nDouble click to input\nDrag over to exchange",
                     //ondblclick: num_editable, onblur: num_changed, onclick: num_checked,
