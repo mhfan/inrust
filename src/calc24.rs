@@ -64,10 +64,11 @@ impl<T: Integer + Copy + Display> Display for RNum<T> {
         let srn = self;     //srn.reduce();
         if  srn.1.is_zero() { write!(f, r"(INV)")? } else {
             let braket = srn.0 * srn.1 < T::zero() || !srn.1.is_one();
-            if  braket { write!(f, r"(")? }     write!(f, r"{}", srn.0)?;
+            if  braket { write!(f, r"(")? }     //write!(f, r"{}", srn.0)?;
+            write!(f, "{:>width$}", srn.0, width = f.width().unwrap_or(0))?;
             if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }
             if  braket { write!(f, r")")? }
-        }   Ok(())  // FIXME: add padding support?
+        }   Ok(())  // XXX: dynamic padding support
     }
 }
 
@@ -141,7 +142,7 @@ impl Expr {     //#![allow(dead_code)]
                 matches!(a.op(), Add | Sub) && matches!(op, Mul | Div)
             };  if bracket { write!(f, r"({a})")? } else { write!(f, r"{a}")? }
 
-            if !mdu { write!(f, r"{}", op as u8 as char)? } else {  // XXX: add space around
+            if !mdu { write!(f, r"{}", op as u8 as char)? } else {  // XXX: add space around?
                 write!(f, r" {} ", match op { Mul => '×', Div => '÷', _ => op as u8 as char })?
             }
 
