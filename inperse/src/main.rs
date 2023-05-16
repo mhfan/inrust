@@ -4,7 +4,7 @@
 
 mod tmpl;
 
-use perseus::prelude::{Html, PerseusApp, Template, ErrorViews/*, plugins::Plugins*/};
+use perseus::prelude::{Html, PerseusApp, ErrorViews/*, plugins::Plugins*/};
 use sycamore::prelude::{view, Scope, View};
 
 // XXX: PERSEUS_BASE_PATH=https://mhfan.github.io/inperse perseus export/serve
@@ -47,6 +47,6 @@ pub fn main<G: Html>() -> PerseusApp<G> {
                 out_file: "generated/tailwind.css".into() }))*/
 }
 
-fn about_page<G: Html>(cx: Scope) -> View<G> {
+#[allow(dead_code)] fn about_page<G: Html>(cx: Scope) -> View<G> {
     view! { cx, p { r"This is an example webapp created with Perseus!" } }
 }

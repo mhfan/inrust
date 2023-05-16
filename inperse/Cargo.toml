@@ -16,7 +16,7 @@ version = "0.1.0"
 
 [dependencies]  # Dependencies for the engine and the browser go here
 sycamore = "0.8"    # { git = "https://github.com/sycamore-rs/sycamore" }
-perseus  = { version = "=0.4.0-beta.14", features = [ "hydrate", "translator-fluent" ] }  # fluent/lightweight
+perseus  = { version = "0.4", features = [ "hydrate", "translator-fluent" ] }  # fluent/lightweight
 serde = { version = "1", features = [ "derive" ] }
 serde_json = "1"
 
@@ -29,7 +29,7 @@ instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 
 [target.'cfg(engine)'.dependencies]     # not(target_arch = "wasm32"
 tokio = { version = "1", features = [ "macros", "rt", "rt-multi-thread" ] }
-perseus-warp = { version = "=0.4.0-beta.14", features = [ "dflt-server" ] }
+perseus-warp = { version = "0.4", features = [ "dflt-server" ] }
 # This is an internal convenience crate that exposes all integrations through features for testing
 # perseus-(integration, warp, axum, actix-web)
 
@@ -38,7 +38,7 @@ getrandom = { version = "0.2", features = [ "js" ] }
 #wee_alloc = "0.4"
 
 [dependencies.perseus-macro]
-version  = "=0.4.0-beta.14"
+version  = "0.4"
 
 [dependencies.web-sys]
 features = [ "HtmlInputElement", "HtmlSelectElement", ]

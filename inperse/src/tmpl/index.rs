@@ -164,7 +164,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
             a(href=env!("CARGO_PKG_REPOSITORY"),
                 dangerously_set_inner_html=include_str!("../../static/gh-corner.html"),
                 class="github-corner", aria-label="View source on GitHub")
-            a(href="https://github.com/mhfan/inrust") { (t!("header", cx)) }
+            a(href="https://github.com/mhfan/inrust") { (t!(cx, "header")) }
         }
 
         main(class="mt-auto mb-auto") {
@@ -187,7 +187,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                         if eqs.is_some() { eqm_state.set(eqs); }
                     }
                 }, disabled= *game24.ncnt.get() == game24.nums.get().len() as u8,
-                data-bs-toggle="tooltip", title=t!("ops-tips", cx)) {
+                data-bs-toggle="tooltip", title=t!(cx, "ops-tips")) {
 
                 (View::new_fragment([ "+", "-", "×", "÷" ].into_iter().map(|op| view! { cx,
                     div(class="mx-6 my-4 inline-block") {
@@ -204,7 +204,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             div(id="expr-skel") {
                 span(id="nums-group", //ref=self.grp_elm.clone(),
-                    data-bs-toggle="tooltip", title=t!("num-tips", cx),
+                    data-bs-toggle="tooltip", title=t!(cx, "num-tips"),
                     on:dblclick=num_editable, on:focusout=num_changed, on:click=num_checked) {
 
                     //Indexed(iterable = game24.get().nums, view = |cx, num| view! { ... })
@@ -238,7 +238,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
                     aria-[checked=false]:ring-2 hover:outline-none hover:ring-indigo-400
                     hover:ring-2 focus:ring-indigo-500 focus:ring-offset-2", //text-white
-                    data-bs-toggle="tooltip", title=t!("get-solutions", cx)) {
+                    data-bs-toggle="tooltip", title=t!(cx, "get-solutions")) {
                     (match *eqm_state.get() { None => "≠?", Some(true) => "=", _ => "≠" })
                 }
 
@@ -246,7 +246,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     on:dblclick=num_editable, on:blur=num_changed, readonly=true,
                     placeholder="??", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
                     maxlength="8", size="4", class=format!("{num_class} rounded-md"),
-                    data-bs-toggle="tooltip", title=t!("input-goal", cx))
+                    data-bs-toggle="tooltip", title=t!(cx, "input-goal"))
 
                 /*style { r"
                     [contenteditable='true'].single-line {
@@ -263,9 +263,9 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
             }   // invisible vs hidden
 
             div(id="ctrl-btns", on:click=|_| resolve.set(false)) {
-                input(type="reset", value=t!("dismiss", cx), class=ctrl_class,
+                input(type="reset", value=t!(cx, "dismiss"), class=ctrl_class,
                     on:click=|_| game24.nums.trigger_subscribers(),
-                    data-bs-toogle="tooltip", title=t!("dismiss-tips", cx))
+                    data-bs-toogle="tooltip", title=t!(cx, "dismiss-tips"))
 
                 select(class=format!("{ctrl_class} appearance-none"), on:change=|e: Event| {
                         let cnt = e.target().unwrap().dyn_into::<HtmlSelectElement>()
@@ -275,22 +275,22 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                         game24.nums.set(dealer(cnt, &mut game24.deck.modify(),
                             &mut game24.spos.modify(),  &game24.goal.get_untracked()));
                         tnow.set_silent(Instant::now());
-                    }, data-bs-toogle="tooltip", title=t!("change-count", cx)) {
+                    }, data-bs-toogle="tooltip", title=t!(cx, "change-count")) {
 
                     (View::new_fragment((4..=6).map(|n| view! { cx, option(value=n.to_string(),
                         selected=n == game24.nums.get_untracked().len()) {
                             (format!("{n} nums")) } }).collect() ))
                 }
-                button(class=ctrl_class, data-bs-toogle="tooltip", title=t!("refresh-tips", cx),
+                button(class=ctrl_class, data-bs-toogle="tooltip", title=t!(cx, "refresh-tips"),
                     on:click=|_| { game24.nums.set(dealer(
                          game24.nums.get_untracked().len() as u8,
                         &mut game24.deck.modify(), &mut game24.spos.modify(),
                         &game24.goal.get_untracked()));     tnow.set_silent(Instant::now());
-                    }) { (t!("refresh", cx)) }
+                    }) { (t!(cx, "refresh")) }
             }
 
             div(id="timer", class="mx-1 font-sans text-yellow-600 absolute left-0",
-                data-bs-toggle="tooltip", title=t!("time-calc", cx)) {
+                data-bs-toggle="tooltip", title=t!(cx, "time-calc")) {
                 (match *eqm_state.get() { Some(true) =>     // XXX:
                         format!("{:.1}s", tnow.get_untracked().elapsed().as_secs_f32()),
                     _ => "".to_owned(),
@@ -299,7 +299,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             (if *resolve.get() { view! { cx, ul(id="all-solutions", class="overflow-y-auto
                     ml-auto mr-auto w-fit text-left text-lime-500 text-xl",
-                    data-bs-toggle="tooltip", title=t!("solutions", cx)) {
+                    data-bs-toggle="tooltip", title=t!(cx, "solutions")) {
 
                 (View::new_fragment({
                     let exps = calc24_coll(&game24.goal.get(), &game24.nums.get(), DynProg);
@@ -308,19 +308,19 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     exps.into_iter().map(|str| view! { cx, li { (str.chars()
                         .map(|ch| match ch { '*' => '×', '/' => '÷', _ => ch })
                         .collect::<String>())}}).chain(std::iter::once_with(||
-                            if 5 < cnt { view! { cx, (t!("sol-total", { "cnt" = cnt }, cx))
+                            if 5 < cnt { view! { cx, (t!(cx, "sol-total", { "cnt" = cnt }))
                             }}    else { view! { cx, } })).collect()
                 }))
             }}} else { view! { cx, } })
         }
 
-        footer(class="m-4") { span { (t!("copyright", cx)) } " by "
+        footer(class="m-4") { span { (t!(cx, "copyright")) } " by "
             a(href="https://github.com/mhfan") { "mhfan" } } // XXX: move to index_view/footer?
     }
 }
 
 #[engine_only_fn] fn add_head(cx: Scope) -> View<sycamore::prelude::SsrNode> {
-    view! { cx, title { (t!("title", cx)) } }
+    view! { cx, title { (t!(cx, "title")) } }
 }
 
 // Unlike in build state, in request state we get access to the information that
@@ -330,14 +330,14 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
     //Result<Game24State, BlamedError<std::convert::Infallible>>
 
 // This function will be run when you build your app, to generate default state ahead-of-time
-#[engine_only_fn] async fn get_build_state(_info: StateGeneratorInfo<()>) ->
+#[allow(dead_code)] #[engine_only_fn] async fn get_build_state(_info: StateGeneratorInfo<()>) ->
     //Result<Game24State, BlamedError<std::io::Error>>
     Game24State { Game24State::new() }
 
 // This will run every time `.revalidate_after()` permits the page to be revalidated.
 // This acts as a secondary check, and can perform arbitrary logic to check
 // if we should actually revalidate a page
-#[engine_only_fn] async fn should_revalidate(_info: StateGeneratorInfo<()>,
+#[allow(dead_code)] #[engine_only_fn] async fn should_revalidate(_info: StateGeneratorInfo<()>,
     _req: perseus::Request) -> bool { true }
     // For simplicity's sake, this will always say we should revalidate,
     // but you could make this check any condition
@@ -349,7 +349,9 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 //
 // Note also that there's almost no point in using build paths without build state, as every
 // page would come out exactly the same (unless you differentiated them on the client...)
-async fn get_build_paths() -> BuildPaths { BuildPaths { paths: vec![], extra: ().into() } }
+#[allow(dead_code)] async fn get_build_paths() -> BuildPaths {
+    BuildPaths { paths: vec![], extra: ().into() }
+}
 
 pub fn get_template<G: Html>() -> Template<G> {
     Template::build("index").view_with_state(index_page).head(add_head)
