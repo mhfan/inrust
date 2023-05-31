@@ -48,7 +48,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
             maxlength: "6", size: "3", readonly: "true", draggable: "true",
             placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring
-            rounded-full mx-2" }}  // https://regexr.com, https://regex101.com
+            rounded-full mx-2", }}  // https://regexr.com, https://regex101.com
     });
 
     //log::info!("");
@@ -110,6 +110,14 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                     nums_elm
                 }
 
+                input { "type": "text", id: "overall", name: "operands", hidden: true,
+                    "data-bs-toggle": "tooltip", title: "Input space seperated numbers",
+                    placeholder: "???", //minlength: "32", size: "16",
+                    inputmode: "numeric", pattern: r"\s*(-?\d+(\/\d+)?\s*)+", // XXX: {2,9}
+                    //onfocusout: overall_input, //ref: self.ovr_elm.clone(),
+                    class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring
+                    rounded-full mx-2", }
+
                 //"data-bs-toggle": "collapse", "data-bs-target": "#all-solutions",
                 //    "aria-expanded": "false", "aria-controls": "all-solutions",
                 button { //ref: self.eqm_elm.clone(), //ondblclick: |_| Msg::Resolve,
@@ -145,17 +153,18 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                     //onclick: |_| Msg::Dismiss,
                 }
 
-                select { class: "{ctrl_class} appearance-none", //onchange: cnt_changed,
-                    "data-bs-toogle": "tooltip", title: "Click to select numbers count",
+                select { class: "{ctrl_class} appearance-none", "data-bs-toogle": "tooltip",
+                    title: "Click to set numbers count\nOverall - single element for all numbers",
+                    //onchange: cnt_changed,
+
+                    option { value: "1", "Overall" }
                     (4..=6).map(|n| rsx! { option { value: "{n}",
-                        //selected: format_args!("{}", n == self.nums.len()),
-                        "{n} nums"
-                    }})
+                        selected: format_args!("{}", n == 4),   // XXX: n == self.nums.len()
+                        "{n} nums" }})
                 }
 
                 button { class: "{ctrl_class}", //onclick: |_| Msg::Resize(0),
-                    "data-bs-toogle": "tooltip", title: "Click to refresh new", "Refresh"
-                }
+                    "data-bs-toogle": "tooltip", title: "Click to refresh new", "Refresh" }
             }
 
             div { id: "timer", class: "mx-1 font-sans text-yellow-600 absolute left-0",
@@ -164,8 +173,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
             // XXX: resolve.then(|| rsx! {})
             div { id: "all-solutions", //ref: self.sol_elm.clone(),
                 class: "overflow-y-auto ml-auto mr-auto w-fit text-left text-lime-500 text-xl",
-                "data-bs-toggle": "tooltip", title: "All inequivalent solutions",
-            }
+                "data-bs-toggle": "tooltip", title: "All inequivalent solutions", }
         }
 
         footer { class: "m-4", "Copyright © 2022 by " 

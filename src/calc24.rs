@@ -611,6 +611,7 @@ pub  use Calc24Algo::*;
 
 /// ```
 /// # use inrust::calc24::*;
+/// // require absolute/complete path since Doc-tests run in a separate process
 /// //assert_eq!(game24_solvable(DynProg, 10, 5), (37, 1955, 0));
 /// //assert_eq!(game24_solvable(DynProg, 13, 5), (81, 6094, 0));
 /// //assert_eq!(game24_solvable(DynProg, 10, 6), (3,  4902, 0));
@@ -781,7 +782,8 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
         let mut nums = String::new();
         std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
         std::io::stdin().read_line(&mut nums).expect(r"Failed to read!");
-        let mut nums  = nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
+        let mut nums = nums.split_ascii_whitespace().peekable();
+        //nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
         if let Some(&first) = nums.peek() {
             if first.starts_with(['g', 'G']) {

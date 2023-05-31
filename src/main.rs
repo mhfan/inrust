@@ -45,9 +45,10 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     let fact = Fact { f: &|fact, x| if x == 0 {1} else {x * (fact.f)(fact, x - 1)} };
     println!("{}", (fact.f)(&fact, 5)); */
 
+    //#[cfg(feature = "num-bigint")] inrust::misc::calc_pi();
+    // require absolute/complete path since it run in a separate process from lib
     inrust::calc24::game24_cli();
     //guess_number();
-    //calc_pi();
 
     //Ok(())
 }
