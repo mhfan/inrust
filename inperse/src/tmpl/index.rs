@@ -58,9 +58,9 @@ fn form_expr(opd: &mut VecDeque<HtmlInputElement>, opr: &mut Option<HtmlInputEle
     let opr_ref = opr.as_ref().unwrap();
     let str = format!("({} {} {})", opd[0].value(), opr_ref.value(), opd[1].value());
 
-    opd[1].set_size(str.len() as u32);  opd[1].set_value(&str);
+    opd[0].set_size(str.len() as u32);  opd[0].set_value(&str);
     opd.iter().for_each(|elm| set_checked(elm, false));
-    opr_ref.set_checked(false);     opd[0].set_hidden(true);
+    opr_ref.set_checked(false);     opd[1].set_hidden(true);
 
     opd.clear();    *opr = None;    *ncnt += 1;     if *ncnt == nlen {
         let str = str.chars().map(|ch|
@@ -100,14 +100,17 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
     let tnow = create_signal(cx, Instant::now());
     let opr_elm = create_signal(cx, Option::<HtmlInputElement>::None);
     let opd_elq = create_signal(cx, VecDeque::<HtmlInputElement>::new());
-    let eqm_state = create_signal(cx, Some(Option::<bool>::None));
+    let eqm_state = create_signal(cx, Option::<bool>::None);
 
     create_effect(cx, || {  game24.nums.track();
-        if *resolving.get_untracked() { resolving.set(false); }
-        if let Some(opr) = &*opr_elm.get_untracked() { opr.set_checked(false); }
+        if 1 != *game24.ncnt.get_untracked() { game24.ncnt.set_silent(1); }
+        if !opd_elq.get_untracked().is_empty() { opd_elq.modify().clear(); }
+        if let Some(opr) = &*opr_elm.get_untracked() {
+            opr.set_checked(false);     opr_elm.set_silent(None);
+        }
 
-        if !matches!(*eqm_state.get_untracked(), Some(None)) { eqm_state.set(Some(None)); }
-        if 1 != *game24.ncnt.get_untracked() { game24.ncnt.set(1); }
+        if *resolving.get_untracked() { resolving.set(false); }
+        if  eqm_state.get_untracked().is_some() { eqm_state.set(None); }
     });
 
     /*use std::time::Duration;
@@ -157,8 +160,9 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 
             if 0 < idx && opr.is_some() {   let eqs =
                 form_expr(&mut opd, &mut opr, &mut game24.ncnt.modify(),
-                    game24.nums.get_untracked().len() as u8, &game24.goal.get_untracked());
-                if eqs.is_some() { eqm_state.set(Some(eqs)); }
+                     game24.nums.get_untracked().len() as u8,
+                    &game24.goal.get_untracked());
+                if eqs.is_some() { eqm_state.set(eqs); }
             }
         }
     };
@@ -168,7 +172,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
         let ovr = *ovr_state.get_untracked();
         if 1 == cnt || (0 == cnt && !ovr) {
             game24.nums.trigger_subscribers();
-            eqm_state.set(None);    ovr_state.set(false);   return
+            ovr_state.set(false);   return
         }
 
         if !ovr { ovr_state.set(true); }
@@ -207,10 +211,10 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                         form_expr(&mut opd, &mut opr, &mut game24.ncnt.modify(),
                              game24.nums.get_untracked().len() as u8,
                             &game24.goal.get_untracked());
-                        if eqs.is_some() { eqm_state.set(Some(eqs)); }
+                        if eqs.is_some() { eqm_state.set(eqs); }
                     }
-                }, disabled= *game24.ncnt.get() == game24.nums.get_untracked().len() as u8 ||
-                    !*ovr_state.get(), data-bs-toggle="tooltip", title=t!(cx, "ops-tips")) {
+                }, disabled=eqm_state.get().is_some() || !*ovr_state.get(),
+                data-bs-toggle="tooltip", title=t!(cx, "ops-tips")) {
 
                 (View::new_fragment([ "+", "-", "×", "÷" ].into_iter().map(|op| view! { cx,
                     div(class="mx-6 my-4 inline-block") {
@@ -261,7 +265,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                         let vs  = inp.value();  if inp.check_validity() && !vs.is_empty() {
                             game24.nums.set_silent(vs.split_ascii_whitespace()
                                 .filter_map(|s| s.parse::<Rational>().ok()).collect());
-                            eqm_state.set(Some(None));  //resolving.set(true);
+                            //eqm_state.set(None);  //resolving.set(true);
                         } else if inp.focus().is_ok() { inp.select(); }
                     }, )
               }})
@@ -270,7 +274,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                 //       aria-expanded="false" aria-controls="all-solutions"
                 button(on:dblclick=|_| resolving.set(true),
                     aria-checked=match *eqm_state.get() {
-                        Some(Some(bl)) => bl.to_string(), _ => "".to_owned() },
+                        Some(bl) => bl.to_string(), _ => "".to_owned() },
 
                     class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2
                     aria-checked:text-lime-500 aria-checked:ring-lime-400
@@ -278,8 +282,8 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     aria-[checked=false]:ring-2 hover:outline-none hover:ring-indigo-400
                     hover:ring-2 focus:ring-indigo-500 focus:ring-offset-2", //text-white
                     data-bs-toggle="tooltip", title=t!(cx, "get-solutions")) {
-                        (match *eqm_state.get() { Some(Some(true)) => "=",
-                            Some(Some(false)) => "≠", _ => "≠?" })
+                        (match *eqm_state.get() { Some(true)  => "=",
+                                                  Some(false) => "≠", _ => "≠?" })
                 }
 
                 input(type="text", id="G", value=game24.goal.get_untracked().to_string(),
@@ -322,20 +326,21 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
                     on:click=move |_| num_update(0)) { (t!(cx, "refresh")) }
             }
 
-            (if *eqm_state.get() == Some(Some(true)) { view! { cx,  // XXX: nested view! { cx, }
+            (if *eqm_state.get() == Some(true) { view! { cx,  // XXX: nested view! { cx, }
                 div(id="timer", class="mx-1 font-sans text-yellow-600 absolute left-0",
                     data-bs-toggle="tooltip", title=t!(cx, "time-calc")) {
                         (format!("{:.1}s", tnow.get_untracked().elapsed().as_secs_f32()))
                 }
             }} else { view! { cx, } })
 
-            (if *resolving.get() && None != *eqm_state.get_untracked() {
+            (if *resolving.get() {
                 view! { cx, ul(id="all-solutions", class="overflow-y-auto
                     ml-auto mr-auto w-fit text-left text-lime-500 text-xl",
                     data-bs-toggle="tooltip", title=t!(cx, "solutions")) {
 
                 (View::new_fragment({
-                    let exps = calc24_coll(&game24.goal.get(), &game24.nums.get(), DynProg);
+                    let exps = calc24_coll(&game24.goal.get_untracked(),
+                                           &game24.nums.get_untracked(), DynProg);
                     let cnt  = exps.len();
 
                     exps.into_iter().map(|str| view! { cx, li { (str.chars()
@@ -391,7 +396,7 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 }
 
 pub fn get_template<G: Html>() -> Template<G> {
-    Template::build("index").view_with_state(index_page).head(add_head)
+    Template::build("index").view_with_state(index_page)
         //.revalidate_after(Duration::new(5, 0))    // "5s".to_string()
         //.should_revalidate_fn(should_revalidate)
         //.amalgamate_states_fn(amalgamate_states)
@@ -399,5 +404,5 @@ pub fn get_template<G: Html>() -> Template<G> {
         //.build_state_fn(get_build_state)
         //.build_paths_fn(get_build_paths)
         .incremental_generation()
-        .build()
+        .head(add_head).build()
 }
