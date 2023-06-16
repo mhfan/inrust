@@ -67,7 +67,7 @@ impl Game24State {
         let str = format!("({} {} {})", opd[0].value(), opr.value(), opd[1].value());
         opd[0].set_size(str.len() as u32);  opd[0].set_value(&str);
         opd.iter().for_each(|elm| set_checked(elm, false));
-        opd[1].set_hidden(true);    opr.set_checked(false);     //opd[1].blur().unwrap();
+        opd[1].set_hidden(true);    opr.set_checked(false);
 
         self.opd_elq.clear();       self.opr_elm = None;
         self.ncnt += 1;     if self.ncnt == self.nums.len() as u8 {
@@ -112,7 +112,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
     let game24 = create_signal(cx, Game24State::new());
     //static Game24: RefCell<Game24State> = RefCell::new(Game24State::new());   // XXX:
 
-    create_effect(cx, || {  num_state.track();
+    create_effect(cx, || {  num_state.track();  // clear_state
         let mut game24 = game24.modify();
         if !game24.opd_elq.is_empty() { game24.opd_elq.clear(); }
         if let Some(opr) = &game24.opr_elm {
@@ -120,7 +120,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
         }
 
         if *resolving.get_untracked() { resolving.set(false); }
-        if eqm_state.get_untracked().is_some() { eqm_state.set(None); }
+        if  eqm_state.get_untracked().is_some() { eqm_state.set(None); }
         if 1 != game24.ncnt { game24.ncnt = 1; }
     });
 
@@ -162,8 +162,9 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
         if  opd.iter().enumerate().any(|(i, elm)|
             if elm.is_same_node(Some(inp.as_ref())) { idx = i; true } else { false }) {
-            opd.remove(idx);    set_checked(&inp, false);
-        } else {                set_checked(&inp, true);
+            opd.remove(idx);    inp.blur().unwrap();
+                 set_checked(&inp, false);
+        } else { set_checked(&inp, true);
 
             if 1 < idx { set_checked(&opd.pop_front().unwrap(), false);
             }   opd.push_back(inp);
@@ -180,10 +181,10 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
             ovr_state.set(false);   return
         }
 
-        if !ovr { ovr_state.set(true); }
         game24.modify().dealer(if 0 < cnt { cnt } else {
             game24.get_untracked().nums.len() as u8 });
         num_state.trigger_subscribers();
+        if !ovr { ovr_state.set(true); }
     };
 
     view! { cx,
@@ -191,7 +192,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
         // https://en.wikipedia.org/wiki/Server_Side_Includes
         //object(type="text/html", data=".perseus/static/gh-corner.html")
 
-        header(class="text-4xl m-4") {  //(gh_corner)     // interpolation
+        header(class="text-4xl m-8") {  //(gh_corner)     // interpolation
             a(href=env!("CARGO_PKG_REPOSITORY"),
                 dangerously_set_inner_html=include_str!("../../static/gh-corner.html"),
                 class="github-corner", aria-label="View source on GitHub")
@@ -207,8 +208,14 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                 "the final expression will be determined automatically." br() br()
             }
 
-            fieldset(id="ops-group", on:change=|e: Event| { let mut game24 = game24.modify();
-                    game24.opr_elm = e.target().unwrap().dyn_into::<HtmlInputElement>().ok();
+            fieldset(id="ops-group", on:click=|e: Event|
+                // use onclick instead of onchange for capable of de-selection
+                if let Ok(inp) = e.target().unwrap().dyn_into::<HtmlInputElement>() {
+                    let mut game24 = game24.modify();
+                    if  inp.is_same_node(game24.opr_elm.as_ref().map(|elm|
+                        elm.as_ref())) { game24.opr_elm = None;
+                        inp.set_checked(false);     return
+                    }                    game24.opr_elm = Some(inp);
                     if game24.opd_elq.len() == 2 { game24.form_expr(eqm_state); }
                 }, disabled=eqm_state.get().is_some() || !*ovr_state.get(),
                 data-bs-toggle="tooltip", title=t!(cx, "ops-tips")) {
@@ -232,7 +239,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                     on:dblclick=num_editable, on:change=num_changed, on:click=num_checked) {
 
                     //Indexed(iterable = game24.nums, view = |cx, num| view! { ... })
-                    (if *num_state.get() { View::new_fragment(game24.get_untracked()
+                  (if *num_state.get() { View::new_fragment(game24.get_untracked()
                         .nums.iter().enumerate().map(|(idx, &num)| {
                     /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
                     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
@@ -250,7 +257,8 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                         class=format!("{num_class} aria-checked:ring-purple-600
                         aria-checked:ring rounded-full mx-2"))
                     }}).collect()  // https://regexr.com, https://regex101.com
-                )} else { view! { cx, } })}
+                  )} else { view! { cx, } })
+                }
               }} else { view! { cx,
                 input(type="text", id="overall", name="operands", //hidden=*ovr_state.get(),
                     data-bs-toggle="tooltip", title=t!(cx, "space-nums"),
@@ -270,8 +278,8 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
                 // data-bs-toggle="collapse" data-bs-target="#all-solutions"
                 //       aria-expanded="false" aria-controls="all-solutions"
-                button(on:dblclick=|_| resolving.set(true), aria-checked=match *eqm_state.get() {
-                        Some(bl) => bl.to_string(), _ => "".to_owned() },
+                button(on:dblclick=|_| resolving.set(true),
+                    aria-checked=format!("{:?}", *eqm_state.get()),
                     class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2
                     aria-checked:text-lime-500 aria-checked:ring-lime-400
                     aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
