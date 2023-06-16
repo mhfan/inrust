@@ -661,7 +661,7 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
 #[cfg(not(tarpaulin_include))] pub fn game24_cards(n: usize, algo: Calc24Algo) {    // n = 4~6?
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
-    let mut deck= (0..52).collect::<Vec<_>>();
+    let mut deck= (0..52u8).collect::<Vec<_>>();
 
     let mut rng = rand::thread_rng();
     use rand::seq::SliceRandom;
@@ -682,7 +682,7 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
 
                 print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
                     2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
-                    .bold().bg(suits[sid as usize]));    num.into()
+                    .bold().bg(suits[sid as usize]));   (num as i32).into()
             }).collect::<Vec<_>>();     print!(r": ");   pos += n;
 
             let exps = calc24_coll(&goal, &nums, algo);
