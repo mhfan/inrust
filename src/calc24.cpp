@@ -359,7 +359,9 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
 
 void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
     Calc24Algo algo, auto&& each_found) {
-    if (rnv.size() == 1) { if (rnv[0] == goal) each_found(Expr(rnv[0]));   return; }
+    switch (rnv.size()) {   case 0: return;
+        case 1: if (rnv[0] == goal) each_found(Expr(rnv[0]));   return;
+    }
 
     const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
@@ -438,6 +440,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {
+        { 24, {    }, { }, 0 },
         { 24, {  0 }, { }, 0 },
         { 24, { 24 }, { "24" }, 0 },
         { 24, { 8, 8, 8, 8 }, { }, 0 },

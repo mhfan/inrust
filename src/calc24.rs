@@ -569,7 +569,10 @@ pub  use Calc24Algo::*;
 
 #[inline] pub fn calc24_algo<F>(goal: &Rational, nums: &[Rational], algo: Calc24Algo,
     mut each_found: F) where F: FnMut(Expr) -> Option<()> {
-    if nums.len() == 1 { return if nums[0] == *goal { each_found(nums[0].into()); } }
+    match nums.len() {
+        1 => return if nums[0] == *goal { each_found(nums[0].into()); },
+        0 => return, _ => ()
+    }
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
         r"Required by algo. DynProg & SplitSet");
@@ -598,13 +601,14 @@ pub  use Calc24Algo::*;
     }
 }
 
-#[allow(dead_code)] #[inline] fn deck_deal<F>(min: u8, max: u8, cnt: u8,
-    nums: &mut Vec<u8>, solve: &mut F) where F: FnMut(&[u8]) {
+#[allow(dead_code)] #[inline] fn deck_deal<F>(min: i32, max: i32, cnt: u8, mrpt: u8,
+    nums: &mut Vec<i32>, solve: &mut F) where F: FnMut(&[i32]) {
     (min..=max).for_each(|x| {  let len = nums.len() as u8;
-        if 3 < len && nums.iter().fold(0u8, |acc, n|
-            if *n == x { acc + 1 } else { acc }) == 4 { return } else { nums.push(x) }
-        if  len + 1 == cnt { solve(nums); } else {
-            deck_deal(x, max, cnt, nums, solve);
+        if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
+            if n == x { acc + 1 } else { acc }) == mrpt { return } else { nums.push(x) }
+
+        if len + 1 == cnt { solve(nums); } else {
+            deck_deal(x, max, cnt, mrpt, nums, solve);
         }   nums.pop();
     });
 }
@@ -612,56 +616,70 @@ pub  use Calc24Algo::*;
 /// ```
 /// # use inrust::calc24::*;
 /// // require absolute/complete path since Doc-tests run in a separate process
-/// //assert_eq!(game24_solvable(DynProg, 10, 5), (37, 1955, 0));
-/// //assert_eq!(game24_solvable(DynProg, 13, 5), (81, 6094, 0));
-/// //assert_eq!(game24_solvable(DynProg, 10, 6), (3,  4902, 0));
-/// //assert_eq!(game24_solvable(DynProg, 13, 6), (3, 18392, 0));
-/// //assert_eq!(game24_solvable(DynProg, 10, 7), (0, 10890, 0));
-/// assert_eq!(game24_solvable(DynProg, 10, 4), (149,  566, 1343));
+/// let (goal, silent, min) = (24.into(), true, 1);
+/// assert_eq!(game24_solvable(&goal, min, 10, 5, silent, DynProg), (37, 1955, 0));
+/// //assert_eq!(game24_solvable(&goal, min, 13, 5, silent, DynProg), (81, 6094, 0));
+/// //assert_eq!(game24_solvable(&goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
+/// //assert_eq!(game24_solvable(&goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
+/// //assert_eq!(game24_solvable(&goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
+/// assert_eq!(game24_solvable(&goal, min, 10, 4, silent, DynProg), (149, 566, 1343));
 /// for algo in [ DynProg, SplitSet, Inplace, Construct ] {
-///     assert_eq!(game24_solvable(algo, 13, 4), (458, 1362, 3017), r"failed on algo-{algo:?}");
+///     assert_eq!(game24_solvable(&goal, min, 13, 4, silent, algo), (458, 1362, 3017),
+///         r"failed on algo-{algo:?}");
 /// }
 /// ```
-pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
-    let (goal, mut cnts) = (24.into(), (0, 0, 0));
+pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
+    silent: bool, algo: Calc24Algo) -> (u16, u16, u32) {
+    let mut rcnt = (0, 0, 0);
 
-    //let mut pks = (1..=max).collect::<Vec<_>>();
+    if 4 != cnt {    let mut nums = vec![];
+        deck_deal(min, max, cnt, 4, &mut nums, &mut |nums: &[i32]| {
+            let nums = nums.iter().map(|&n| n.into()).collect::<Vec<_>>();
+            let res = calc24_first(goal, &nums, algo);
+
+            if  res.is_empty() { rcnt.0 += 1; } else {  rcnt.1 += 1;    if silent { return }
+                nums.into_iter().for_each(|rn|
+                    print!(r" {:2}", Paint::cyan(rn.numer())));     println!();
+            }
+        });         if silent { return rcnt }
+
+        eprintln!(r"{} / {} sets solvable.", Paint::green(rcnt.1),
+            rcnt.0 + rcnt.1);   return rcnt
+    }
+
+    //let mut pks = (min..=max).collect::<Vec<_>>();
     //let mut rng = rand::thread_rng();
     //use rand::seq::SliceRandom;
     //pks.shuffle(&mut rng);
 
-    //let mut nums = vec![];    // C^52_4 = 270725, C^(13+4-1)_4 = 1820
-    //deck_deal(1, max, cnt, &mut nums, &mut |nums: &[u8]| {    // XXX: too slow
-    (1..=max).for_each(|a| (a..=max).for_each(|b|
-    (b..=max).for_each(|c| (c..=max).for_each(|d| { let nums = vec![a, b, c, d];
-        let nums = nums.iter()
-            .map(|n| (*n as i32).into()).collect::<Vec<_>>();   // XXX: n -> pks[n - 1]
+    // C^52_4 = 270725, C^(13+4-1)_4 = 1820
+    (min..=max).for_each(|a| (a..=max).for_each(|b|   // fast specialize
+      (b..=max).for_each(|c| (c..=max).for_each(|d| {
+        let nums = [a, b, c, d].iter().map(|&n|
+            n.into()).collect::<Vec<_>>();     // XXX: n -> pks[n - 1]
 
-        let exps = if 4 < cnt {
-            vec![calc24_first(&goal, &nums, algo)]
-        } else { calc24_coll (&goal, &nums, algo) };
+        let exps = calc24_coll(goal, &nums, algo);
+        if  exps.is_empty() { rcnt.0 += 1; } else {     rcnt.1 += 1;
+            rcnt.2 += exps.len() as u32;
 
-        if  exps.is_empty() { cnts.0 += 1; } else { cnts.1 += 1;
-            cnts.2 += exps.len() as u32;    //if true { return }
-
-            //nums.shuffle(&mut rng);
+            if silent { return }    //nums.shuffle(&mut rng);
             nums.into_iter().for_each(|rn|
                 print!(r" {:2}", Paint::cyan(rn.numer())));     print!(r":");
             exps.into_iter().for_each(|e|   // output solutions
                 print!(r" {}", Paint::green(e)));               println!();
         }
     }))));
-    //});
 
-    eprintln!(r"{} sets with {} solutions, {} sets unsolvable.",
-        Paint::green (cnts.1).bold(), Paint::magenta(cnts.2),
-        Paint::yellow(cnts.0).bold());  if 4 < cnt { cnts.2 = 0; }  cnts
+    if silent { return rcnt }
+    eprintln!(r"{} / {} sets with {} solutions.", Paint::green(rcnt.1),
+        rcnt.0 + rcnt.1, Paint::magenta(rcnt.2));   rcnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_cards(n: usize, algo: Calc24Algo) {    // n = 4~6?
+#[cfg(not(tarpaulin_include))] pub fn game24_cards(cnt: u8, algo: Calc24Algo) {
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
-    let mut deck= (0..52u8).collect::<Vec<_>>();
+    let mut deck = (0..52u8).collect::<Vec<_>>();
+    let (goal, mut spos, )= (24.into(), 0);
 
     let mut rng = rand::thread_rng();
     use rand::seq::SliceRandom;
@@ -671,43 +689,41 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
     println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
         r"Classic 24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
-    let goal = 24.into();
-    loop {  deck.shuffle(&mut rng);
-        let mut pos = 0;
-        while pos + n < deck.len() {
-            let nums = deck[pos..].partial_shuffle(&mut rng,
-                n).0.iter().map(|num| {     // dealer
-                //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
-                let (sid, mut num) = num.div_rem(&13);  num += 1;   //sid %= 4;
+    loop {
+        if deck.len() < (spos + cnt) as usize { spos = 0; }
+        if spos == 0 { deck.shuffle(&mut rng); }
 
-                print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
-                    2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
-                    .bold().bg(suits[sid as usize]));   (num as i32).into()
-            }).collect::<Vec<_>>();     print!(r": ");   pos += n;
+        let nums = deck[spos as usize..].partial_shuffle(&mut rng,
+            cnt as usize).0.iter().map(|num| {  // dealer
+            //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
+            let (sid, mut num) = num.div_rem(&13);  num += 1;   //sid %= 4;
 
-            let exps = calc24_coll(&goal, &nums, algo);
-            if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
+            print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
+                2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
+                .bold().bg(suits[sid as usize]));   (num as i32).into()
+        }).collect::<Vec<_>>();     spos += cnt;    print!(r": ");
 
-            loop {  use std::io::Write;
-                let mut es = String::new();
-                std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
-                std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
+        let exps = calc24_coll(&goal, &nums, algo);
+        if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
 
-                let es = es.trim_end();
-                if  es.eq_ignore_ascii_case("N") || es.eq("?") {
-                    print!(r"{}", Paint::new(r"Solution:").dimmed());
-                    exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
-                    println!();     break
-                }
+        loop {  use std::io::Write;     let mut es = String::new();
+            std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
+            std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
 
-                if  es.eq_ignore_ascii_case("quit") { return }
-                if  es.parse::<Expr>().unwrap().value() == &goal {
-                    print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
-                    exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
-                    println!();
-                } else { print!(r"{} ", Paint::new(r"Tryagain:").dimmed()); }
+            let es = es.trim_end();
+            if  es.eq_ignore_ascii_case("N") || es.eq("?") {
+                print!(r"{}", Paint::new(r"Solution:").dimmed());
+                exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
+                println!();     break
             }
-        }   println!();
+
+            if  es.eq_ignore_ascii_case("quit") { return }
+            if  es.parse::<Expr>().unwrap().value() == &goal {
+                print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
+                exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
+                println!();
+            } else { print!(r"{} ", Paint::new(r"Tryagain:").dimmed()); }
+        }       println!();
     }
 }
 
@@ -762,7 +778,12 @@ pub fn game24_solvable(algo: Calc24Algo, max: u8, cnt: u8) -> (u16, u16, u32) {
                 Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
             } } else { eprintln!(r"Lack parameter for GOAL!") }
 
-            if nums.len() < 1 && goal == 24.into() {    game24_solvable(algo, 13, 4);
+            if nums.len() < 1 {
+                if goal == 0.into() { (0..=100).for_each(|n| println!("{n} {}",
+                     game24_solvable(&n.into(), 1, 13, 4, true, algo).1));
+                } else { // solvable for 4 cards dealed from a deck, traverse 0..=100 as target
+                     game24_solvable(&goal, 1, 13, 4, false, algo);
+                }
             } else { game24_helper(&goal, nums, algo); }
             if want_exit { std::process::exit(0) }
         }
@@ -887,6 +908,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
 
     #[test] fn solve24() {
         let cases = [
+            ( 24, vec![  ], vec![], 0),
             ( 24, vec![ 0], vec![], 0),
             ( 24, vec![24], vec!["24"], 0),
             ( 24, vec![ 8, 8, 8, 8], vec![], 0),
@@ -959,17 +981,18 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         });
     }
 
-    #[test] fn test_deck_deal() {
+    #[test] fn test_deck_deal() {   // for non-public function
         let (mut nums, mut cnt) = (vec![], 0);
-        deck_deal(1, 10, 5, &mut nums, &mut |_| cnt += 1);
+        deck_deal(1, 10, 5, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  1992);     cnt = 0;
-        deck_deal(1, 13, 5, &mut nums, &mut |_| cnt += 1);
+        deck_deal(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  6175);     cnt = 0;
-        deck_deal(1, 10, 6, &mut nums, &mut |_| cnt += 1);
+        deck_deal(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  4905);     cnt = 0;
-        deck_deal(1, 13, 6, &mut nums, &mut |_| cnt += 1);
+
+        deck_deal(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt, 18395);     cnt = 0;
-        deck_deal(1, 10, 7, &mut nums, &mut |_| cnt += 1);
+        deck_deal(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
