@@ -26,17 +26,19 @@ impl Game24State {
         };  game24.dealer(4);   game24
     }
 
-    fn dealer(&mut self, n: u8) {
+    fn dealer(&mut self, cnt: u8) {
         use rand::seq::SliceRandom;
         let mut rng = rand::thread_rng();
         //let dst = distributions::Uniform::new(1, 100);
+        //let cnt = if 0 < cnt { cnt } else { self.nums.len() as u8 };
 
-        //let n = if 0 < n { n } else { self.nums.len() as u8 };
-        loop {  if self.spos == 0 { self.deck.shuffle(&mut rng); }
+        loop {
+            if self.deck.len() < (self.spos + cnt) as usize { self.spos = 0; }
+            if self.spos == 0 {   self.deck.shuffle(&mut rng); }
+
             self.nums = self.deck[self.spos as usize..]
-                .partial_shuffle(&mut rng, n as usize).0.iter().map(|&n|
-                    Rational::from((n as i32 % 13) + 1)).collect();
-            self.spos += n; if self.deck.len() < (self.spos + n) as usize { self.spos = 0; }
+                .partial_shuffle(&mut rng, cnt as usize).0.iter().map(|&n|
+                    Rational::from((n as i32 % 13) + 1)).collect();     self.spos += cnt;
             //self.nums = (&mut rng).sample_iter(dst).take(4).map(Rational::from).collect();
 
             if !calc24_first(&self.goal, &self.nums, DynProg).is_empty() { break }
@@ -64,7 +66,6 @@ fn main() {                           //dioxus_desktop::launch(app);
 //fn not_found(cx: Scope) -> Element { rsx!(cx, Redirect{ to: "/" }) }
 
 fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
-    let num_state = use_state(cx, || true);
     let ovr_state = use_state(cx, || true);
     let resolving = use_state(cx, || false);
     let eqm_state = use_state(cx, || Option::<bool>::None);
@@ -150,7 +151,6 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                 span { id: "nums-group", "data-bs-toggle": "tooltip",
                     title: "Click to (un)check\nDouble click to input\nDrag over to exchange",
                     //ondblclick: num_editable, onchange: num_changed, onclick: num_checked,
-                  if *num_state.get() { rsx! {
                     game24.read().nums.iter().enumerate().map(|(idx, num)| {
                         /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
                         // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
@@ -168,7 +168,6 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring
                             rounded-full mx-2", }}  // https://regexr.com, https://regex101.com
                     })
-                  }}
                 }
               }} else { rsx! {
                 input { "type": "text", id: "overall", name: "operands",
@@ -216,14 +215,16 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
             div { id: "ctrl-btns",
                 input { "type": "reset", value: "Dismiss", class: "{ctrl_class}",
                     "data-bs-toogle": "tooltip", title: "Click to dismiss expr.",
-                    onclick: |_| { num_state.needs_update(); ovr_state.needs_update(); },
+                    onclick: |_| ovr_state.needs_update(),
                 }
 
                 select { class: "{ctrl_class} appearance-none", "data-bs-toogle": "tooltip",
                     title: "Click to set numbers count\nOverall - single element for all numbers",
                     onchange: |evt| { let val = evt.data.value.parse::<u8>().unwrap();
-                        if val == 1 { ovr_state.set(false); } else {    ovr_state.set(true);
-                            game24.with_mut(|game24| game24.dealer(val));
+                        if val == 1 {
+                            game24.with_mut(|game24| game24.nums.clear());  ovr_state.set(false);
+                        } else {
+                            game24.with_mut(|game24| game24.dealer(val));   ovr_state.set(true);
                         }   resolving.set(false);
                     },
 
@@ -246,7 +247,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                 }
             }}
 
-            if *resolving.get() { rsx! {
+            if *resolving.get() && !game24.read().nums.is_empty() { rsx! {
                 ul { id: "all-solutions", class: "overflow-y-auto ml-auto mr-auto 
                     w-fit text-left text-lime-500 text-xl", "data-bs-toggle": "tooltip",
                     title: "All inequivalent solutions",  game24.with(|game24| {

@@ -43,17 +43,19 @@ impl Game24State {
         };  game24.dealer(4);   game24
     }
 
-    fn dealer(&mut self, n: u8) {
+    fn dealer(&mut self, cnt: u8) {
         use rand::seq::SliceRandom;
         let mut rng = rand::thread_rng();
         //let dst = distributions::Uniform::new(1, 100);
+        //let cnt = if 0 < cnt { cnt } else { self.nums.len() as u8 };
 
-        //let n = if 0 < n { n } else { self.nums.len() as u8 };
-        loop {  if self.spos == 0 { self.deck.shuffle(&mut rng); }
+        loop {
+            if self.deck.len() < (self.spos + cnt) as usize { self.spos = 0; }
+            if self.spos == 0 {   self.deck.shuffle(&mut rng); }
+
             self.nums = self.deck[self.spos as usize..]
-                .partial_shuffle(&mut rng, n as usize).0.iter().map(|&n|
-                    Rational::from((n as i32 % 13) + 1)).collect();
-            self.spos += n; if self.deck.len() < (self.spos + n) as usize { self.spos = 0; }
+                .partial_shuffle(&mut rng, cnt as usize).0.iter().map(|&n|
+                    Rational::from((n as i32 % 13) + 1)).collect();     self.spos += cnt;
             //self.nums = (&mut rng).sample_iter(dst).take(4).map(Rational::from).collect();
 
             if !calc24_first(&self.goal, &self.nums, DynProg).is_empty() { break }
@@ -105,14 +107,13 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
     use sycamore::prelude::*;
     web_log!("try for debugging");  // perseus snoop serve/build
 
-    let num_state = create_signal(cx, true);
     let ovr_state = create_signal(cx, true);
     let resolving = create_signal(cx, false);
     let eqm_state = create_signal(cx, Option::<bool>::None);
     let game24 = create_signal(cx, Game24State::new());
     //static Game24: RefCell<Game24State> = RefCell::new(Game24State::new());   // XXX:
 
-    create_effect(cx, || {  num_state.track();  // clear_state
+    create_effect(cx, || {  ovr_state.track();  // clear_state
         let mut game24 = game24.modify();
         if !game24.opd_elq.is_empty() { game24.opd_elq.clear(); }
         if let Some(opr) = &game24.opr_elm {
@@ -134,8 +135,14 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
     //let eqm_elm = eqm_node.get::<DomNode>().unchecked_into::<HtmlElement>(); */
 
     let num_editable = |e: Event| if 1 == game24.get_untracked().ncnt {
-        e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap().set_read_only(false);
+        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
         //let end = inp.value().len() as u32; inp.set_selection_range(end, end).unwrap();
+        inp.set_read_only(false);   inp.focus().unwrap();
+    };
+
+    let num_focusout = |e: Event| {
+        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
+        if !inp.read_only() { inp.set_read_only(true); }
     };
 
     let num_changed = |e: Event| {
@@ -171,20 +178,6 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
             if 0 < idx && game24.opr_elm.is_some() { game24.form_expr(eqm_state); }
         }
-    };
-
-    let num_update = |cnt: u8| {
-        debug_assert!(cnt < 10, "too big to solve!");
-        let ovr = *ovr_state.get_untracked();
-        if 1 == cnt || (0 == cnt && !ovr) {
-            num_state.trigger_subscribers();
-            ovr_state.set(false);   return
-        }
-
-        game24.modify().dealer(if 0 < cnt { cnt } else {
-            game24.get_untracked().nums.len() as u8 });
-        num_state.trigger_subscribers();
-        if !ovr { ovr_state.set(true); }
     };
 
     view! { cx,
@@ -236,10 +229,11 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
             div(id="expr-skel") {
               (if *ovr_state.get() { view! { cx,
                 span(id="nums-group", data-bs-toggle="tooltip", title=t!(cx, "num-tips"),
-                    on:dblclick=num_editable, on:change=num_changed, on:click=num_checked) {
+                    on:focusout=num_focusout, on:dblclick=num_editable,
+                    on:change=num_changed, on:click=num_checked) {
 
                     //Indexed(iterable = game24.nums, view = |cx, num| view! { ... })
-                  (if *num_state.get() { View::new_fragment(game24.get_untracked()
+                  (View::new_fragment(game24.get_untracked()
                         .nums.iter().enumerate().map(|(idx, &num)| {
                     /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
                     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
@@ -257,7 +251,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                         class=format!("{num_class} aria-checked:ring-purple-600
                         aria-checked:ring rounded-full mx-2"))
                     }}).collect()  // https://regexr.com, https://regex101.com
-                  )} else { view! { cx, } })
+                  ))
                 }
               }} else { view! { cx,
                 input(type="text", id="overall", name="operands", //hidden=*ovr_state.get(),
@@ -291,10 +285,10 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                 }
 
                 input(type="text", id="G", value=game24.get_untracked().goal.to_string(),
-                    on:dblclick=num_editable, on:change=num_changed, readonly=true,
+                    on:focusout=num_focusout, on:dblclick=num_editable, on:change=num_changed,
                     placeholder="??", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
                     maxlength="8", size="4", class=format!("{num_class} rounded-md"),
-                    data-bs-toggle="tooltip", title=t!(cx, "input-goal"))
+                    data-bs-toggle="tooltip", title=t!(cx, "input-goal"), readonly=true)
 
                 /*style { r"
                     [contenteditable='true'].single-line {
@@ -311,14 +305,16 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
             }   // invisible vs hidden
 
             div(id="ctrl-btns") {
-                input(type="reset", value=t!(cx, "dismiss"), class=ctrl_class, on:click=|_| {
-                        num_state.trigger_subscribers();   ovr_state.trigger_subscribers();
-                    }, data-bs-toogle="tooltip", title=t!(cx, "dismiss-tips"))
+                input(type="reset", value=t!(cx, "dismiss"), class=ctrl_class,
+                    on:click=|_| ovr_state.trigger_subscribers(),
+                    data-bs-toogle="tooltip", title=t!(cx, "dismiss-tips"))
 
                 select(class=format!("{ctrl_class} appearance-none"),
-                    on:change=move |e: Event| num_update(e.target().unwrap()
-                    .dyn_into::<HtmlSelectElement>().unwrap().value().parse::<u8>().unwrap()),
-                    data-bs-toogle="tooltip", title=t!(cx, "change-count")) {
+                    on:change=|e: Event| {  let cnt = e.target().unwrap()
+                        .dyn_into::<HtmlSelectElement>().unwrap().value().parse::<u8>().unwrap();
+                        if 1 == cnt { game24.modify().nums.clear(); ovr_state.set(false);
+                        } else {      game24.modify().dealer(cnt);  ovr_state.set(true); }
+                    }, data-bs-toogle="tooltip", title=t!(cx, "change-count")) {
 
                     option(value="1") { "Overall" }
                     (View::new_fragment((4..=6).map(|n| view! { cx, option(value=n.to_string(),
@@ -327,7 +323,9 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                 }
 
                 button(class=ctrl_class, data-bs-toogle="tooltip", title=t!(cx, "refresh-tips"),
-                    on:click=move |_| num_update(0)) { (t!(cx, "refresh")) }
+                    on:click=|_| { if *ovr_state.get_untracked() {
+                        game24.modify().dealer(game24.get_untracked().nums.len() as u8);
+                    }   ovr_state.trigger_subscribers(); }) { (t!(cx, "refresh")) }
             }
 
             (if *eqm_state.get() == Some(true) { view! { cx,  // XXX: nested view! { cx, }
@@ -336,7 +334,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                         game24.get_untracked().tnow.elapsed().as_secs_f32())) }
             }} else { view! { cx, } })
 
-            (if *resolving.get() {
+            (if *resolving.get() && !game24.get_untracked().nums.is_empty() {
                 view! { cx, ul(id="all-solutions", class="overflow-y-auto
                     ml-auto mr-auto w-fit text-left text-lime-500 text-xl",
                     data-bs-toggle="tooltip", title=t!(cx, "solutions")) {
