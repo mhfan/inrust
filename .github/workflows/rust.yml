@@ -3,9 +3,9 @@ name: Rust CI
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ master ]
   pull_request:
-    branches: [ "master" ]
+    branches: [ master ]
 
   #schedule: -cron:'0 0 * * *'
 
@@ -46,10 +46,24 @@ jobs:
 
     #- run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
 
-    - name: Install toolchain
-      uses: actions-rs/toolchain@v1
+    #- name: Install toolchain
+    #  uses: actions-rs/toolchain@v1
+    #  with:
+    #    toolchain: nightly
+    #    #toolchain: ${{ matrix.rust }}
+    #    #$target: ${{ matrix.target }}
+    #    #profile: minimal
+    #    #override: true
+
+    - uses: actions/cache@v3
       with:
-        toolchain: nightly
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Run tests
       run: cargo test -- --color always --nocapture
