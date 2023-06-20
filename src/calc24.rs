@@ -617,7 +617,7 @@ pub  use Calc24Algo::*;
 /// # use inrust::calc24::*;
 /// // require absolute/complete path since Doc-tests run in a separate process
 /// let (goal, silent, min) = (24.into(), true, 1);
-/// assert_eq!(game24_solvable(&goal, min, 10, 5, silent, DynProg), (37, 1955, 0));
+/// assert_eq!(game24_solvable(&goal, min, 10, 5, false, DynProg), (37, 1955, 0));
 /// //assert_eq!(game24_solvable(&goal, min, 13, 5, silent, DynProg), (81, 6094, 0));
 /// //assert_eq!(game24_solvable(&goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
 /// //assert_eq!(game24_solvable(&goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
@@ -852,8 +852,8 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
 
         if 0 < calc24.ecnt && !calc24.exps.is_null() {
             let _exps = core::slice::from_raw_parts(calc24.exps,
-                calc24.ecnt).iter().map(|es|
-                std::ffi::CStr::from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
+                calc24.ecnt).iter().map(|es| std::ffi::CStr::
+                from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
         }
     }   calc24.ecnt
 }
@@ -914,6 +914,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
             ( 24, vec![ 8, 8, 8, 8], vec![], 0),
             ( 24, vec![ 1, 2, 4,12], vec![], 5),
             ( 24, vec![ 2, 4, 4,12], vec![], 5),
+            ( -2, vec![ 1, 2, 3, 4], vec![], 11),
             ( 24, vec![ 8, 8, 3, 3], vec!["8/(3-8/3)"], 0),
             ( 24, vec![ 3, 3, 7, 7], vec!["(3/7+3)*7"], 0),
             ( 24, vec![ 5, 5, 5, 1], vec!["(5-1/5)*5"], 0),
@@ -996,7 +997,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
-    #[cfg(feature = "cc")] /*#[test] */fn _solve24_c() {
+    #[cfg(feature = "cc")] #[test] fn solve24_c() {
         /*#[link(name = "calc24")] */extern "C" { #[allow(dead_code)] fn test_24calc(); }
         unsafe { test_24calc(); }
     }

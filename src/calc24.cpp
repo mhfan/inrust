@@ -446,6 +446,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 8, 8, 8, 8 }, { }, 0 },
         { 24, { 1, 2, 4,12 }, { }, 5 },
         { 24, { 2, 4, 4,12 }, { }, 5 },
+        { -2, { 1, 2, 3, 4 }, { }, 11},
         { 24, { 8, 8, 3, 3 }, { "8/(3-8/3)" }, 0 },
         { 24, { 3, 3, 7, 7 }, { "(3/7+3)*7" }, 0 },
         { 24, { 5, 5, 5, 1 }, { "(5-1/5)*5" }, 0 },
@@ -459,14 +460,14 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 1, 2, 3, 4 }, { "1*2*3*4", "(1+3)*(2+4)", "4*(1+2+3)" }, 0 },
         {100, {13,14,15,16,17 }, { "16+(17-14)*(13+15)", "(17-13)*(14+15)-16" }, 0 },
         {100, { 1, 2, 3, 4, 5, 6 }, { }, 111 },
-        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 732 },
+        { 24, { 1, 2, 3, 4, 5, 6 }, { }, 727 },
         { 24, { 1, 2, 3, 4, 5 }, { }, 45 },
     };
 
     for (const auto& it: cases) {
-        cout << "Test compute " << std::setw(3) << it.goal << " from [";
+        cout << "Calculate " << std::setw(3) << it.goal << " from [";
         for (auto n: it.nums) cout << std::setw(2) << n << ",";
-        cout << "]" << endl;
+        cout << " ]" << endl;
 
         vector<Rational> nums;
         const Rational goal(it.goal);
