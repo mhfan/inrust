@@ -675,21 +675,18 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         rcnt.0 + rcnt.1, Paint::magenta(rcnt.2));   rcnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_cards(cnt: u8, algo: Calc24Algo) {
+#[cfg(not(tarpaulin_include))] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
-    let mut deck = (0..52u8).collect::<Vec<_>>();
-    let (goal, mut spos, )= (24.into(), 0);
-
-    let mut rng = rand::thread_rng();
-    use rand::seq::SliceRandom;
+    let (mut rng, mut spos, mut batch)= (rand::thread_rng(), 0, 0);
+    let mut deck = (0..13*4u8).collect::<Vec<_>>();
 
     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
     // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
-    println!(r"{}", Paint::new(            // https://github.com/htdebeer/SVG-cards
-        r"Classic 24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
+    println!(r"{}, target {goal}", Paint::new(  // https://github.com/htdebeer/SVG-cards
+        r"24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
 
-    loop {
+    loop {  use rand::seq::SliceRandom;
         if deck.len() < (spos + cnt) as usize { spos = 0; }
         if spos == 0 { deck.shuffle(&mut rng); }
 
@@ -703,8 +700,13 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
                 .bold().bg(suits[sid as usize]));   (num as i32).into()
         }).collect::<Vec<_>>();     spos += cnt;    print!(r": ");
 
-        let exps = calc24_coll(&goal, &nums, algo);
+        let exps = calc24_coll(goal, &nums, algo);
         if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
+
+        if 0 < batch {
+            exps.iter().for_each(|e| print!(r" {}", Paint::black(e)));
+            println!();     batch -= 1;     continue
+        }
 
         loop {  use std::io::Write;     let mut es = String::new();
             std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
@@ -714,11 +716,12 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
             if  es.eq_ignore_ascii_case("N") || es.eq("?") {
                 print!(r"{}", Paint::new(r"Solution:").dimmed());
                 exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
+                if let Ok(n) = es[1..].parse::<u16>() { batch = n; }
                 println!();     break
             }
 
             if  es.eq_ignore_ascii_case("quit") { return }
-            if  es.parse::<Expr>().unwrap().value() == &goal {
+            if  es.parse::<Expr>().unwrap().value() == goal {
                 print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
                 exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
                 println!();
@@ -814,8 +817,9 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
                     }
                     Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
                 }   nums.next();
-            } else if first.eq_ignore_ascii_case("cards") {     // poker?
-                game24_cards(4, algo);  nums.next();    continue;
+            } else if first.eq_ignore_ascii_case("poker") ||
+                      first.eq_ignore_ascii_case("cards") {
+                game24_cards(&goal, 4, algo);   nums.next();    continue;
             } else if first.eq_ignore_ascii_case("quit") { break }
         }       game24_helper(&goal, nums, algo);
     }
@@ -1003,11 +1007,8 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
     }
 
     #[cfg(not(tarpaulin_include))] /*#[test] #[bench] */fn _solve24_random() {
-        use std::time::{Instant, Duration};
-        use rand::{Rng, distributions::Uniform};
-
-        let (cnt, mut total_time) = (50, Duration::from_millis(0));
-        for _ in 0..cnt {
+        let (cnt, mut total_time) = (50, std::time::Duration::from_millis(0));
+        for _ in 0..cnt {   use rand::{Rng, distributions::Uniform};
             let mut rng = rand::thread_rng();
             let dst = Uniform::new(1, 20);
 
@@ -1016,9 +1017,8 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
             println!(r"Compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
 
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
-            let (goal, now) = (goal.into(), Instant::now());
+            let (goal, now) = (goal.into(), std::time::Instant::now());
             calc24_coll(&goal, &nums, DynProg); // XXX: other algo?
-
             total_time += now.elapsed();
         }
 
