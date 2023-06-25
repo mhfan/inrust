@@ -26,8 +26,8 @@
 template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
 typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 
-//typedef char Oper;    // XXX: '*' -> '×', '/' -> '÷'
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
+//typedef char Oper;    // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 
 struct Expr;
 typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;     // TODO:

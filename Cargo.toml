@@ -62,7 +62,7 @@ build-time = { git = "https://github.com/AlephAlpha/build-time" }
 
 [dev-dependencies]
 #pprof = { version = "0.10", optional = true, features = ["flamegraph", "criterion"] }
-criterion = "0.4"
+criterion = "0.5"
 #bencher = "0.1"
 #csv = "1.1"
 

@@ -376,7 +376,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     let mut vexp = vec![RefCell::new(vec![]); psn];
     if 1 < n { for i in 0..n { vexp[1 << i].get_mut().push(nums[i].clone()) } }
 
-    let mut hv = Vec::with_capacity(psn - 2);
+    let mut hv = Vec::with_capacity(psn - 1);   // psn - 2
     let get_hash = |x| {
         let mut hasher = DefaultHasher::default();
         //nums.iter().enumerate().for_each(|(i, e)| if (1 << i) & x != 0 {
@@ -389,11 +389,13 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         }   hasher.finish()
     };
 
-    for x in 3..psn { if x & (x - 1) == 0 { continue }  // skip when (x == 2^n)
+    for x in 3..psn {   // 0 is a placeholder, 1~2 both included in previous [1 << i]
+        if x & (x - 1) == 0 { continue }    // skip when (x == 2^n)
         let is_final = x == psn - 1;
 
         let mut exps = vexp[x].borrow_mut();
-        for i in 1..(x+1)/2 {   if x & i != i { continue }
+        for i in 1..(x+1)/2 {   // exclude empty & full set pair
+            if x & i != i { continue }  // split by bits, '0's vs '1's
             let (es0, es1) = (vexp[i].borrow(), vexp[x - i].borrow());
             #[cfg(feature = "debug")] eprintln!(r"{i:08b}{} | {:08b}{}",
                 if es0.is_empty() {"X"} else {"="}, x - i, if es1.is_empty() {"X"} else {"="});
@@ -409,6 +411,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
 
             es0.iter().enumerate().try_for_each(|(i, a)|
                 es1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b| {
+                    // skip duplicates by symmetric subset combinations, e.g.: [5 3], [5 3]
                     let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                     form_compose(a, b, is_final, ngoal, |e| {
                         if !is_final { exps.push(Rc::new(e)) }
@@ -430,7 +433,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     let is_final = !core::ptr::eq(goal, &IR);
     //if nums.len() < 2 { return nums.to_vec() }
 
-    let mut hv = Vec::with_capacity(psn - 2);
+    let mut hv = Vec::with_capacity(psn - 1);   // psn - 2
     let get_hash = |ns: &[_]| {
         let mut hasher = DefaultHasher::default();
         ns.hash(&mut hasher);   hasher.finish()
@@ -439,9 +442,9 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
 
-    for x in 1..psn/2 {
+    for x in 1..psn/2 { // exclude empty & full set pair
         let (mut ns0, mut ns1) = (vec![], vec![]);
-        nums.iter().enumerate().for_each(|(i, e)|
+        nums.iter().enumerate().for_each(|(i, e)|   // split by bit 0/1 in 'x'
             if (1 << i) & x != 0 { ns0.push(e.clone()) } else { ns1.push(e.clone()) });
         #[cfg(feature = "debug")] eprint!(r"{:?} ~ {:?} ", ns0, ns1);
 
@@ -464,6 +467,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         if  ns0.iter().enumerate().try_for_each(|(i, a)|
             ns1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b| {
+                // skip duplicates by symmetric subset combinations, e.g.: [5 3], [5 3]
                 let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                 form_compose(a, b, is_final, ngoal, |e| {
                     if !is_final { exps.push(Rc::new(e)) }
@@ -477,7 +481,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
 fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     let n = nums.len();
-    let mut hv = Vec::with_capacity(n * (n - 1) / 2);
+    let mut hv = Vec::with_capacity(n * n / 2);     // n * (n - 1) / 2
 
     // XXX: skip duplicates over different combination order, as well in symmetric style
     for j in 1..n {     let b = nums[j].clone();
@@ -504,7 +508,7 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
 fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     each_found: &mut F, minj: usize) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     let n = nums.len();
-    let mut hv = Vec::with_capacity(n * (n - 1) / 2);
+    let mut hv = Vec::with_capacity(n * n / 2);     // n * (n - 1) / 2
 
     // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //nums.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
@@ -536,7 +540,7 @@ pub  use Calc24Algo::*;
 
 // view dhat-heap.json in https://nnethercote.github.io/dh_view/dh_view.html
 #[cfg(feature = "dhat-heap")] #[global_allocator] static ALLOC: dhat::Alloc = dhat::Alloc;
-// cargo run --features dhat-heap   // memory profiling
+// cargo run --features dhat-heap   // XXX: memory profiling
 
 #[inline] pub fn calc24_coll (goal: &Rational, nums: &[Rational],
     algo: Calc24Algo) -> Vec<String> {
@@ -569,10 +573,7 @@ pub  use Calc24Algo::*;
 
 #[inline] pub fn calc24_algo<F>(goal: &Rational, nums: &[Rational], algo: Calc24Algo,
     mut each_found: F) where F: FnMut(Expr) -> Option<()> {
-    match nums.len() {
-        1 => return if nums[0] == *goal { each_found(nums[0].into()); },
-        0 => return, _ => ()
-    }
+    if 1 == nums.len() { return if nums[0] == *goal { each_found(nums[0].into()); } }
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
         r"Required by algo. DynProg & SplitSet");
@@ -601,14 +602,14 @@ pub  use Calc24Algo::*;
     }
 }
 
-#[allow(dead_code)] #[inline] fn deck_deal<F>(min: i32, max: i32, cnt: u8, mrpt: u8,
+#[allow(dead_code)] #[inline] fn deck_traverse<F>(min: i32, max: i32, cnt: u8, mrpt: u8,
     nums: &mut Vec<i32>, solve: &mut F) where F: FnMut(&[i32]) {
     (min..=max).for_each(|x| {  let len = nums.len() as u8;
         if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
             if n == x { acc + 1 } else { acc }) == mrpt { return } else { nums.push(x) }
 
         if len + 1 == cnt { solve(nums); } else {
-            deck_deal(x, max, cnt, mrpt, nums, solve);
+            deck_traverse(x, max, cnt, mrpt, nums, solve);
         }   nums.pop();
     });
 }
@@ -633,7 +634,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
     let mut rcnt = (0, 0, 0);
 
     if 4 != cnt {    let mut nums = vec![];
-        deck_deal(min, max, cnt, 4, &mut nums, &mut |nums: &[i32]| {
+        deck_traverse(min, max, cnt, 4, &mut nums, &mut |nums: &[i32]| {
             let nums = nums.iter().map(|&n| n.into()).collect::<Vec<_>>();
             let res = calc24_first(goal, &nums, algo);
 
@@ -691,7 +692,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         if spos == 0 { deck.shuffle(&mut rng); }
 
         let nums = deck[spos as usize..].partial_shuffle(&mut rng,
-            cnt as usize).0.iter().map(|num| {  // dealer
+            cnt as usize).0.iter().map(|num| {  // cards deck dealer
             //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
             let (sid, mut num) = num.div_rem(&13);  num += 1;   //sid %= 4;
 
@@ -986,18 +987,15 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         });
     }
 
-    #[test] fn test_deck_deal() {   // for non-public function
+    #[test] fn test_deck_traverse() {   // for non-public function
         let (mut nums, mut cnt) = (vec![], 0);
-        deck_deal(1, 10, 5, 4, &mut nums, &mut |_| cnt += 1);
-        assert_eq!(cnt,  1992);     cnt = 0;
-        deck_deal(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  6175);     cnt = 0;
-        deck_deal(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  4905);     cnt = 0;
-
-        deck_deal(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt, 18395);     cnt = 0;
-        deck_deal(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
