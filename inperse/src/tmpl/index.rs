@@ -91,16 +91,16 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
     //let gh_corner = view! { cx, };
     //#[component] fn gh_corner<G: Html>(cx: Scope) -> View<G> { }
 
-    let num_class  = "px-4 py-2 my-4 w-fit appearance-none select-text
-        read-only:bg-transparent bg-stone-200 border border-purple-200
-        text-center text-2xl text-purple-600 font-semibold
-        hover:text-white hover:bg-purple-600 hover:border-transparent
-        focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2
+    let num_class  = "px-4 py-2 my-4 w-fit appearance-none select-text \
+        read-only:bg-transparent bg-stone-200 border border-purple-200 \
+        text-center text-2xl text-purple-600 font-semibold \
+        hover:text-white hover:bg-purple-600 hover:border-transparent \
+        focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 \
         shadow-xl invalid:border-red-500 invalid:border-2";
 
-    let ctrl_class = "px-4 py-2 m-4 text-gray-900 font-bold bg-gradient-to-r
-        from-stone-200 via-stone-400 to-stone-500 rounded-lg hover:bg-gradient-to-br
-        focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50
+    let ctrl_class = "px-4 py-2 m-4 text-gray-900 font-bold bg-gradient-to-r \
+        from-stone-200 via-stone-400 to-stone-500 rounded-lg hover:bg-gradient-to-br \
+        focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
         dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
     use sycamore::prelude::*;
@@ -217,9 +217,9 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                         input(type="radio", id=op, value=op, name="ops", class="hidden peer")
 
                         label(for=op, draggable="true",
-                            class="px-4 py-2 bg-indigo-600 text-white text-3xl font-bold
-                            hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2
-                            peer-checked:ring-indigo-500 peer-checked:ring-offset-2
+                            class="px-4 py-2 bg-indigo-600 text-white text-3xl font-bold \
+                            hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2 \
+                            peer-checked:ring-indigo-500 peer-checked:ring-offset-2 \
                             peer-checked:bg-transparent rounded-md shadow-xl") { (op) }
                     }
                 }).collect()))
@@ -247,7 +247,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                     view! { cx, input(type="text", id=format!("N{idx}"), value=num.to_string(),
                         maxlength="6", size="3", readonly=true, name="nums", draggable="true",
                         placeholder="?", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
-                        class=format!("{num_class} aria-checked:ring-purple-600
+                        class=format!("{num_class} aria-checked:ring-purple-600 \
                         aria-checked:ring rounded-full mx-2"))
                     }}).collect()  // https://regexr.com, https://regex101.com
                   ))
@@ -273,10 +273,10 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                 //       aria-expanded="false" aria-controls="all-solutions"
                 button(on:dblclick=|_| resolving.set(true),
                     aria-checked=format!("{:?}", *eqm_state.get()),
-                    class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2
-                    aria-checked:text-lime-500 aria-checked:ring-lime-400
-                    aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
-                    aria-[checked=false]:ring-2 hover:outline-none hover:ring-indigo-400
+                    class="px-4 py-2 m-4 text-3xl font-bold rounded-md aria-checked:ring-2 \
+                    aria-checked:text-lime-500 aria-checked:ring-lime-400 \
+                    aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400 \
+                    aria-[checked=false]:ring-2 hover:outline-none hover:ring-indigo-400 \
                     hover:ring-2 focus:ring-indigo-500 focus:ring-offset-2", //text-white
                     data-bs-toggle="tooltip", title=t!(cx, "get-solutions")) {
                         (match *eqm_state.get() { Some(true)  => "=",
@@ -289,16 +289,14 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                     maxlength="8", size="4", class=format!("{num_class} rounded-md"),
                     data-bs-toggle="tooltip", title=t!(cx, "input-goal"), readonly=true)
 
-                /*style { r"
-                    [contenteditable='true'].single-line {
-                        white-space: nowrap; overflow: hidden; }
-                    [contenteditable='true'].single-line br { display: none; }
-                    [contenteditable='true'].single-line  * { display: inline;
-                        white-space: nowrap; }
-                " }*/
+        /*style { " \
+            [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; } \
+            [contenteditable='true'].single-line br { display: none; } \
+            [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }
+        " }*/
             }
 
-            p(class="hidden peer-invalid:visible
+            p(class="hidden peer-invalid:visible \
                 relative -top-[1rem] text-red-500 font-light") {
                 "Invalid integer number input, please correct it!"
             }   // invisible vs hidden

@@ -70,16 +70,16 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
     let eqm_state = use_state(cx, || Option::<bool>::None);
     let game24 = use_ref(cx, Game24State::new);
 
-    let num_class = "px-4 py-2 my-4 w-fit appearance-none select-text
-        read-only:bg-transparent bg-stone-200 border border-purple-200
-        text-center text-2xl text-purple-600 font-semibold
-        hover:text-white hover:bg-purple-600 hover:border-transparent
-        focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2
+    let num_class = "px-4 py-2 my-4 w-fit appearance-none select-text \
+        read-only:bg-transparent bg-stone-200 border border-purple-200 \
+        text-center text-2xl text-purple-600 font-semibold \
+        hover:text-white hover:bg-purple-600 hover:border-transparent \
+        focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 \
         shadow-xl invalid:border-red-500 invalid:border-2";
 
-    let ctrl_class = "px-4 py-2 m-4 text-gray-900 font-bold bg-gradient-to-r
-        from-stone-200 via-stone-400 to-stone-500 rounded-lg hover:bg-gradient-to-br
-        focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50
+    let ctrl_class = "px-4 py-2 m-4 text-gray-900 font-bold bg-gradient-to-r \
+        from-stone-200 via-stone-400 to-stone-500 rounded-lg hover:bg-gradient-to-br \
+        focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
         dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
     //log::info!("");
@@ -95,7 +95,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
         //link { rel: "stylesheet",
         //    href: "https://cdn.jsdelivr.net/npm/tw-elements/dist/css/index.min.css" }
 
-        style { r"html {{ background-color: #15191D; color: #DCDCDC; }}
+        style { "html {{ background-color: #15191D; color: #DCDCDC; }} \
             body {{ font-family: Courier, Monospace; text-align: center; height: 100vh; }}"
         }
 
@@ -137,9 +137,9 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                         }   // require value='xxx', default is 'on'
 
                         label { "for": "{op}", draggable: "true",
-                            class: "px-4 py-2 bg-indigo-600 text-white text-3xl font-bold
-                            hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2
-                            peer-checked:ring-indigo-500 peer-checked:ring-offset-2
+                            class: "px-4 py-2 bg-indigo-600 text-white text-3xl font-bold \
+                            hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2 \
+                            peer-checked:ring-indigo-500 peer-checked:ring-offset-2 \
                             peer-checked:bg-transparent rounded-md shadow-xl", "{op}" }
                     }
                 })
@@ -164,7 +164,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                         rsx! { input { "type": "text", id: "N{idx}", value: "{num}", name: "nums",
                             maxlength: "6", size: "3", readonly: "true", draggable: "true",
                             placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
-                            class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring
+                            class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
                             rounded-full mx-2", }}  // https://regexr.com, https://regex101.com
                     })
                 }
@@ -173,7 +173,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                     "data-bs-toggle": "tooltip", title: "Input space seperated numbers",
                     placeholder: "???", //minlength: "32", size: "16",
                     inputmode: "numeric", pattern: r"\s*(-?\d+(\/\d+)?\s*){{2,9}}",
-                    class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring
+                    class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
                     rounded-full mx-2", onchange: |evt| {   resolving.set(false);
                         game24.with_mut(|game24| game24.nums =
                             evt.data.value.split_ascii_whitespace()
@@ -183,10 +183,10 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                 //"data-bs-toggle": "collapse", "data-bs-target": "#all-solutions",
                 //    "aria-expanded": "false", "aria-controls": "all-solutions",
                 button { ondblclick: |_| resolving.set(true),
-                    class: "px-4 py-2 m-4 text-3xl font-bold rounded-md focus:ring-indigo-500
-                    aria-checked:ring-2 aria-checked:text-lime-500 aria-checked:ring-lime-400
-                    aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400
-                    hover:outline-none hover:ring-2 hover:ring-indigo-400 focus:ring-offset-2
+                    class: "px-4 py-2 m-4 text-3xl font-bold rounded-md focus:ring-indigo-500 \
+                    aria-checked:ring-2 aria-checked:text-lime-500 aria-checked:ring-lime-400 \
+                    aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400 \
+                    hover:outline-none hover:ring-2 hover:ring-indigo-400 focus:ring-offset-2 \
                     aria-[checked=false]:ring-2",   //text-white
                     "data-bs-toggle": "tooltip", title: "Double click to get solutions",
                     aria_checked: "{eqm_state.get():?}", match *eqm_state.get() {
@@ -200,11 +200,11 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                     "data-bs-toggle": "tooltip", title: "Double click to input new goal",
                 }
 
-            /*style { r"
-                [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
-                [contenteditable='true'].single-line br { display: none; }
-                [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }
-            " }*/
+        /*style { " \
+            [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; } \
+            [contenteditable='true'].single-line br { display: none; } \
+            [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; } \
+        " }*/
             }
 
             p { class: "hidden peer-invalid:visible relative -top-[1rem] text-red-500 font-light",
@@ -247,7 +247,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
             }}
 
             if *resolving.get() && !game24.read().nums.is_empty() { rsx! {
-                ul { id: "all-solutions", class: "overflow-y-auto ml-auto mr-auto 
+                ul { id: "all-solutions", class: "overflow-y-auto ml-auto mr-auto \
                     w-fit text-left text-lime-500 text-xl", "data-bs-toggle": "tooltip",
                     title: "All inequivalent solutions",  game24.with(|game24| {
                     let exps = calc24_coll(&game24.goal, &game24.nums, DynProg);
