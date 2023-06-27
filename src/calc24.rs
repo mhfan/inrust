@@ -76,8 +76,8 @@ use core::str::FromStr;
 impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = s.splitn(2, '/');
-        let n = FromStr::from_str(s.next().unwrap())?;  // XXX:
-        let d = FromStr::from_str(s.next().unwrap_or("1"))?;
+        let n = s.next().unwrap_or("" ).parse::<T>()?;
+        let d = s.next().unwrap_or("1").parse::<T>()?;
         Ok(Self::new_raw(n, d))
     }   type Err = T::Err;
 }
@@ -120,7 +120,7 @@ pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)> }
 
 impl Expr {     //#![allow(dead_code)]
     #[inline] pub fn value(&self) -> &Rational { &self.v }
-    fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, ExprError> {
+    fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
         let (an, ad) = (a.v.numer(), a.v.denom());
         let (bn, bd) = (b.v.numer(), b.v.denom());
 
@@ -129,9 +129,9 @@ impl Expr {     //#![allow(dead_code)]
             '-' => { op = Oper::Sub; Rational::new_raw(an * bd - ad * bn, ad * bd) }
             '*' | '×' => { op = Oper::Mul; Rational::new_raw(an * bn, ad * bd) }
             '/' | '÷' => { op = Oper::Div;  //assert_ne!(bn, &0);
-                if *bn == 0 { return Err(ExprError("Invalid divisor".to_owned())) }
+                if *bn == 0 { return Err("Invalid divisor".to_owned()) }
                 Rational::new_raw(an * bd, ad * bn)
-            }   _ => return Err(ExprError("Invalid operator".to_owned())) //unreachable!()
+            }   _ => return Err("Invalid operator".to_owned())  //unreachable!()
         };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b), op)) })
     }
 
@@ -179,51 +179,45 @@ impl Display for Expr {     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false, false) }
 }
 
-#[derive(Debug)] pub struct ExprError(String);
-impl From<std::num::ParseIntError> for ExprError {
-    fn from(err: std::num::ParseIntError)  -> Self { ExprError(err.to_string()) }
-}
-
-use {pest::Parser, pest_derive::Parser};
-#[derive(Parser)] #[grammar = "arith_expr.pest"] struct ArithExpr;
-
-impl From<pest::error::Error<Rule>> for ExprError {
-    fn from(err: pest::error::Error<Rule>) -> Self { ExprError(err.to_string()) }
-}
+//impl std::error::Error for ExprError {}     // convertable to Box<dyn Error>
+#[derive(pest_derive::Parser)] #[grammar = "arith_expr.pest"] struct ArithExpr;
 
 /// ```
 /// # use inrust::calc24::{Expr, Rational};
 /// let es = "((0 + 1 * 2 + 3) * 1 * 2 - (4 / (5/-6) / 8 + 7) - 9 + 10)"; // = 23/5
-/// assert_eq!(es.parse::<Expr>().unwrap().value(), &Rational::new_raw(23, 5));
+/// assert!(es.parse::<Expr>().is_ok_and(|e| e.value() == &Rational::new_raw(23, 5)));
 /// ```
 impl FromStr for Expr {
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        fn build_expr_ast(pair: pest::iterators::Pair<Rule>) -> Result<Expr, ExprError> {
-            let mut ex = Option::<Expr>::None;
-            let mut op = Option::<char>::None;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {   use pest::Parser;
+        fn build_expr_ast(pair: pest::iterators::Pair<Rule>) -> Result<Expr, String> {
+            let mut ex = Err("None".to_owned());
+            let mut op = None;
 
             for pair in pair.into_inner() {
                 let rule = pair.as_rule();  match rule {
                     Rule::integer | Rule::expr | Rule::sum | Rule::product | Rule::value => {
                         let e = if rule == Rule::integer {
-                            Rational::from(pair.as_str().parse::<i32>()?).into()
+                            pair.as_str().parse::<Rational>()
+                                .map_err(|err| err.to_string())?.into()
                         } else { build_expr_ast(pair)? };
 
-                        if let Some(a) = ex {
-                            ex = Some(Expr::eval(a, e, op.unwrap())?);  op = None;
-                        } else { ex = Some(e); }
+                        ex = if let Ok(a) = ex {
+                             if let Some(vop) = op { op = None;  Expr::eval(a, e, vop)
+                             } else { Err("No operator".to_owned()) }
+                        } else { Ok(e) }
                     }
 
                     Rule::add | Rule::sub | Rule::mul | Rule::div =>
                         op = pair.as_str().chars().next(),
                     Rule::WHITESPACE | Rule::EOI => continue,
                 }
-            }   Ok(ex.unwrap())
+            }   ex
         }
 
-        //pest::state::<Rule, _>(s, |s| { Ok(s)}).unwrap();     // XXX:
-        build_expr_ast(ArithExpr::parse(Rule::expr, s)?.next().unwrap())
-    }   type Err = ExprError;
+        //pest::state::<Rule, _>(s, |s| Ok(s)).unwrap();    // XXX:
+        build_expr_ast(ArithExpr::parse(Rule::expr, s).map_err(|err|
+            err.to_string())?.next().ok_or_else(|| "Empty".to_string())?)
+    }   type Err = String;
 }
 
 impl PartialOrd for Expr {
@@ -694,7 +688,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         let nums = deck[spos as usize..].partial_shuffle(&mut rng,
             cnt as usize).0.iter().map(|num| {  // cards deck dealer
             //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
-            let (sid, mut num) = num.div_rem(&13);  num += 1;   //sid %= 4;
+            let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
 
             print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
                 2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
@@ -722,7 +716,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
             }
 
             if  es.eq_ignore_ascii_case("quit") { return }
-            if  es.parse::<Expr>().unwrap().value() == goal {
+            if  es.parse::<Expr>().is_ok_and(|e| e.value() == goal) {
                 print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
                 exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
                 println!();
@@ -892,8 +886,8 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
             assert_eq!(it.0.to_string(), it.1, r"display {} != {}",
                 Paint::red(&it.0), Paint::cyan(&it.1));
             assert!(it.1.trim_start_matches('(').trim_end_matches(')')
-                .parse::<RNum<i32>>().unwrap() == it.0, r"parsing {} != {}",
-                Paint::red(&it.1), Paint::cyan(&it.0));
+                .parse::<Rational>().is_ok_and(|v| v == it.0),
+                r"parsing {} != {}", Paint::red(&it.1), Paint::cyan(&it.0));
         });
     }
 
@@ -1004,7 +998,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         unsafe { test_24calc(); }
     }
 
-    #[cfg(not(tarpaulin_include))] /*#[test] #[bench] */fn _solve24_random() {
+    #[cfg(not(tarpaulin_include))] #[ignore] /*#[bench] */#[test] fn solve24_random() {
         let (cnt, mut total_time) = (50, std::time::Duration::from_millis(0));
         for _ in 0..cnt {   use rand::{Rng, distributions::Uniform};
             let mut rng = rand::thread_rng();
