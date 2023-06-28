@@ -12,6 +12,9 @@ authors.workspace = true
    homepage.workspace = true
  repository.workspace = true
 description = "Accumulate knowledge of my study on Rust language"
+categories  = [ "command-line-utilities", "games", "mathematics" ]
+keywords = [ "24-game", "24-solver", "24-puzzle", "24-challenge" ]
+exclude  = [ "README-DSP.md", "tmp" ]   # "tests", "benches", "fuzz"
 
 #build = "build.rs"     # default, build = false
 
@@ -25,8 +28,6 @@ authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
  repository = "https://github.com/mhfan/inrust"
 description = "Algorithms and WebUI for 24-Game/Puzzle/Challenge"
 
-#exclude = ["tests", "benches"]
-
 [dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer etc.
@@ -35,8 +36,8 @@ num-integer = "0.1"
 yansi = "0.5"
 atty  = "0.2"
 
-pest  = "2.5"
-pest_derive = "2.5"
+pest  = "2.7"
+pest_derive = "2.7"
 #mexe  = "0.2"   # XXX: make it support rational number?
 #float_eq  = "1"
 #float-cmp = "0.9"
@@ -54,8 +55,8 @@ ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/
 num-bigint   = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
 serde = { version = "1", features = [ "derive" ], optional = true }
-arbitrary = { version = "1.1", optional = true, features = ["derive"] }
-build-time = { git = "https://github.com/AlephAlpha/build-time" }
+arbitrary  = { version = "1.1", optional = true, features = ["derive"] }
+build-time = { version = "0.1", git = "https://github.com/AlephAlpha/build-time" }
 
 #cxx  = { version = "1.0", optional = true }
 #dhat = { version = "0.3", optional = true }
@@ -85,7 +86,7 @@ name = "calc24_bench"
 #html_reports = false
 harness = false
 
-[lib]
+#[lib]
 #crate-type = ["cdylib", "lib"]
 #proc-macro = true
 
@@ -111,6 +112,6 @@ lto = true
 
 [workspace]
 members = [ "inperse", "indiox" ] #"inyew", "inyew/src-tauri", #"inslint", "inegui",
-#exclude = [ "inwasm", "cortex-m" ]
+#exclude = [ "indsp", "inbevy", "inwasm", "cortex-m" ]
 #resolver = "2"  # default for 2021 edition?
 
