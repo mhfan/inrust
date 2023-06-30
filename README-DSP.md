@@ -23,6 +23,7 @@
 * <https://lib.rs/keywords/fixed>
 
 * [RustFFT](https://github.com/ejmahler/RustFFT)
-* <https://www.integral-calculator.com>
+* <https://www.derivative-calculator.net> <https://www.integral-calculator.com>
+* <https://prajwalsouza.github.io/Experiments/Fourier-Transform-Visualization.html>
 
 ***Keeps simple things simple and makes complex things possible.***

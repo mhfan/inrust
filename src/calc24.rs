@@ -17,6 +17,7 @@ use yansi::{Paint, Color};  // Style
 //type Rational = (i32, i32);   // i32/i64/BigInt
 #[cfg(not(feature = "num-rational"))] pub type Rational = RNum<i32>;
 #[cfg(feature = "num-rational")] pub type Rational = num_rational::Ratio<i32>;
+#[cfg(feature = "num-rational")] use num_traits::{identities::{One, Zero}, sign::Signed};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
@@ -886,7 +887,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
             assert_eq!(it.0.to_string(), it.1, r"display {} != {}",
                 Paint::red(&it.0), Paint::cyan(&it.1));
             assert!(it.1.trim_start_matches('(').trim_end_matches(')')
-                .parse::<Rational>().is_ok_and(|v| v == it.0),
+                .parse::<RNum<i32>>().is_ok_and(|v| v == it.0),
                 r"parsing {} != {}", Paint::red(&it.1), Paint::cyan(&it.0));
         });
     }
