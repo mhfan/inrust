@@ -15,6 +15,8 @@
 // https://doc.rust-lang.org/rust-by-example/index.html
 // curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
+#![cfg_attr(coverage_nightly, feature(no_coverage))]
+
 use yansi::Paint;   // Color, Style
 
 //#[allow(unused_macros)]
@@ -23,6 +25,7 @@ use yansi::Paint;   // Color, Style
 
 //#![no_main]
 // src/main.rs (default application entry point)
+#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
 fn main()/* -> Result<(), Box<dyn Error>>*/ {
     eprintln!(r"{} v{}-g{}, {}, {} 🦀", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
         env!("BUILD_GIT_HASH"), build_time::build_time_local!("%H:%M:%S%:z %Y-%m-%d"),
@@ -53,7 +56,7 @@ fn main()/* -> Result<(), Box<dyn Error>>*/ {
     //Ok(())
 }
 
-#[cfg(not(tarpaulin_include))]
+#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
 #[allow(dead_code)] fn guess_number() {     // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
     //struct Param(i32, bool); let param = Param(100, true); //let param = (100, true);

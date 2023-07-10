@@ -25,7 +25,6 @@ jobs:
     #  matrix:
     #    toolchain:
     #      - stable
-    #      - beta
     #      - nightly
     #
     #    build: [linux, macos, windows]
@@ -82,18 +81,26 @@ jobs:
 
   coverage:   # https://github.com/xd009642/tarpaulin
     runs-on: ubuntu-latest
-    container:
-      image: xd009642/tarpaulin:develop-nightly
-      options: --security-opt seccomp=unconfined
+    #container:
+    #  image: xd009642/tarpaulin:develop-nightly
+    #  options: --security-opt seccomp=unconfined
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - uses: Swatinem/rust-cache@v2
+    #- uses: taiki-e/install-action@nextest
+    - uses: taiki-e/install-action@cargo-llvm-cov
+    - run: rustup toolchain install nightly --profile minimal --component llvm-tools
+
     - name: Generate code coverage  # https://github.com/actions-rs/tarpaulin
-        #cargo install tarpaulin
-      run: |
-        cargo tarpaulin --exclude-files 'inperse/src/*' --run-types 'Tests,Doctests' --timeout 120 --out Xml
+      env:
+        CC:  clang
+        CXX: clang++
+      run: cargo +nightly llvm-cov --include-ffi --doctests --lcov --output-path lcov.info #--workspace --all-features
+      #  cargo tarpaulin --exclude-files 'inperse/src/*' --run-types 'Tests,Doctests' --timeout 120 --out Xml
+      #  cargo install tarpaulin
       #uses: actions-rs/tarpaulin@v0.1    # XXX: no more working
       #with:
       #  #version: '0.20.1'
@@ -102,9 +109,10 @@ jobs:
 
     - name: Upload to codecov.io
       uses: codecov/codecov-action@v3
-      #with:
+      with:
       #  #token: ${{secrets.CODECOV_TOKEN}}  # not required for public repos
       #  fail_ci_if_error: true
+        files: lcov.info
 
     #- name: Archive code coverage results
     #  uses: actions/upload-artifact@v3

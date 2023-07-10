@@ -2,6 +2,8 @@
 //! module/crate level documentation
 // src/lib.rs (default library entry point)
 
+#![cfg_attr(coverage_nightly, feature(no_coverage))]
+
 //pub use A::B::C as D;
 
 //pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
@@ -101,7 +103,7 @@ pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
     for item in list { if largest < item { largest = item } }  largest
 }
 
-#[cfg(not(tarpaulin_include))]
+#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
 #[cfg(feature = "num-bigint")] pub fn calc_pi() {
     // a streaming/spigot algorithm, https://rosettacode.org/wiki/Pi
     use num_bigint::BigInt;

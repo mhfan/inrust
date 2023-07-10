@@ -162,9 +162,9 @@ impl Expr {     //#![allow(dead_code)]
     //#[inline] fn is_one (&self) -> bool { self.v.numer() == self.v.denom() }
 }
 
-impl Default for Expr {
-    fn default() -> Self { Self { v: Rational::new_raw(0, 0), m: None } }
-}
+//impl Default for Expr {
+//    fn default() -> Self { Self { v: Rational::new_raw(0, 0), m: None } }
+//}
 
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
@@ -243,6 +243,12 @@ impl Ord for Expr {
     }
 }
 
+/// ```
+/// # use inrust::calc24::Expr;
+/// let (a, b) = ("(1 + 2) * 3 / 4 - 5", "0");
+/// let (a, b) = (a.parse::<Expr>(), b.parse::<Expr>());
+/// assert!(a == a && b == b && a != b);
+/// ```
 impl  Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool { //self.cmp(rhs) == Ordering::Equal
@@ -265,7 +271,11 @@ impl Hash for Expr {
     }
 }
 
-#[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
+/// ```
+/// # use inrust::calc24::hash_combine;
+/// assert_eq!(hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
+/// ```
+#[allow(dead_code)] pub fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
     //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
     lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
                                        .wrapping_add(lhs.wrapping_shr(2)))
@@ -548,6 +558,7 @@ pub  use Calc24Algo::*;
 /// # use inrust::calc24::*;
 /// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
 /// assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned());
+/// assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
 /// ```
 #[inline] pub fn calc24_first(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> String {
     let mut sexp = String::new();
@@ -555,11 +566,6 @@ pub  use Calc24Algo::*;
         sexp = e.to_string();   None });    sexp
 }
 
-/// ```
-/// # use inrust::calc24::*;
-/// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
-/// assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
-/// ```
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
     let mut cnt = 0;
     calc24_algo(goal, nums, algo, |e| {
@@ -618,7 +624,7 @@ pub  use Calc24Algo::*;
 /// //assert_eq!(game24_solvable(&goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
 /// //assert_eq!(game24_solvable(&goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
 /// //assert_eq!(game24_solvable(&goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
-/// assert_eq!(game24_solvable(&goal, min, 10, 4, silent, DynProg), (149, 566, 1343));
+/// assert_eq!(game24_solvable(&goal, min, 10, 4, false, DynProg), (149, 566, 1343));
 /// for algo in [ DynProg, SplitSet, Inplace, Construct ] {
 ///     assert_eq!(game24_solvable(&goal, min, 13, 4, silent, algo), (458, 1362, 3017),
 ///         r"failed on algo-{algo:?}");
@@ -671,7 +677,8 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         rcnt.0 + rcnt.1, Paint::magenta(rcnt.2));   rcnt
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
+#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
+pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
     let (mut rng, mut spos, mut batch)= (rand::thread_rng(), 0, 0);
@@ -687,7 +694,8 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         if spos == 0 { deck.shuffle(&mut rng); }
 
         let nums = deck[spos as usize..].partial_shuffle(&mut rng,
-            cnt as usize).0.iter().map(|num| {  // cards deck dealer
+            cnt as usize).0.iter().map(
+            #[cfg_attr(coverage_nightly, no_coverage)] |num| {  // cards deck dealer
             //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
             let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
 
@@ -726,10 +734,14 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
     }
 }
 
-#[cfg(not(tarpaulin_include))] pub fn game24_cli() {
+#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
+pub fn game24_cli() {
+    #[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
-        let nums = nums.filter_map(|s| match s.as_ref().parse::<Rational>() {
+        let nums = nums.filter_map(
+            #[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
+            |s| match s.as_ref().parse::<Rational>() {
                 Err(why) => {
                     eprintln!(r"Error parsing rational: {}", Paint::red(why));   None
                 }
@@ -999,7 +1011,8 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         unsafe { test_24calc(); }
     }
 
-    #[cfg(not(tarpaulin_include))] #[ignore] /*#[bench] */#[test] fn solve24_random() {
+    #[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
+     #[ignore] /*#[bench] */#[test] fn solve24_random() {
         let (cnt, mut total_time) = (50, std::time::Duration::from_millis(0));
         for _ in 0..cnt {   use rand::{Rng, distributions::Uniform};
             let mut rng = rand::thread_rng();
@@ -1020,16 +1033,9 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         assert!(total_time.as_secs() < 8);
     }
 
-    // https://doc.rust-lang.org/nightly/rustc/instrument-coverage.html
-    // RUSTFLAGS="-C instrument-coverage" cargo test    # XXX: didn't try yet
-    // llvm-profdata merge -sparse default.profraw -o default.profdata
-    // llvm-cov report --use-color --ignore-filename-regex='/.cargo/registry' \
-    //      -instr-profile=default.profdata target/release/test-binary
-    // llvm-cov show   --use-color --ignore-filename-regex='/.cargo/registry' \
-    //      -instr-profile=default.profdata target/release/test-binary \
-    //      -Xdemangler=rustfilt -show-line-counts-or-regions \
-    //      -show-instantiations -name=add_quoted_string
-
+    // cargo flamegraph --bench calc24_bench     // https://github.com/flamegraph-rs/flamegraph
+    // cargo +nightly llvm-cov --doctests nextest # https://github.com/taiki-e/cargo-llvm-cov
+    //      https://doc.rust-lang.org/stable/rustc/instrument-coverage.html
     // cargo test -- --color always --nocapture
 }
 

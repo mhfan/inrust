@@ -392,15 +392,16 @@ inline list<string> calc24_coll(const Rational& goal, const vector<Rational>& nu
 
 inline string calc24_first(const Rational& goal, const vector<Rational>& nums,
     Calc24Algo algo) {  string es;
-    calc24_algo(goal, nums, algo,
-        [&](auto&& e) { std::stringstream ss(es); ss << e; });     return es;
-    // FIXME: do sth. (throw exception?) to stop on first found?
+    calc24_algo(goal, nums, algo, [&](auto&& e) {
+        if (es.empty()) { std::stringstream ss; ss << e; es = ss.str(); }
+        // FIXME: do sth. (throw exception?) to stop on first found?
+    }); return es;
 }
 
 inline size_t calc24_print(const Rational& goal, const vector<Rational>& nums,
-    Calc24Algo algo) {  auto cnt = 0;
+    Calc24Algo algo, std::ostream& os) {  auto cnt = 0;
     calc24_algo(goal, nums, algo,
-        [&](auto&& e) { std::cout << e << std::endl; ++cnt; });    return cnt;
+        [&](auto&& e) { os << e << std::endl; ++cnt; });    return cnt;
 }
 
 void calc24_cffi(Calc24IO* calc24) {
@@ -438,6 +439,13 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
     ss.str(""); ss << b; assert(ss.str() == "6");
     //ss.str(""); ss << e; assert(ss.str() == "1*(2-1/2)+2");
 
+    vector<Rational> nums = { 1, 2, 3, 4 };
+    cout << "Test calc24_first/print ..." << endl;
+    cout.setstate(std::ios_base::badbit);
+    if (calc24_first(24, nums, DynProg) != "1*2*3*4" ||
+        calc24_print(24, nums, DynProg, cout) != 3) abort();
+    cout.clear();   // XXX:
+
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {
         { 24, {    }, { }, 0 },
@@ -464,10 +472,11 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         { 24, { 1, 2, 3, 4, 5 }, { }, 45 },
     };
 
+    cout << "Test various unit cases ..." << endl;
     for (const auto& it: cases) {
-        cout << "Calculate " << std::setw(3) << it.goal << " from [";
-        for (auto n: it.nums) cout << std::setw(2) << n << ",";
-        cout << " ]" << endl;
+        //cout << "Calculate " << std::setw(3) << it.goal << " from [";
+        //for (auto n: it.nums) cout << std::setw(2) << n << ",";
+        //cout << " ]" << endl;
 
         vector<Rational> nums;
         const Rational goal(it.goal);
@@ -485,7 +494,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
             }
 
             auto n = exps.size(), cnt = it.cnt;
-            cout << "  Got " << n << " expr. by algo-" << algs << endl;
+            //cout << "  Got " << n << " expr. by algo-" << algs << endl;
 
             if (cnt < 1) cnt = it.exps.size();
             if (cnt != n) {
