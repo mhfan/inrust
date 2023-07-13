@@ -8,6 +8,9 @@ pub struct List<T> { head: Link<T>, }
 type Link<T> = Option<Box<Node<T>>>;
 struct Node<T> { elem: T, next: Link<T>, }
 
+//type Link<T> = Option<Rc<RefCell<Box<Node<T>>>>>;
+//struct Node<T> { elem: Rc<T>, prev: Link<T>, next: Link<T>, }
+
 impl<T> Default for List<T> { fn default() -> Self { Self::new() } }
 
 impl<T> List<T> {

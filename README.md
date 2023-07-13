@@ -97,24 +97,24 @@ Rust/C++ 版本前一类算法的性能都比后一类算法高一个数量级�
 
 ## 积累和 TODO
 
-+ [ ] build timestamp & commit-ID
 + [ ] macro/proc-macro
-+ [ ] SVG//XR/Game
++ [ ] SVG/XR/Game
 + [ ] concurrency
-+ [ ] crates.io
 + [ ] CodeLLDB
-+ [x] C/C++ FFI
-+ [x] flamegraph
-+ [x] C FFI & build.rs
++ [x] crates.io
++ [x] (cargo-)[flamegraph](https://github.com/flamegraph-rs/flamegraph)
 + [x] benchmark/criterion
-+ [x] Code coverage automatically
++ [x] C/C++ FFI & build.rs
++ [x] build timestamp & commit-ID
++ [x] Code [coverage](https://github.com/taiki-e/cargo-llvm-cov) automatically
++ [x] error propagation by question mark (`?`)
 + [x] cargo/crate/module/workspace organization
 + [x] internationalization (i18n) with [Fluent](https://projectfluent.org)
 + [x] UI/WebAssembly ([Yew](https://yew.rs)/[Perseus](https://framesurge.sh/perseus/en-US)/
   [Sycamore](https://sycamore-rs.netlify.app)/[Dioxus](https://dioxuslabs.com)/
   [slint](https://github.com/slint-ui/slint)/[egui](https://github.com/emilk/egui))
 + [x] Continuous Integration/Deployment (Github Action)
-+ [x] Continuous (Unit/Integrate/Fuzz/Doc) Test
++ [x] Continuous (Unit/Integrate/Doc/Fuzz) Test
 + [x] conditional compilation
 + [x] Rust programming
 
