@@ -545,7 +545,7 @@ pub  use Calc24Algo::*;
 
 // view dhat-heap.json in https://nnethercote.github.io/dh_view/dh_view.html
 #[cfg(feature = "dhat-heap")] #[global_allocator] static ALLOC: dhat::Alloc = dhat::Alloc;
-// cargo run --features dhat-heap   // XXX: memory profiling
+// cargo run --features dhat-heap   // https://docs.rs/dhat/latest/dhat/
 
 #[inline] pub fn calc24_coll (goal: &Rational, nums: &[Rational],
     algo: Calc24Algo) -> Vec<String> {
@@ -1033,10 +1033,12 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         assert!(total_time.as_secs() < 8);
     }
 
-    // cargo flamegraph --bench calc24_bench     // https://github.com/flamegraph-rs/flamegraph
-    // cargo +nightly llvm-cov --doctests nextest # https://github.com/taiki-e/cargo-llvm-cov
+    // sudo cargo flamegraph --bench calc24_bench // https://github.com/flamegraph-rs/flamegraph
+    // cargo +nightly llvm-cov --include-ffi --doctests #--lcov --output-path lcov.info #nextest
     //      https://doc.rust-lang.org/stable/rustc/instrument-coverage.html
-    // cargo test -- --color always --nocapture
+    //      https://github.com/taiki-e/cargo-llvm-cov
+    // cargo t --doc && cargo nextest r && cargo bench  #-- -no-capture
+    // cargo test -- --nocapture && cargo bench     # https://nexte.st/index.html
 }
 
 // vim:sts=4 ts=8 sw=4 noet

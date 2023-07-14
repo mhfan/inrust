@@ -6,11 +6,8 @@ use inrust::calc24::*;
 
 //impl<'a> arbitrary::Arbitrary<'a> for &[Rational] { }     // XXX:
 
-// https://rust-fuzz.github.io/book/
-// XXX: rustup override set nightly
-
-// cargo +nightly fuzz run calc24
-// cargo +nightly fuzz coverage calc24
+// cargo +nightly fuzz run calc24       # https://rust-fuzz.github.io/book/
+// cargo +nightly fuzz coverage calc24  # XXX: rustup override set nightly
 // cargo cov -- show fuzz/target/aarch64-apple-darwin/release/calc24 --format=html \
 //      -instr-profile=fuzz/coverage/calc24/coverage.profdata > fuzz/coverage/calc24/index.html
 

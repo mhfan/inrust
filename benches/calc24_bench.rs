@@ -48,12 +48,12 @@ fn bench_24calc(c: &mut Criterion) {
 #[cfg(not(feature = "pprof"))] criterion_group!(benches, bench_24calc);
 
 #[cfg(feature = "pprof")] use pprof::criterion::{PProfProfiler, Output};
-#[cfg(feature = "pprof")] criterion_group!{
-    name = benches;
+#[cfg(feature = "pprof")] criterion_group!{     name = benches;
     config = Criterion::default()
         .with_profiler(PProfProfiler::new(100, Output::Flamegraph(None)));
     targets = bench_24calc
-}
+}   // https://github.com/tikv/pprof-rs
 
-// sudo cargo flamegraph --bench comp24_bench
-criterion_main!(benches);
+// sudo cargo flamegraph --bench calc24_bench   // https://github.com/flamegraph-rs/flamegraph
+criterion_main!(benches);   // cargo bench --features="pprof" # dhat-heap
+
