@@ -2,10 +2,9 @@
 #![no_main]
 
 use inrust::calc24::*;
-use libfuzzer_sys::fuzz_target;
 //#[macro_use] extern crate libfuzzer_sys;
 
-//impl<'a> arbitrary::Arbitrary<'a> for Rational {}
+//impl<'a> arbitrary::Arbitrary<'a> for &[Rational] { }     // XXX:
 
 // https://rust-fuzz.github.io/book/
 // XXX: rustup override set nightly
@@ -15,9 +14,8 @@ use libfuzzer_sys::fuzz_target;
 // cargo cov -- show fuzz/target/aarch64-apple-darwin/release/calc24 --format=html \
 //      -instr-profile=fuzz/coverage/calc24/coverage.profdata > fuzz/coverage/calc24/index.html
 
-fuzz_target!(|data: &[Rational]| {
-    if data.len() < 3 || 6 < data.len() { return }  // FIXME: why return don't work?
-    if data.iter().any(|rn| rn.denom() == &0 || 100 < rn.numer().abs() ||
-                                                100 < rn.denom().abs()) { return }
-    calc24_coll(&data[0], &data[1..], DynProg);
+libfuzzer_sys::fuzz_target!(|data: [i8; 5]| {   // XXX:
+    let nums = data[1..].iter().map(|&n| Rational::from(n as i32)).collect::<Vec<_>>();
+    calc24_coll(&(data[0] as i32).into(), &nums, DynProg);
 });
+

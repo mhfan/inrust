@@ -13,18 +13,14 @@ authors.workspace = true
 cargo-fuzz = true
 
 [dependencies]
-libfuzzer-sys = { version = "0.4", features = ["arbitrary-derive"] }
+libfuzzer-sys = { version = "0.4", features = [ "arbitrary-derive" ] }
+inrust = { path = ".." }    # features = [ "arbitrary" ],
 
-#inrust = { path = "..", features = ["arbitrary"] }
-[dependencies.inrust]
-features = ["arbitrary"]
-path = ".."
-
-[workspace]
-members = ["."] # Prevent this from interfering with workspaces
+#[workspace]
+#members = [ "." ]   # Prevent this from interfering with workspaces
 
 [[bin]]
-name = "calc24" # because of no main.rs
+name = "calc24"     # because of no main.rs
 path = "src/calc24_fuzz.rs"
 test = false
 doc  = false

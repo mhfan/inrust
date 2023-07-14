@@ -56,7 +56,7 @@ num-bigint   = { version = "0.4", optional = true }
 num-traits   = { version = "0.2", optional = true }
 num-rational = { version = "0.4", optional = true }
 serde = { version = "1", features = [ "derive" ], optional = true }
-arbitrary  = { version = "1.1", optional = true, features = ["derive"] }
+#arbitrary  = { version = "1", features = ["derive"], optional = true }
 build-time = { version = "0.1", git = "https://github.com/AlephAlpha/build-time" }
 
 #cxx  = { version = "1.0", optional = true }
@@ -76,7 +76,7 @@ cc = { version = "1.0", optional = true }
 
 [features]
 debug = []
-default = [ "cc", "ahash" ]   #, "serde", "num-rational", "num-bigint"
+default = [ "cc", "ahash" ]   # "serde", "num-rational", "num-bigint",
 num-rational = [ "dep:num-rational", "dep:num-traits" ]
 #cxx = [ "dep:cxx", "dep:cxx-build" ]
 #dhat-heap = [ "dep:dhat" ]   # not needed, implied by optional dependency
@@ -113,7 +113,7 @@ lto = true
 #inherits = "release"
 
 [workspace]
-members = [ "inperse", "indiox" ] #"inyew", "inyew/src-tauri", #"inslint", "inegui",
+members = [ "inperse", "indiox", "fuzz" ] #"inyew", "inyew/src-tauri", #"inslint", "inegui",
 #exclude = [ "indsp", "inbevy", "inwasm", "cortex-m" ]
 #resolver = "2"  # default for 2021 edition?
 

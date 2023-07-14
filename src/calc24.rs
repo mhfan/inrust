@@ -20,7 +20,7 @@ use yansi::{Paint, Color};  // Style
 #[cfg(feature = "num-rational")] use num_traits::{identities::{One, Zero}, sign::Signed};
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
+//#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
 use num_integer::Integer;

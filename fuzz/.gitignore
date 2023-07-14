@@ -1,4 +1,7 @@
+
 /target
 /corpus
 /artifacts
+/Cargo.lock
 /coverage
+
