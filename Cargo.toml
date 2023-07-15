@@ -1,5 +1,5 @@
 
-# https://doc.rust-lang.org/cargo/reference/manifest.html
+### https://doc.rust-lang.org/cargo/reference/manifest.html
 # rustup override set nightly
 
 [package]
@@ -15,7 +15,7 @@ description = "Accumulate knowledge of my study on Rust language"
 categories  = [ "command-line-utilities", "games", "mathematics" ]
 keywords = [ "24-game", "24-solver", "24-puzzle", "24-challenge" ]
 exclude  = [ "README-DSP.md", "tmp" ]   # "tests", "benches", "fuzz"
-publish  = [ "crates-io" ]
+#publish  = [ "crates-io" ]  # cargo publish --registry crates-io
 
 #build = "build.rs"     # default, build = false
 
@@ -31,8 +31,8 @@ description = "Algorithms and WebUI for 24-Game/Puzzle/Challenge"
 
 [dependencies]  # 'cargo tree', to visualize the dependency graph
 rand = "0.8"
-#num  = "0.4"    # rational/complex/bigint/integer etc.
-num-integer = "0.1"
+#num  = "0.4"    # rational/complex/bigint/integer/traits etc.
+num-traits = "0.2"
 #itertools = "0.10"
 yansi = "0.5"
 atty  = "0.2"
@@ -58,7 +58,6 @@ pprof = { version = "0.12", features = [ "flamegraph", "criterion" ], optional =
 
 ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
 num-bigint   = { version = "0.4", optional = true }
-num-traits   = { version = "0.2", optional = true }
 num-rational = { version = "0.4", optional = true }
 serde = { version = "1", features = [ "derive" ], optional = true }
 #arbitrary  = { version = "1", features = ["derive"], optional = true }
@@ -77,10 +76,9 @@ cc = { version = "1.0", optional = true }
 
 [features]
 debug = []
+#cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
 default = [ "cc", "ahash" ]   # "serde", "num-rational", "num-bigint",
-num-rational = [ "dep:num-rational", "dep:num-traits" ]
-#cxx = [ "dep:cxx", "dep:cxx-build" ]
-dhat-heap = [ "dep:dhat" ]  # implied by optional dependency
+dhat-heap = [ "dhat" ]
 
 [[bench]]
 name = "calc24_bench"

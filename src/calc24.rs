@@ -14,7 +14,7 @@
 use yansi::{Paint, Color};  // Style
 //use itertools::Itertools;
 
-//type Rational = (i32, i32);   // i32/i64/BigInt
+//type Rational = (i32, i32);   // i32/i64/i128
 #[cfg(not(feature = "num-rational"))] pub type Rational = RNum<i32>;
 #[cfg(feature = "num-rational")] pub type Rational = num_rational::Ratio<i32>;
 #[cfg(feature = "num-rational")] use num_traits::{identities::{One, Zero}, sign::Signed};
@@ -23,8 +23,8 @@ use yansi::{Paint, Color};  // Style
 //#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
-use num_integer::Integer;
-impl<T: Integer + Copy> RNum<T> {   #![allow(dead_code)]
+use num_traits::PrimInt;    //use num_integer::Integer;     // for BigInt, somewhere `+ Copy'
+impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
     #[inline] pub const fn numer(&self) -> &T { &self.0 }
     #[inline] pub const fn denom(&self) -> &T { &self.1 }
     #[inline] fn is_one (&self) -> bool { self.0 == self.1 }
@@ -36,7 +36,7 @@ impl<T: Integer + Copy> RNum<T> {   #![allow(dead_code)]
     #[inline] pub fn new(num: T, den: T) -> Self { *Self::new_raw(num, den).reduce() }
 
     /*pub */fn reduce(&mut self) -> &Self {
-        #[inline] fn gcd<T: Integer + Copy>(mut a: T, mut b: T) -> T {
+        #[inline] fn gcd<T: PrimInt>(mut a: T, mut b: T) -> T {
             // fast Euclid's algorithm for Greatest Common Denominator
             // Stein's algorithm (Binary GCD) support non-negative only
             while !b.is_zero() { a = a % b; core::mem::swap(&mut a, &mut b); } a //.abs()
@@ -51,16 +51,16 @@ impl<T: Integer + Copy> RNum<T> {   #![allow(dead_code)]
 }
 
 use core::convert::From;
-impl<T: Integer + Copy> From<T> for RNum<T> {
+impl<T: PrimInt> From<T> for RNum<T> {
     fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
 }
 
 use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
-/*#[cfg(feature = "debug")] */impl<T: Integer + Copy + Display> Debug for RNum<T> {
+/*#[cfg(feature = "debug")] */impl<T: PrimInt + Display> Debug for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { Display::fmt(self, f) }
 }
 
-impl<T: Integer + Copy + Display> Display for RNum<T> {
+impl<T: PrimInt + Display> Display for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
         let srn = self;     //srn.reduce();
         if  srn.1.is_zero() { write!(f, r"(INV)")? } else {
@@ -74,7 +74,7 @@ impl<T: Integer + Copy + Display> Display for RNum<T> {
 }
 
 use core::str::FromStr;
-impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
+impl<T: PrimInt + FromStr> FromStr for RNum<T> {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = s.splitn(2, '/');
         let n = s.next().unwrap_or("" ).parse::<T>()?;
@@ -84,23 +84,26 @@ impl<T: Integer + Copy + FromStr> FromStr for RNum<T> {
 }
 
 use core::cmp::{Eq, Ord, Ordering, PartialEq};
-impl<T: Integer + Copy> Ord for RNum<T> {
-    fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0)) }
+impl<T: PrimInt> Ord for RNum<T> {
+    fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0))
+        //let ord = (self.0 * rhs.1).cmp(&(self.1 * rhs.0));  // XXX:
+        //if (T::zero() < self.1) ^ (T::zero() < rhs.1) { ord.reverse() } else { ord }
+    }
 }
 
-impl<T: Integer + Copy> PartialOrd for RNum<T> {
+impl<T: PrimInt> PartialOrd for RNum<T> {
     #[inline] fn partial_cmp(&self, rhs: &Self) -> Option<Ordering> {
         /*(self.1 == T::zero() || rhs.1 == T::zero()).then_some(..)*/Some(self.cmp(rhs))
         //(self.0 * rhs.1).partial_cmp(&(self.1 * rhs.0))
     }
 }
 
-impl<T: Integer + Copy>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
-impl<T: Integer + Copy> PartialEq  for RNum<T> {
+impl<T: PrimInt>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
+impl<T: PrimInt> PartialEq  for RNum<T> {
     #[inline] fn eq(&self, rhs: &Self) -> bool { self.cmp(rhs) == Ordering::Equal }
 }
 
-/* impl<T: Integer + Copy> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
+/* impl<T: PrimInt> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
     fn add(self, rhs: Self) -> Self::Output { todo!() }     type Output = Self;
 } */
 
@@ -292,7 +295,8 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     // XXX: check overflow and reduce?
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
                a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
-    // ((A . B) . b) => (A . (B . b)), kept right sub-tree only
+    // Commutativity (selecting a bias by lexicographical comparison)
+    // ((A . B) . b) => (A . (B . b)), kept the right sub-tree only
     let (aop, bop) = (a.op(), b.op());   use Oper::*;
 
     #[inline] fn found_same(e: &Expr, v: &Rational, op: Oper) -> bool {
@@ -318,42 +322,40 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     let mut subl_cmp = Cacher::new(||
         if let Some((ba, ..)) = &b.m { ba.cmp(a) == Ordering::Less } else { false });
 
-    let op = Mul;
-    // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
-    // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
-    if !(aop == op || aop == Div || (Div == bop && !a.v.is_one()) ||
-        (!is_final && (a.v.is_one() || b.v.is_one())) || (op == bop && subl_cmp.get())) {
+    // ((A / B) * b) => ((A * b) / B) if b != 1,
+    // (a * (A / B)) => ((a * A) / B) if a != 1, (1 * x) => kept in the final only,
+    /* (a * (A * B)) => (A * (a * B)) if A  < a */  let op = Mul;
+    if !(aop == op || (aop == Div   && !b.v.is_one())  || (Div == bop && !a.v.is_one()) ||
+        (!is_final && (a.v.is_one()  || b.v.is_one() )) || (op == bop && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
                         m: Some((a.clone(), b.clone(), op)) })?;
     }
 
-    let op = Add;
-    // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
-    // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
-    if !(aop == op || aop == Sub || (Sub == bop && !a.v.is_zero()) ||
+    // ((A - B) + b) => ((A + b) - B) if b != 0,
+    // (a + (A - B)) => ((a + A) - B) if a != 0, (0 + x) => kept in the final only,
+    /* (a + (A + B)) => (A + (a + B)) if A  < a */  let op = Add;
+    if !(aop == op || (aop == Sub   && !b.v.is_zero()) || (Sub == bop && !a.v.is_zero()) ||
         (!is_final && (a.v.is_zero() || b.v.is_zero())) || (op == bop && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(nmd + dmn, dmd),
                         m: Some((a.clone(), b.clone(), op)) })?;
     }
 
-    let op = Sub;   //  (b - (B - A)) => ((b + A) - B)
-    // (x - 0) => (0 + x),    ((A + x) - x) is only kept in final
+    // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x),
+    /* ((A + x) - x) => kept in the final only */   let op = Sub;
     if !(aop == op || op == bop || a.v.is_zero() ||
-        (!is_final && found_same(b, &a.v, Add))) {
-        if ngoal {
+        (!is_final && found_same(b, &a.v, Add))) {  if ngoal {
             new_expr(Expr { v: Rational::new_raw(nmd - dmn, dmd),
                             m: Some((a.clone(), b.clone(), op)) })?;
-        } else {
+        } else {    // Asymmetric select subtraction by judging sign of the target/goal
             new_expr(Expr { v: Rational::new_raw(dmn - nmd, dmd),
                             m: Some((b.clone(), a.clone(), op)) })?;
         }
     }
 
-    let op = Div;   //  (a / (A / B)) => ((a * B) / A)
-    // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
+    // (a / (A / B)) => ((a * B) / A), (x / 1) => (1 * x), (0 / x) => (0 * x),
+    /* ((x * B) / x) => ((x + B) - x) */    let op = Div;
     if !(aop == op || op == bop) {
-        if !(dmn == 0 || b.v.is_one() || a.v.is_zero() ||
-            found_same(a, &b.v, Mul)) {
+        if !(dmn == 0 || b.v.is_one() || a.v.is_zero() || found_same(a, &b.v, Mul)) {
             new_expr(Expr { v: Rational::new_raw(nmd, dmn),
                             m: Some((a.clone(), b.clone(), op)) })?;
         }
@@ -696,8 +698,8 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         let nums = deck[spos as usize..].partial_shuffle(&mut rng,
             cnt as usize).0.iter().map(
             #[cfg_attr(coverage_nightly, no_coverage)] |num| {  // cards deck dealer
-            //let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
-            let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
+            let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
+            //let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
 
             print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
                 2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
@@ -907,9 +909,10 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
     #[test] fn reduce_rn() {
         let cases = [
             (RNum::new(-1, -1), RNum::new_raw( 1, 1)),
-            (RNum::new(-4, -2), RNum::new_raw( 2, 1)),
+            (RNum::new(-4,  2), RNum::new_raw(-2, 1)),
             (RNum::new( 6, -2), RNum::new_raw(-3, 1)),
             (RNum::new( 3,  2), RNum::new_raw( 3, 2)),
+            (RNum::new( 0,  2), RNum::new_raw( 0, 1)),
         ];
 
         cases.into_iter().for_each(|(a, b)| {
@@ -1033,11 +1036,10 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
         assert!(total_time.as_secs() < 8);
     }
 
-    // sudo cargo flamegraph --bench calc24_bench // https://github.com/flamegraph-rs/flamegraph
     // cargo +nightly llvm-cov --include-ffi --doctests #--lcov --output-path lcov.info #nextest
     //      https://doc.rust-lang.org/stable/rustc/instrument-coverage.html
     //      https://github.com/taiki-e/cargo-llvm-cov
-    // cargo t --doc && cargo nextest r && cargo bench  #-- -no-capture
+    // cargo t --doc && cargo nextest r && cargo bench  #--no-capture
     // cargo test -- --nocapture && cargo bench     # https://nexte.st/index.html
 }
 

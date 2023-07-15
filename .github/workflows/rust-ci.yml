@@ -1,5 +1,5 @@
 
-name: Rust CI
+name: Rust CI   # https://docs.github.com/en/actions, https://course.rs/test/ci.html
 
 on:
   push:
@@ -18,8 +18,7 @@ env:
 jobs:
   testbench:
     #name: Build Rust Project
-    # https://github.com/actions/virtual-environments
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # https://github.com/actions/virtual-environments
 
     #strategy:
     #  matrix:
@@ -70,9 +69,17 @@ jobs:
 
     - name: Run tests
       run: cargo test -- --color always --nocapture
+      #  cargo t --features num-rational -- --nocapture
+      #  cargo r --features debug -- -G -2 1 2 3 4
+      #  cargo +nightly fuzz run calc24
+      #  cargo r -- -G -2 1 2 3 4
 
     - name: Benchmark
       run: cargo bench
+      #  cargo bench --features pprof
+      #  cargo bench --features dhat-heap
+      #  cargo bench --features num-rational
+      #  sudo cargo flamegraph --bench calc24_bench
 
     #- name: Publish to crates-io
     #  uses: katyo/publish-crates@v2

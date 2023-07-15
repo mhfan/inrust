@@ -52,24 +52,26 @@ _在位递归构造_ vs _复制递归构造_
 
 ### 规避等价表达式
 
-    prune 相同数字和对称造成的重复组合 (用 hash 规避，构造法只能在最后的完整表达式规避)；
+    prune repeated combinations by the same numbers and symmetries with hashmap (构造法只能对最后的完整表达式规避)；
 
-    交换律 (通过比较来选择一个偏向)；
+    Commutativity (selecting a bias by lexicographical comparison);
 
-    ((A . B) . b) => (A . (B . b)), kept right sub-tree only;
+    ((A . B) . b) => (A . (B . b)), kept the right sub-tree only;
 
-    ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1;
-    (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a;
+    ((A / B) * b) => ((A * b) / B) if b != 1,
+    (a * (A / B)) => ((a * A) / B) if a != 1, (1 * x) => kept in the final only,
+    (a * (A * B)) => (A * (a * B)) if A  < a;
 
-    ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0;
-    (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a;
+    ((A - B) + b) => ((A + b) - B) if b != 1,
+    (a + (A - B)) => ((a + A) - B) if a != 0, (0 + x) => kept in the final only,
+    (a + (A + B)) => (A + (a + B)) if A  < a;
 
-    (b - (B - A)) => ((b + A) - B);
-    (x - 0) => (0 + x), ((A + x) - x) is only kept in final;
-    另外，通过判断目标数的正负来做减法的非对称性选择；
+    Asymmetric select subtraction by judging sign of the target/goal;
+    (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x),
+    ((A + x) - x) => kept in the final only;
 
-    (a / (A / B)) => ((a * B) / A)
-    (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x);
+    (a / (A / B)) => ((a * B) / A), (x / 1) => (1 * x), (0 / x) => (0 * x),
+    ((x * B) / x) => ((x + B) - x);
 
 ### 同样的算法用 C++ 实现并对比性能
 

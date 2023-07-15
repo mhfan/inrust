@@ -11,9 +11,9 @@ pub mod calc24;
 pub mod list;
 
 pub mod misc {
-use num_integer::Integer;
+use num_traits::PrimInt;
 pub struct Fibonacci<T> { curr: T, next: T }
-impl<T: Integer + Copy> Iterator for Fibonacci<T> {
+impl<T: PrimInt> Iterator for Fibonacci<T> {
     fn next(&mut self) -> Option<Self::Item> {
         let new_next = self.curr + self.next;
 
@@ -31,7 +31,7 @@ impl<T: Integer + Copy> Iterator for Fibonacci<T> {
 /// assert_eq!(fibonacci().nth(4), Some(5));
 /// ```
 // Returns a Fibonacci sequence generator
-pub fn fibonacci<T: Integer + Copy>() -> Fibonacci<T> {
+pub fn fibonacci<T: PrimInt>() -> Fibonacci<T> {
     Fibonacci::<T> { curr: T::zero(), next: T::one() }
 }
 

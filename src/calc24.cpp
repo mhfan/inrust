@@ -75,7 +75,11 @@ inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
     return 0 == rhs.d ? Rational(0, 0) : Rational(lhs.n * rhs.d,  lhs.d * rhs.n); } */
 
 inline auto operator< (const Rational& lhs, const Rational& rhs) noexcept {
-    return lhs.n * rhs.d < lhs.d * rhs.n; }
+    return lhs.n * rhs.d < lhs.d * rhs.n;
+    //auto ord = lhs.n * rhs.d < lhs.d * rhs.n;
+    //if ((0 < lhs.d) ^ (0 < rhs.d)) return !ord; else return ord;
+}
+
 inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;
 }
@@ -121,6 +125,7 @@ inline ostream& operator<<(ostream& os, const Rational& r) {
 ostream& operator<<(ostream& os, const Expr& e) {
     if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
+    //os << '(' << *e.a << ')' << char(e.op) << '(' << *e.b << ')';   return os;
     if ((e.a->op == Add || e.a->op == Sub) && (e.op == Mul || e.op == Div))
         os << '(' << *e.a << ')'; else os << *e.a;      os << char(e.op);
 
@@ -151,20 +156,25 @@ inline bool found_same(const auto& e, const auto& v, const Oper op) {
 
 // several pruning rules to find inequivalent/unique expressions only
 void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&& new_expr) {
-    // ((A . B) . b) => (A . (B . b)), kept right sub-tree only
+    // Commutativity (selecting a bias by lexicographical comparison)
+    // ((A . B) . b) => (A . (B . b)), kept the right sub-tree only
     const auto nmd = a->v.n * b->v.d, dmn = a->v.d * b->v.n;
     const auto dmd = a->v.d * b->v.d;   Oper op;
     // XXX: check overflow and reduce?
 
-    // ((A / B) * b) => ((A * b) / B), (a * (A / B)) => ((a * A) / B) if a != 1
-    // (1 * x)  is only kept in final, (a * (A * B)) => (A * (a * B)) if A  < a
-    if (!(a->op == (op = Mul) || a->op == Div || (Div == b->op && a->v.n != a->v.d) ||
+    // ((A / B) * b) => ((A * b) / B) if b != 1,
+    // (a * (A / B)) => ((a * A) / B) if a != 1, (1 * x) => kept in the final only,
+    // (a * (A * B)) => (A * (a * B)) if A  < a
+    if (!(a->op == (op = Mul) ||
+        (a->op == Div && b->v.n != b->v.d) || (Div == b->op && a->v.n != a->v.d) ||
         (!is_final && (a->v.n == a->v.d || b->v.n == b->v.d)) || (op == b->op && *b->a < *a)))
         new_expr(Expr(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
-    // ((A - B) + b) => ((A + b) - B), (a + (A - B)) => ((a + A) - B) if a != 0
-    // (0 + x)  is only kept in final, (a + (A + B)) => (A + (a + B)) if A  < a
-    if (!(a->op == (op = Add) || a->op == Sub || (Sub == b->op && a->v.n != 0) ||
+    // ((A - B) + b) => ((A + b) - B) if b != 0,
+    // (a + (A - B)) => ((a + A) - B) if a != 0, (0 + x) => kept in the final only,
+    // (a + (A + B)) => (A + (a + B)) if A  < a
+    if (!(a->op == (op = Add) ||
+        (a->op == Sub && b->v.n != 0) || (Sub == b->op && a->v.n != 0) ||
         (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
         new_expr(Expr(Rational(nmd + dmn, dmd), op, a, b));
 
@@ -173,21 +183,22 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
             self(self, *e.a, v, op) || self(self, *e.b, v, op));
     }; */
 
-    // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x), ((A + x) - x) is only kept in final
+    // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x),
+    // ((A + x) - x) => kept in the final only
     if (!(a->op == (op = Sub) || op == b->op || a->v.n == 0 ||
         (!is_final && found_same(*b, a->v, Add)))) {   if (ngoal)
             new_expr(Expr(Rational(nmd - dmn, dmd), op, a, b)); else
+            // Asymmetric select subtraction by judging sign of the target/goal
             new_expr(Expr(Rational(dmn - nmd, dmd), op, b, a));
     }
 
-    // (a / (A / B)) => ((a * B) / A)
-    // (x / 1) => (1 * x), (0 / x) => (0 * x), ((x * B) / x) => ((x + B) - x)
+    // (a / (A / B)) => ((a * B) / A), (x / 1) => (1 * x), (0 / x) => (0 * x),
+    // ((x * B) / x) => ((x + B) - x)
     if (!(a->op == (op = Div) || op == b->op)) {
         if (!(dmn == 0 || b->v.n == b->v.d || a->v.n == 0 || found_same(*a, b->v, Mul)))
             new_expr(Expr(Rational(nmd, dmn), op, a, b));
 
-        //std::swap(v.n, v.d);
-        if (!(nmd == 0 || a->v.n == a->v.d || b->v.n == 0 ||
+        if (!(nmd == 0 || a->v.n == a->v.d || b->v.n == 0 ||    //std::swap(v.n, v.d);
               nmd == dmn || found_same(*b, a->v, Mul)))    // order mattered only if a != b
             new_expr(Expr(Rational(dmn, nmd), op, b, a));
     }
@@ -414,12 +425,10 @@ void calc24_cffi(Calc24IO* calc24) {
     vector<Rational> nums;  nums.reserve(calc24->ncnt);
     for (auto i = 0u; i < calc24->ncnt; ++i) nums.push_back(calc24->nums[i]);
 
-    //vector<const char*> exps;
-    list<Expr> exps;  //size_t cnt = 0;
+    list<Expr> exps;  //size_t cnt = 0;     //vector<const char*> exps;
     calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
         //std::stringstream ss; ss << e; exps.push_back(std::move(ss.str()).c_str());
-        // FIXME: keep data buf by customized allocator?
-        exps.push_back(e);   //++cnt;
+        exps.push_back(e);   //++cnt;   // FIXME: keep data buf by customized allocator?
     });
 
     calc24->ecnt = exps.size(); //cnt;
@@ -443,7 +452,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
     cout << "Test calc24_first/print ..." << endl;
     cout.setstate(std::ios_base::badbit);
     if (calc24_first(24, nums, DynProg) != "1*2*3*4" ||
-        calc24_print(24, nums, DynProg, cout) != 3) abort();
+        calc24_print(-2, nums, DynProg, cout) != 11) abort();
     cout.clear();   // XXX:
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
