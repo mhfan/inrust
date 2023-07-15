@@ -21,7 +21,7 @@ exclude  = [ "README-DSP.md", "tmp" ]   # "tests", "benches", "fuzz"
 
 [workspace.package]
 edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
-version = "0.3.6"
+version = "0.3.7"
 #readme = "README.md"
 license = "MIT OR Apache-2.0"
 authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
