@@ -1,0 +1,87 @@
+
+### https://github.com/sagiegurari/cargo-make
+
+[config]
+default_to_workspace = false
+
+[env]
+#CARGO_TERM_COLOR = "always"
+
+[tasks.default]
+alias = "test"
+
+[tasks.coverage]
+alias = "llvm-cov"
+
+[tasks.test-doc]
+command = "cargo"
+args = [ "t", "--doc" ]
+
+[tasks.run-sample]
+command = "cargo"
+args = [ "r", #"--features", "debug", #"num-rational,debug",
+            "--", "-G", "-2", "1", "2", "3", "4",
+]
+
+[tasks.test]
+command = "cargo"   # cargo test -- --nocapture && cargo bench
+# cargo t --doc && cargo nextest r && cargo bench  #--no-capture
+dependencies = [ "test-doc" ]
+args = [ "nextest", "r", #"--no-capture",
+         #"t", "--", "--nocapture",
+]   # https://nexte.st/index.html
+
+[tasks.fuzz]    # https://rust-fuzz.github.io/book/
+cwd = "fuzz"
+command = "cargo"   # cargo +nightly fuzz run calc24
+toolchain = "nightly"
+args = [ "fuzz", "run", "calc24" ]
+
+[tasks.llvm-cov]    # https://doc.rust-lang.org/stable/rustc/instrument-coverage.html
+command = "cargo"
+toolchain = "nightly"
+env = { CC  = "clang", CXX = "clang++" }
+# cargo +nightly llvm-cov --include-ffi --doctests #--lcov --output-path lcov.info #nextest
+args = [ "llvm-cov", "--include-ffi", "--doctests",
+            "--lcov", "--output-path", "lcov.info", #"nextest",
+]   # https://github.com/taiki-e/cargo-llvm-cov
+
+[tasks.bench-fg]    # https://github.com/flamegraph-rs/flamegraph
+#command = "cargo"
+#args = [ "flamegraph", "--bench", "calc24_bench" ]
+script = [ "sudo cargo flamegraph --bench calc24_bench" ]
+
+[tasks.bench-mem]
+command = "cargo"   # cargo bench --features dhat-heap
+args = [ "bench", "--features", "dhat-heap", ]
+
+[tasks.bench-num]
+command = "cargo"   # cargo bench --features num-rational
+args = [ "bench", "--features", "num-rational", ]
+
+[tasks.bench-pprof]
+command = "cargo"   # cargo bench --features pprof
+args = [ "bench", "--features", "pprof", ]
+
+[tasks.publish]
+command = "cargo"
+#dependencies = [ "package" ]
+args = [ "publish", "--registry", "crates-io" ]
+
+[tasks.indiox]
+cwd = "indiox"
+#command = "dioxus"  # web
+#args = [ "serve" ]
+command = "cargo"   # for desktop
+args = [ "r" ]
+
+[tasks.inperse]
+cwd = "inperse"
+command = "perseus"
+args = [ "serve" ]
+
+[tasks.inyew]
+cwd = "inyew"
+command = "trunk"
+args = [ "serve" ]
+
