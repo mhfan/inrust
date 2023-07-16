@@ -88,7 +88,7 @@ name = "calc24_bench"
 harness = false
 
 #[lib]
-#crate-type = [ "cdylib", "lib" ]
+#crate-type = [ "dylib", "lib" ]  # "cdylib", "lib", "dylib", "rlib"
 #proc-macro = true
 
 [profile.dev]

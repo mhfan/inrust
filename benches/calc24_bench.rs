@@ -22,27 +22,18 @@ fn bench_24calc(c: &mut Criterion) {
     let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
     let (goal, mut cnt) = (goal.into(), 0);
 
-  for algo in [ DynProg, Construct ] {    // XXX: SplitSet, Inplace,
-    #[cfg(feature = "cc")] {
-        let mut bench_closure_c = |algo| {
-            group.bench_function(format!("Cxx{:?}", algo), |b|
-                b.iter(|| { cnt = calc24_cffi(&goal, &nums, algo); }));
-            if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
-        };  bench_closure_c(algo);
-    }
+    for algo in [ DynProg, Construct ] {    // XXX: SplitSet, Inplace,
+        let mut bench_closure = |algo, cxx: &str| {
+            group.bench_function(format!("{cxx}{algo:?}"), |b| b.iter(|| {
+                if cxx.is_empty() { cnt = calc24_coll(&goal, &nums, algo).len(); } else {
+                    #[cfg(feature = "cc")] { cnt = calc24_cffi(&goal, &nums, algo).len(); }
+                }
+            }));    if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
+        };
 
-    let mut bench_closure = |algo| {
-        group.bench_function(format!("{algo:?}"), |b| b.iter(|| {
-            //cnt = calc24_coll(&goal, &nums, algo).len();  // got same performance
-            let mut exps = vec![];  //cnt = 0;  // XXX: cnt += 1;
-            calc24_algo(&goal, &nums, algo, |e| {
-                exps.push(e);   Some(()) });    cnt = exps.len();
-        }));
-        if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
-    };  bench_closure(algo);
-  }
-
-    group.finish();
+        #[cfg(feature = "cc")] bench_closure(algo, "Cxx");
+        bench_closure(algo, "");
+    }   group.finish();
 }
 
 #[cfg(not(feature = "pprof"))] criterion_group!(benches, bench_24calc);

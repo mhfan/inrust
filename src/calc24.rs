@@ -755,7 +755,9 @@ pub fn game24_cli() {
 
         if  nums.len() < 2 { return eprintln!(r"{}",
             Paint::yellow(r"Require two numbers at least!")) }
-        let cnt = calc24_print(goal, &nums, algo);
+        //#[cfg(feature = "cc")] let cnt = if cxx { calc24_print(goal, &nums, algo)
+        //} else { calc24_cffi_print(goal, &nums, algo) };  // XXX:
+        /*#[cfg(not(feature = "cc"))] */let cnt = calc24_print(goal, &nums, algo);
 
         if  cnt < 1 {
             eprintln!(r"{}", Paint::yellow(r"Found NO solution!")) } else if 5 < cnt {
@@ -771,7 +773,7 @@ pub fn game24_cli() {
     if  let Some(opt) = nums.peek() {
         let opt = opt.clone();
         if  opt.eq("-A") {   nums.next();
-            if let Some(gs) = nums.next() { match gs.parse::<u32>() {
+            if let Some(gs) = nums.next() { match gs.parse::<u8>() {
                 Ok(n) => algo = match n {
                     1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg,
                 },
@@ -783,9 +785,7 @@ pub fn game24_cli() {
     if  let Some(opt) = nums.peek() {
         let opt = opt.clone();
         if  opt.eq_ignore_ascii_case("-g") {
-            if opt == "-G" { want_exit = true }
-            nums.next();
-
+            if opt == "-G" { want_exit = true }     nums.next();
             if let Some(gs) = nums.next() { match gs.parse::<Rational>() {
                 Ok(_goal) => goal = _goal,
                 Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
@@ -836,20 +836,20 @@ pub fn game24_cli() {
 }
 
 #[cfg(feature = "cc")] #[inline]
-pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
+pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<String> {
     #[repr(C)] struct Calc24IO {
         algo: Calc24Algo, //ia: bool,
         goal: Rational, //nums: &[Rational],
         nums: *const Rational, ncnt: usize,
 
         ecnt: usize, //core::ffi::c_size_t,
-        exps: *mut *const std::os::raw::c_char,
+        exps: *const *const std::os::raw::c_char,
         //exps: *mut *const SharedPtr<Expr>,
         //exps: *mut *const Expr,
     }
 
-    struct Cstr(*mut *const std::os::raw::c_char);
-    impl Drop for Cstr { fn drop(&mut self) { todo!() } }
+    //struct Cstr(*const *const std::os::raw::c_char);
+    //impl Drop for Cstr { fn drop(&mut self) { todo!() } }
 
     let mut calc24 = Calc24IO {
         algo, goal: *goal, //unsafe { core::mem::transmute(goal) },
@@ -862,14 +862,18 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
 
     extern "C" { fn calc24_cffi(calc24: *mut Calc24IO); }
-    unsafe {   calc24_cffi(&mut calc24);  // XXX:
+    unsafe {   calc24_cffi(&mut calc24); }
 
-        if 0 < calc24.ecnt && !calc24.exps.is_null() {
-            let _exps = core::slice::from_raw_parts(calc24.exps,
-                calc24.ecnt).iter().map(|es| std::ffi::CStr::
-                from_ptr(*es).to_str().unwrap()).collect::<Vec<_>>();
-        }
-    }   calc24.ecnt
+    if 0 < calc24.ecnt && !calc24.exps.is_null() { let exps = unsafe {
+        core::slice::from_raw_parts(calc24.exps, calc24.ecnt) }.iter()
+            .map(|&es| { let str =
+                unsafe { std::ffi::CStr::from_ptr(es) }.to_string_lossy().into_owned();
+                unsafe { calc24_free(std::ptr::null(), es); }
+                str }).collect::<Vec<_>>();  //.to_str().unwrap()
+
+        extern "C" { fn calc24_free(ptr: *const *const i8, str: *const i8); }
+        unsafe { calc24_free(calc24.exps, std::ptr::null()); }  exps
+    } else { vec![] }  // XXX:
 }
 
 #[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO: not works yet
@@ -954,33 +958,25 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usiz
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
             let goal = goal.into();
 
-            #[cfg(feature = "cc")] let assert_closure_c = |algo| {
-                    let elen = calc24_cffi(&goal, &nums, algo);
-                    println!(r"  {} solutions by algo-Cxx{:?}",
-                        Paint::green(elen), Paint::green(algo));
-                    assert!(elen == cnt, r"Unexpect count by algo-Cxx{:?}: {} != {}",
-                        Paint::magenta(algo), Paint::red(elen), Paint::cyan(cnt));
-            };
+            let assert_closure = |algo, cxx: &str| {
+                #[cfg(feature = "cc")] let exps = if cxx.is_empty() {
+                    calc24_coll(&goal, &nums, algo) } else { calc24_cffi(&goal, &nums, algo) };
+                #[cfg(not(feature = "cc"))] let exps = calc24_coll(&goal, &nums, algo);
 
-            let assert_closure = |algo| {
-                let exps = calc24_coll(&goal, &nums, algo);
-
-                exps.iter().for_each(|e| {
-                    //eprintln!(r"  {}", Paint::green(e));
-                    if res.is_empty() { return }
-                    assert!(res.contains(&e.to_string().as_str()),
-                         r"Unexpect expr. by algo-{:?}: {}", Paint::magenta(algo), Paint::red(e));
+                exps.iter().for_each(|e| {  if res.is_empty() { return }
+                    assert!(res.contains(&e.as_str()), r"Unexpect expr. by algo-{cxx}{:?}: {}",
+                        Paint::magenta(algo), Paint::red(e));
                 });
 
-                println!(r"  {} solutions by algo-{:?}",
+                println!(r"  {} solutions by algo-{cxx}{:?}",
                     Paint::green(exps.len()), Paint::green(algo));
                 assert!(exps.len() == cnt, r"Unexpect count by algo-{:?}: {} != {}",
                     Paint::magenta(algo), Paint::red(exps.len()), Paint::cyan(cnt));
             };
 
             for algo in [ DynProg, SplitSet, Inplace, Construct ] {
-                #[cfg(feature = "cc")] assert_closure_c(algo);
-                assert_closure(algo);
+                #[cfg(feature = "cc")] assert_closure(algo, "Cxx");
+                assert_closure(algo, "");
             }
 
             #[cfg(feature = "cxx")] {

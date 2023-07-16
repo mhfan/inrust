@@ -21,6 +21,7 @@
 //#pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <memory>   // shared_ptr
 
 template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
@@ -60,6 +61,7 @@ typedef struct Calc24IO {
 }   Calc24IO;
 
 extern "C" void calc24_cffi(Calc24IO* calc24);
+extern "C" void calc24_free(const char* ptr[], const char* str);
 
 #else
 #include "calc24.h"
@@ -221,7 +223,7 @@ void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
         for (const auto& e: nums)  vexp[1 << i++].push_back(e);
     }
 
-    vector<size_t> hv;  hv.reserve(psn - 2);
+    vector<size_t> hv;  hv.reserve(psn - 1);    // psn - 2
     const auto get_hash = [&](auto x)/* -> auto*/ {     auto i = 0u, h0 = 0u;
 #ifdef  LIST
         for (const auto& e: nums) if ((1 << i++) & x) h0 = hash_combine(h0, hash_expr(*e));
@@ -274,8 +276,8 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
         if (e.v == goal) each_found(e);
     };
 
-    vector<size_t> hv;       hv.reserve(psn - 2);
-    vector<PtrE> ns0, ns1;  ns0.reserve(n - 1); ns1.reserve(n - 1);
+    vector<size_t> hv;       hv.reserve(psn - 1);               // psn - 2
+    vector<PtrE> ns0, ns1;  ns0.reserve(n); ns1.reserve(n);     // n - 1
 
     for (auto x = 1; x < psn/2; ++x) {  ns0.clear();    ns1.clear();    auto i = 0;
         for (const auto& e: nums) if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
@@ -309,7 +311,7 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
 #include <unordered_set>
 void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
     const bool ngoal, auto&& each_found, const size_t n) {
-    vector<size_t> hv;  hv.reserve(n * (n - 1) / 2);
+    vector<size_t> hv;  hv.reserve(n * n / 2);  // n * (n - 1) / 2
 
     // XXX: skip duplicates over different combination order, as well in symmetric style
     for (size_t j = 1; j < n; ++j) {
@@ -339,8 +341,8 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
 void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     const bool ngoal, auto&& each_found, size_t j) {
     const auto n = nums.size();
-    vector<PtrE> nsub;  nsub.reserve(n - 1);
-    vector<size_t> hv;    hv.reserve(n * (n - 1) / 2);
+    vector<PtrE> nsub;  nsub.reserve(n);            // n - 1
+    vector<size_t> hv;    hv.reserve(n * n / 2);    // n * (n - 1) / 2
 
     // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
@@ -370,9 +372,7 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
 
 void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
     Calc24Algo algo, auto&& each_found) {
-    switch (rnv.size()) {   case 0: return;
-        case 1: if (rnv[0] == goal) each_found(Expr(rnv[0]));   return;
-    }
+    if (rnv.size() == 1) { if (rnv[0] == goal) each_found(Expr(rnv[0]));   return; }
 
     const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
@@ -410,9 +410,9 @@ inline string calc24_first(const Rational& goal, const vector<Rational>& nums,
 }
 
 inline size_t calc24_print(const Rational& goal, const vector<Rational>& nums,
-    Calc24Algo algo, std::ostream& os) {  auto cnt = 0;
+    Calc24Algo algo) {  auto cnt = 0;
     calc24_algo(goal, nums, algo,
-        [&](auto&& e) { os << e << std::endl; ++cnt; });    return cnt;
+        [&](auto&& e) { std::cout << e << std::endl; ++cnt; });     return cnt;
 }
 
 void calc24_cffi(Calc24IO* calc24) {
@@ -425,14 +425,27 @@ void calc24_cffi(Calc24IO* calc24) {
     vector<Rational> nums;  nums.reserve(calc24->ncnt);
     for (auto i = 0u; i < calc24->ncnt; ++i) nums.push_back(calc24->nums[i]);
 
-    list<Expr> exps;  //size_t cnt = 0;     //vector<const char*> exps;
-    calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
-        //std::stringstream ss; ss << e; exps.push_back(std::move(ss.str()).c_str());
-        exps.push_back(e);   //++cnt;   // FIXME: keep data buf by customized allocator?
-    });
+    /* if (1 == calc24->ecnt) {
+        calc24_print(calc24->goal, nums, calc24->algo);
+        calc24->ecnt = 0;   return;
+    } */
 
-    calc24->ecnt = exps.size(); //cnt;
-    calc24->exps = nullptr; //std::move(exps).data();
+    vector<const char*> exps;   //list<Expr> exps;
+    calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
+        std::stringstream ss;   ss << e;    auto&& str = ss.str();
+        auto cstr = new char[str.size() + 1];
+        std::strcpy(cstr, str.c_str());
+        exps.push_back(cstr);   //exps.push_back(e);
+    }); // XXX: transfer ownership and keep data buf by moving to avoid strcpy?
+
+    calc24->ecnt = exps.size();
+    calc24->exps = new const char*[calc24->ecnt];
+    std::memcpy(calc24->exps, exps.data(), sizeof(const char*) * calc24->ecnt);
+    //calc24->exps = /*nullptr; */exps.data();    exps = std::move(exps);
+}
+
+void calc24_free(const char* ptr[], const char* str) {
+    if (ptr) delete[] ptr;  if (str) delete str;
 }
 
 #include <iomanip>
@@ -444,15 +457,15 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
          << "a: " << a << ", b: " << b /*<< ", expr.: " << e*/ << endl;
 
     std::stringstream ss;   // test Rational/Expr output
-    ss.str(""); ss << a; assert(ss.str() == "5");
-    ss.str(""); ss << b; assert(ss.str() == "6");
-    //ss.str(""); ss << e; assert(ss.str() == "1*(2-1/2)+2");
+    ss << a; assert(ss.str() == "5");   ss.str("");
+    ss << b; assert(ss.str() == "6");   //ss.str("");
+    //ss << e; assert(ss.str() == "1*(2-1/2)+2");
 
     vector<Rational> nums = { 1, 2, 3, 4 };
     cout << "Test calc24_first/print ..." << endl;
     cout.setstate(std::ios_base::badbit);
     if (calc24_first(24, nums, DynProg) != "1*2*3*4" ||
-        calc24_print(-2, nums, DynProg, cout) != 11) abort();
+        calc24_print(-2, nums, DynProg) != 11) abort();
     cout.clear();   // XXX:
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
