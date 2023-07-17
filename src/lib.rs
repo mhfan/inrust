@@ -30,8 +30,7 @@ impl<T: PrimInt> Iterator for Fibonacci<T> {
 /// assert_eq!(fibonacci().nth(1), Some(1));
 /// assert_eq!(fibonacci().nth(4), Some(5));
 /// ```
-// Returns a Fibonacci sequence generator
-pub fn fibonacci<T: PrimInt>() -> Fibonacci<T> {
+pub fn fibonacci<T: PrimInt>() -> Fibonacci<T> {    // Returns a Fibonacci sequence generator
     Fibonacci::<T> { curr: T::zero(), next: T::one() }
 }
 
@@ -43,12 +42,12 @@ pub fn fibonacci<T: PrimInt>() -> Fibonacci<T> {
  * as a bitmask, selecting only the members of the original set whose corresponding
  * positional bits are flipped on in each mask.
  ```
- let set = vec![1, 2, 3];
- let psv = inrust::misc::powerset(&set);
- assert_eq!(psv.len(), 1 << set.len());
- vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
-     .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
-     .for_each(|(a, b)| assert_eq!(&a, b)));
+    let set = vec![1, 2, 3];
+    let psv = inrust::misc::powerset(&set);
+    assert_eq!(psv.len(), 1 << set.len());
+    vec![vec![], vec![1, 2, 3], vec![1], vec![2, 3], vec![2], vec![1, 3], vec![1, 2], vec![3]]
+        .iter().enumerate().for_each(|(i, v)| v.iter().zip(psv[i].iter())
+        .for_each(|(a, b)| assert_eq!(&a, b)));
  ```
  * pub fn powerset<T: Clone + Copy>(set: &[T]) -> Vec<Vec<T>>
  */

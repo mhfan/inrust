@@ -26,7 +26,7 @@ fn bench_24calc(c: &mut Criterion) {
         let mut bench_closure = |algo, cxx: &str| {
             group.bench_function(format!("{cxx}{algo:?}"), |b| b.iter(|| {
                 if cxx.is_empty() { cnt = calc24_coll(&goal, &nums, algo).len(); } else {
-                    #[cfg(feature = "cc")] { cnt = calc24_cffi(&goal, &nums, algo).len(); }
+                    #[cfg(feature = "cc")] { cnt = calc24_coll_cffi(&goal, &nums, algo).len(); }
                 }
             }));    if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(cnt)) }
         };

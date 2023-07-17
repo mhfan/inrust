@@ -5,12 +5,14 @@ fn main() {
     let calc24_cpp = "src/calc24.cpp";
     println!("cargo:rerun-if-changed={calc24_cpp}");
 
-    //println!("cargo:rerun-if-changed=src/calc24.h");
+    println!("cargo:rerun-if-changed=src/calc24.h");
     //println!("cargo:rerun-if-changed=src/cpp/");    // scan files under the path directory
 
-    #[cfg(feature = "cc")] cc::Build::new().cpp(true).flag("-std=c++20").opt_level(2)
+    #[cfg(not(feature = "cxx"))] #[cfg(feature = "cc")] let mut build = cc::Build::new();
+    #[cfg(feature = "cxx")] let mut build = cxx_build::bridge("src/calc24.rs");
+    #[cfg(any(feature = "cc", feature = "cxx"))] build.cpp(true).flag("-std=c++20")
         //.define("USE_LIST", None)//.define("RUN_TEST", None)  // libcalc24.a
-        .define("NDEBUG", None).file(calc24_cpp).compile("calc24");
+        .opt_level(2).define("NDEBUG", None).file(calc24_cpp).compile("calc24");
 
     println!("cargo:rerun-if-changed=.git/index");
     let output = std::process::Command::new("git")

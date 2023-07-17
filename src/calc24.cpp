@@ -11,19 +11,11 @@
 
 // https://changkun.de/modern-cpp/zh-cn/00-preface/
 
-#include <string>
-#include <cassert>
-#include <iostream>
-#include <algorithm>
-
 #ifndef CALC24_H
 #define CALC24_H
 //#pragma once
 
 #include <cstdint>
-#include <cstring>
-#include <memory>   // shared_ptr
-
 template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
 typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 
@@ -31,12 +23,13 @@ enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 //typedef char Oper;    // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 
 struct Expr;
+#include <memory>
 typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;     // TODO:
+
 struct Expr {   Rational v; PtrE a, b; Oper op;     // anonymous structure  // const
 
-    Expr(const Rational& r, const Oper op = Num,
-         const PtrE& a = nullptr, const PtrE& b = nullptr):
-            v(std::move(r)), a(a), b(b), op(op) {}  // a & b refer to left & right operands
+    Expr(const Rational& r, const Oper op = Num,    // a & b refer to left & right operands
+         const PtrE& a = nullptr, const PtrE& b = nullptr): v(r), a(a), b(b), op(op) {}
     //~Expr() { std::cerr << "Destruct: " << *this << std::endl; }
 
     //Expr(auto n): Expr(Rational(n)) {}  // Constructor delegation
@@ -45,9 +38,6 @@ struct Expr {   Rational v; PtrE a, b; Oper op;     // anonymous structure  // c
     //Expr(Expr&&) = delete;
 };
 
-#include <vector>
-using std::vector;
-
 typedef   enum Calc24Algo: uint8_t { DynProg, SplitSet, Inplace, Construct } Calc24Algo;
 typedef struct Calc24IO {
     const Calc24Algo algo;
@@ -55,13 +45,13 @@ typedef struct Calc24IO {
     const size_t ncnt;
 
     size_t ecnt;
-    const char* *exps;
+    char* *exps;
     //const PtrE* const exps;
     //const Expr* const *exps;
 }   Calc24IO;
 
 extern "C" void calc24_cffi(Calc24IO* calc24);
-extern "C" void calc24_free(const char* ptr[], const char* str);
+extern "C" void calc24_free(const char* ptr[], uint32_t cnt);
 
 #else
 #include "calc24.h"
@@ -87,7 +77,7 @@ inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
 }
 
 auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
-    auto lv = lhs.v.n * rhs.v.d, rv = lhs.v.d * rhs.v.n;
+    const auto lv = lhs.v.n * rhs.v.d, rv = lhs.v.d * rhs.v.n;
     if (lv  < rv) return true;
     if (lv == rv && rhs.op != Num) {
         if (lhs.op == Num) return true;
@@ -142,14 +132,14 @@ inline auto hash_combine(size_t lhs, auto rhs) {
 
 template <> struct std::hash<Expr> {
     auto operator()(const Expr& e) const noexcept {
-        if (e.op == Num) return hash_combine(e.v.n, e.v.d); else {  // XXX:
-            return hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
-        }
+        if (e.op == Num) return hash_combine(e.v.n, e.v.d);     // XXX:
+        return hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
     }
 };
 
 static const std::hash<Expr> hash_expr;
-#define make_ptre(args...) std::make_shared<Expr>(args)     // XXX: PtrE(ep)
+#define make_ptre(e) std::make_shared<Expr>(std::forward<Expr>(e))
+// XXX: why shared_ptr<Expr>(*Expr) cause performance collapse?
 
 inline bool found_same(const auto& e, const auto& v, const Oper op) {
     return e.op == op && (e.a->v == v || e.b->v == v ||
@@ -168,7 +158,7 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
     // (a * (A / B)) => ((a * A) / B) if a != 1, (1 * x) => kept in the final only,
     // (a * (A * B)) => (A * (a * B)) if A  < a
     if (!(a->op == (op = Mul) ||
-        (a->op == Div && b->v.n != b->v.d) || (Div == b->op && a->v.n != a->v.d) ||
+         (a->op == Div && b->v.n != b->v.d) || (Div == b->op && a->v.n != a->v.d) ||
         (!is_final && (a->v.n == a->v.d || b->v.n == b->v.d)) || (op == b->op && *b->a < *a)))
         new_expr(Expr(Rational(a->v.n * b->v.n, dmd), op, a, b));
 
@@ -176,7 +166,7 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
     // (a + (A - B)) => ((a + A) - B) if a != 0, (0 + x) => kept in the final only,
     // (a + (A + B)) => (A + (a + B)) if A  < a
     if (!(a->op == (op = Add) ||
-        (a->op == Sub && b->v.n != 0) || (Sub == b->op && a->v.n != 0) ||
+         (a->op == Sub && b->v.n != 0) || (Sub == b->op && a->v.n != 0) ||
         (!is_final && (a->v.n == 0 || b->v.n == 0)) || (op == b->op && *b->a < *a)))
         new_expr(Expr(Rational(nmd + dmn, dmd), op, a, b));
 
@@ -206,6 +196,9 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
     }
 }
 
+#include <vector>
+using std::vector;
+
 #ifdef  USE_LIST
 #include <list>
 using std::list;
@@ -213,12 +206,13 @@ using std::list;
 #define list vector
 #endif
 
+#include <algorithm>
 void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
     const bool ngoal, auto&& each_found) {
     const auto psn = 1 << nums.size();
 
     vector<list<PtrE>> vexp;       vexp.reserve(psn);
-    for (auto i = 0; i < psn; ++i) vexp.push_back(list<PtrE>());
+    for (auto i = 0; i < psn; ++i) vexp.emplace_back();
     if (2 < psn) { auto i = 0;
         for (const auto& e: nums)  vexp[1 << i++].push_back(e);
     }
@@ -239,7 +233,7 @@ void calc24_dynprog (const Rational& goal, const list<PtrE>& nums,
 
         const auto lambda = [&, is_final](auto&& e) {
             if (!is_final) vexp[x].push_back(make_ptre(e)); else
-            if (e.v == goal) each_found(e);
+            if (e.v == goal) each_found(std::move(e));
         };
 
         for (auto i = 1; i < (x+1)/2; ++i) { if ((x & i) != i) continue;
@@ -273,7 +267,7 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
 
     const auto lambda = [&, is_final](auto&& e) {
         if (!is_final) exps.push_back(make_ptre(e)); else
-        if (e.v == goal) each_found(e);
+        if (e.v == goal) each_found(std::move(e));
     };
 
     vector<size_t> hv;       hv.reserve(psn - 1);               // psn - 2
@@ -325,7 +319,8 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
             const auto a(std::move(nums[i]));
 
             const auto lambda = [&, n, i, ngoal](auto&& e) {
-                if (n == 2) { if (e.v == goal) each_found(e); } else {  nums[i] = make_ptre(e);
+                if (n == 2) { if (e.v == goal) each_found(std::move(e)); } else {
+                    nums[i] = make_ptre(e);
                     calc24_inplace(goal, nums, ngoal, each_found, n - 1);
                 }
             };
@@ -349,7 +344,7 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     //    for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
     for (; j < n; ++j) {    const auto& b(nums[j]);
         const auto lambda = [&, n, ngoal](auto&& e) {
-            if (n == 2) { if (e.v == goal) each_found(e); } else {
+            if (n == 2) { if (e.v == goal) each_found(std::move(e)); } else {
                 nsub.push_back(make_ptre(e));
                 calc24_construct(goal, nsub, ngoal, each_found, j - 1);
                 nsub. pop_back();
@@ -376,13 +371,13 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
 
     const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
-    for (const auto& n: rnv) nums.push_back(make_ptre(n));
+    for (const auto& n: rnv) nums.push_back(std::make_shared<Expr>(n));
     std::sort(nums.begin(),  nums.end(),
         [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
 
     std::unordered_set<size_t> eset;
     const auto hash_unify = [&](auto&& e) {
-        if (eset.insert(hash_expr(e)).second) each_found(e);
+        if (eset.insert(hash_expr(e)).second) each_found(std::move(e));
     };
 
     switch (algo) {
@@ -393,7 +388,9 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
     }   //return exps;
 }
 
+#include <string>
 using std::string;
+
 inline list<string> calc24_coll(const Rational& goal, const vector<Rational>& nums,
     Calc24Algo algo) {  list<string> exps;
     calc24_algo(goal, nums, algo, [&](auto&& e) {
@@ -409,12 +406,14 @@ inline string calc24_first(const Rational& goal, const vector<Rational>& nums,
     }); return es;
 }
 
+#include <iostream>
 inline size_t calc24_print(const Rational& goal, const vector<Rational>& nums,
     Calc24Algo algo) {  auto cnt = 0;
     calc24_algo(goal, nums, algo,
         [&](auto&& e) { std::cout << e << std::endl; ++cnt; });     return cnt;
 }
 
+#include <cstring>
 void calc24_cffi(Calc24IO* calc24) {
     /*assert(sizeof(calc24->algo == 1 && sizeof(bool) == 1);
     std::cerr << "algo: " << calc24->algo << ", ia: " << calc24->ia
@@ -425,32 +424,30 @@ void calc24_cffi(Calc24IO* calc24) {
     vector<Rational> nums;  nums.reserve(calc24->ncnt);
     for (auto i = 0u; i < calc24->ncnt; ++i) nums.push_back(calc24->nums[i]);
 
-    /* if (1 == calc24->ecnt) {
-        calc24_print(calc24->goal, nums, calc24->algo);
-        calc24->ecnt = 0;   return;
-    } */
+    if (1 == calc24->ecnt) {    // a hack
+        calc24->ecnt = calc24_print(calc24->goal, nums, calc24->algo);  return;
+    }
 
-    vector<const char*> exps;   //list<Expr> exps;
+    vector<string> exps;    //list<Expr> exps;
     calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
-        std::stringstream ss;   ss << e;    auto&& str = ss.str();
-        auto cstr = new char[str.size() + 1];
-        std::strcpy(cstr, str.c_str());
-        exps.push_back(cstr);   //exps.push_back(e);
-    }); // XXX: transfer ownership and keep data buf by moving to avoid strcpy?
+        std::stringstream ss;   ss << e;    exps.push_back(ss.str());   //exps.push_back(e);
+    });
 
-    calc24->ecnt = exps.size();
-    calc24->exps = new const char*[calc24->ecnt];
-    std::memcpy(calc24->exps, exps.data(), sizeof(const char*) * calc24->ecnt);
-    //calc24->exps = /*nullptr; */exps.data();    exps = std::move(exps);
+    calc24->exps = new char*[calc24->ecnt = exps.size()];
+    for (auto i = 0u; i < calc24->ecnt; ++i) {   auto&& str = exps[i];
+        std::strcpy(calc24->exps[i] = new char[str.size() + 1], str.c_str());
+    }   //calc24->exps = /*nullptr; */exps.data();    exps = std::move(exps);
 }
 
-void calc24_free(const char* ptr[], const char* str) {
-    if (ptr) delete[] ptr;  if (str) delete str;
+void calc24_free(const char* ptr[], uint32_t cnt) {
+    for (auto i = 0u; i < cnt; ++i) delete ptr[i];   delete[] ptr;
 }
 
+#include <cassert>
 #include <iomanip>
+
 extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve24
-    using std::cout, std::cerr, std::endl, std::string;
+    using std::cout, std::cerr, std::endl;
 
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
     cout << "Test format rational/expression: "
@@ -465,8 +462,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
     cout << "Test calc24_first/print ..." << endl;
     cout.setstate(std::ios_base::badbit);
     if (calc24_first(24, nums, DynProg) != "1*2*3*4" ||
-        calc24_print(-2, nums, DynProg) != 11) abort();
-    cout.clear();   // XXX:
+        calc24_print(-2, nums, DynProg) != 11) abort();     cout.clear();   // XXX:
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {

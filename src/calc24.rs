@@ -69,7 +69,7 @@ impl<T: PrimInt + Display> Display for RNum<T> {
             write!(f, "{:>width$}", srn.0, width = f.width().unwrap_or(0))?;
             if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }
             if  braket { write!(f, r")")? }
-        }   Ok(())  // XXX: dynamic padding support
+        }   Ok(())
     }
 }
 
@@ -186,12 +186,12 @@ impl Display for Expr {     #[inline]
 //impl std::error::Error for ExprError {}     // convertable to Box<dyn Error>
 #[derive(pest_derive::Parser)] #[grammar = "arith_expr.pest"] struct ArithExpr;
 
-/// ```
-/// # use inrust::calc24::{Expr, Rational};
-/// let es = "((0 + 1 * 2 + 3) * 1 * 2 - (4 / (5/-6) / 8 + 7) - 9 + 10)"; // = 23/5
-/// assert!(es.parse::<Expr>().is_ok_and(|e| e.value() == &Rational::new_raw(23, 5)));
-/// ```
 impl FromStr for Expr {
+/** ```
+    # use inrust::calc24::{Expr, Rational};
+    let es = "((0 + 1 * 2 + 3) * 1 * 2 - (4 / (5/-6) / 8 + 7) - 9 + 10)"; // = 23/5
+    assert!(es.parse::<Expr>().is_ok_and(|e| e.value() == &Rational::new_raw(23, 5)));
+    ``` */
     fn from_str(s: &str) -> Result<Self, Self::Err> {   use pest::Parser;
         fn build_expr_ast(pair: pest::iterators::Pair<Rule>) -> Result<Expr, String> {
             let mut ex = Err("None".to_owned());
@@ -246,14 +246,14 @@ impl Ord for Expr {
     }
 }
 
-/// ```
-/// # use inrust::calc24::Expr;
-/// let (a, b) = ("(1 + 2) * 3 / 4 - 5", "0");
-/// let (a, b) = (a.parse::<Expr>(), b.parse::<Expr>());
-/// assert!(a == a && b == b && a != b);
-/// ```
 impl  Eq for Expr { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl PartialEq for Expr {
+/** ```
+    # use inrust::calc24::Expr;
+    let (a, b) = ("(1 + 2) * 3 / 4 - 5", "0");
+    let (a, b) = (a.parse::<Expr>(), b.parse::<Expr>());
+    assert!(a == a && b == b && a != b);
+    ``` */
     fn eq(&self, rhs: &Self) -> bool { //self.cmp(rhs) == Ordering::Equal
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
@@ -274,10 +274,10 @@ impl Hash for Expr {
     }
 }
 
-/// ```
-/// # use inrust::calc24::hash_combine;
-/// assert_eq!(hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
-/// ```
+/** ```
+    # use inrust::calc24::hash_combine;
+    assert_eq!(hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
+    ``` */
 #[allow(dead_code)] pub fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
     //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
     lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
@@ -538,7 +538,8 @@ fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
                     calc24_construct(goal, &nums, ngoal, each_found, j - 1)?;
                     nums.pop();
                 }   Some(())
-            })}))
+            })
+        }))
 }
 
 #[derive(Debug, Clone, Copy)] #[repr(u8/*, C*/)]
@@ -556,12 +557,12 @@ pub  use Calc24Algo::*;
         exps.push(e.to_string());   Some(()) });    exps
 }
 
-/// ```
-/// # use inrust::calc24::*;
-/// let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
-/// assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned());
-/// assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
-/// ```
+/** ```
+    # use inrust::calc24::*;
+    let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
+    assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned());
+    assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
+    ``` */
 #[inline] pub fn calc24_first(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> String {
     let mut sexp = String::new();
     calc24_algo(goal, nums, algo, |e| {
@@ -617,21 +618,21 @@ pub  use Calc24Algo::*;
     });
 }
 
-/// ```
-/// # use inrust::calc24::*;
-/// // require absolute/complete path since Doc-tests run in a separate process
-/// let (goal, silent, min) = (24.into(), true, 1);
-/// assert_eq!(game24_solvable(&goal, min, 10, 5, false, DynProg), (37, 1955, 0));
-/// //assert_eq!(game24_solvable(&goal, min, 13, 5, silent, DynProg), (81, 6094, 0));
-/// //assert_eq!(game24_solvable(&goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
-/// //assert_eq!(game24_solvable(&goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
-/// //assert_eq!(game24_solvable(&goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
-/// assert_eq!(game24_solvable(&goal, min, 10, 4, false, DynProg), (149, 566, 1343));
-/// for algo in [ DynProg, SplitSet, Inplace, Construct ] {
-///     assert_eq!(game24_solvable(&goal, min, 13, 4, silent, algo), (458, 1362, 3017),
-///         r"failed on algo-{algo:?}");
-/// }
-/// ```
+/** ```
+    # use inrust::calc24::*;
+    // require absolute/complete path since Doc-tests run in a separate process
+    let (goal, silent, min) = (24.into(), true, 1);
+    assert_eq!(game24_solvable(&goal, min, 10, 5, false, DynProg), (37, 1955, 0));
+    //assert_eq!(game24_solvable(&goal, min, 13, 5, silent, DynProg), (81, 6094, 0));
+    //assert_eq!(game24_solvable(&goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
+    //assert_eq!(game24_solvable(&goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
+    //assert_eq!(game24_solvable(&goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
+    assert_eq!(game24_solvable(&goal, min, 10, 4, false, DynProg), (149, 566, 1343));
+    for algo in [ DynProg, SplitSet, Inplace, Construct ] {
+        assert_eq!(game24_solvable(&goal, min, 13, 4, silent, algo), (458, 1362, 3017),
+            r"failed on algo-{algo:?}");
+    }
+    ``` */
 pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
     silent: bool, algo: Calc24Algo) -> (u16, u16, u32) {
     let mut rcnt = (0, 0, 0);
@@ -714,7 +715,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
             println!();     batch -= 1;     continue
         }
 
-        loop {  use std::io::Write;     let mut es = String::new();
+        loop {  let mut es = String::new();     use std::io::Write;
             std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
             std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
 
@@ -736,10 +737,9 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     }
 }
 
-#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
-pub fn game24_cli() {
-    #[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
-    fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo)
+#[cfg_attr(coverage_nightly, no_coverage)] pub fn game24_cli() {
+    #[cfg_attr(coverage_nightly, no_coverage)]  //#[cfg(not(tarpaulin_include))]
+    fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
         let nums = nums.filter_map(
             #[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
@@ -755,9 +755,9 @@ pub fn game24_cli() {
 
         if  nums.len() < 2 { return eprintln!(r"{}",
             Paint::yellow(r"Require two numbers at least!")) }
-        //#[cfg(feature = "cc")] let cnt = if cxx { calc24_print(goal, &nums, algo)
-        //} else { calc24_cffi_print(goal, &nums, algo) };  // XXX:
-        /*#[cfg(not(feature = "cc"))] */let cnt = calc24_print(goal, &nums, algo);
+        #[cfg(feature = "cc")] let cnt = if _cxx {
+            calc24_print_cffi(goal, &nums, algo) } else { calc24_print(goal, &nums, algo)
+        };  #[cfg(not(feature = "cc"))] let cnt = calc24_print(goal, &nums, algo);
 
         if  cnt < 1 {
             eprintln!(r"{}", Paint::yellow(r"Found NO solution!")) } else if 5 < cnt {
@@ -769,10 +769,10 @@ pub fn game24_cli() {
     let  mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
 
-    let mut want_exit = false;
+    let (mut want_exit, mut cxx) = (false, false);
     if  let Some(opt) = nums.peek() {
         let opt = opt.clone();
-        if  opt.eq("-A") {   nums.next();
+        if  opt.eq_ignore_ascii_case("-A") {    nums.next();    cxx = opt == "-a";
             if let Some(gs) = nums.next() { match gs.parse::<u8>() {
                 Ok(n) => algo = match n {
                     1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg,
@@ -797,7 +797,7 @@ pub fn game24_cli() {
                 } else { // solvable for 4 cards dealed from a deck, traverse 0..=100 as target
                      game24_solvable(&goal, 1, 13, 4, false, algo);
                 }
-            } else { game24_helper(&goal, nums, algo); }
+            } else { game24_helper(&goal, nums, algo, cxx); }
             if want_exit { std::process::exit(0) }
         }
     }
@@ -812,8 +812,7 @@ pub fn game24_cli() {
         print!("\n{}{}{}", Paint::new(r"Input integers/rationals for ").dimmed(),
             Paint::cyan(&goal), Paint::new(": ").dimmed());
 
-        use std::io::Write;
-        let mut nums = String::new();
+        let mut nums = String::new();   use std::io::Write;
         std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
         std::io::stdin().read_line(&mut nums).expect(r"Failed to read!");
         let mut nums = nums.split_ascii_whitespace().peekable();
@@ -831,24 +830,35 @@ pub fn game24_cli() {
                       first.eq_ignore_ascii_case("cards") {
                 game24_cards(&goal, 4, algo);   nums.next();    continue;
             } else if first.eq_ignore_ascii_case("quit") { break }
-        }       game24_helper(&goal, nums, algo);
+        }       game24_helper(&goal, nums, algo, cxx);
     }
 }
 
-#[cfg(feature = "cc")] #[inline]
-pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<String> {
-    #[repr(C)] struct Calc24IO {
-        algo: Calc24Algo, //ia: bool,
-        goal: Rational, //nums: &[Rational],
-        nums: *const Rational, ncnt: usize,
+#[cfg(feature = "cc")] use std::os::raw::c_char;
+#[cfg(feature = "cc")] extern "C" { fn calc24_cffi(calc24: *mut Calc24IO); }
 
-        ecnt: usize, //core::ffi::c_size_t,
-        exps: *const *const std::os::raw::c_char,
-        //exps: *mut *const SharedPtr<Expr>,
-        //exps: *mut *const Expr,
-    }
+#[cfg(feature = "cc")] #[repr(C)] struct Calc24IO {
+    algo: Calc24Algo, //ia: bool,
+    goal: Rational, //nums: &[Rational],
+    nums: *const Rational, ncnt: usize,
 
-    //struct Cstr(*const *const std::os::raw::c_char);
+    ecnt: usize, //core::ffi::c_size_t,
+    exps: *const *const c_char,
+    //exps: *mut *const SharedPtr<Expr>,
+    //exps: *mut *const Expr,
+}
+
+#[cfg(feature = "cc")] #[inline] fn calc24_print_cffi(goal: &Rational, nums: &[Rational],
+    algo: Calc24Algo) -> usize {
+    let mut calc24 = Calc24IO { algo, goal: *goal,
+        nums: nums.as_ptr(), ncnt: nums.len(),
+        ecnt: 1,  exps: core::ptr::null_mut(),
+    };  unsafe { calc24_cffi(&mut calc24); }    calc24.ecnt
+}
+
+#[cfg(feature = "cc")] #[inline] pub fn calc24_coll_cffi(goal: &Rational, nums: &[Rational],
+    algo: Calc24Algo) -> Vec<String> {
+    //struct Cstr(*const *const c_char);
     //impl Drop for Cstr { fn drop(&mut self) { todo!() } }
 
     let mut calc24 = Calc24IO {
@@ -860,33 +870,32 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<
     //core::ptr::addr_of_mut!(calc24);
     debug_assert!(core::mem::size_of::<Rational>() == 8);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
-
-    extern "C" { fn calc24_cffi(calc24: *mut Calc24IO); }
-    unsafe {   calc24_cffi(&mut calc24); }
+    unsafe { calc24_cffi(&mut calc24); }
 
     if 0 < calc24.ecnt && !calc24.exps.is_null() { let exps = unsafe {
-        core::slice::from_raw_parts(calc24.exps, calc24.ecnt) }.iter()
-            .map(|&es| { let str =
-                unsafe { std::ffi::CStr::from_ptr(es) }.to_string_lossy().into_owned();
-                unsafe { calc24_free(std::ptr::null(), es); }
-                str }).collect::<Vec<_>>();  //.to_str().unwrap()
-
-        extern "C" { fn calc24_free(ptr: *const *const i8, str: *const i8); }
-        unsafe { calc24_free(calc24.exps, std::ptr::null()); }  exps
+        core::slice::from_raw_parts(calc24.exps, calc24.ecnt as usize) }
+            .iter().map(|&es| unsafe { std::ffi::CStr::from_ptr(es) }
+                .to_string_lossy().into_owned()).collect::<Vec<_>>();  //.to_str().unwrap()
+        extern "C" { fn calc24_free(ptr: *const *const c_char, cnt: u32); }
+        unsafe { calc24_free(calc24.exps, calc24.ecnt as u32); }    exps
     } else { vec![] }  // XXX:
 }
 
-#[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO: not works yet
+#[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO: https://cxx.rs
     struct Rational { n: i32, d: i32 }
-    #[repr(u8)] enum Oper { Num, Add = b'+', Sub = b'-', Mul = b'*', Div = b'/', }
-    struct Expr { v: Rational, a: SharedPtr<Expr>, b: SharedPtr<Expr>, op: Oper }
+    //#[repr(u8)] enum Oper { Num, Add = 43, Sub = 45, Mul = 42, Div = 47, }  // +-*/
+    //struct Expr { v: Rational, a: SharedPtr<Expr>, b: SharedPtr<Expr>, op: Oper }
     #[repr(u8)] enum Calc24Algo { DynProg, SplitSet, Inplace, Construct }
 
-    extern "Rust" { }
+    extern "Rust" {     // declares Rust types and signatures to be made available to C++
+    }
 
-    unsafe extern "C++" {   include!("calc24.h");
-        fn calc24_coll(goal: &Rational, nums: &CxxVector<Rational>,
-            algo: Calc24Algo) -> CxxVector<CxxString>;
+    #[allow(dead_code)] unsafe extern "C++" {   include!("inrust/src/calc24.h");
+        fn calc24_cxxffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<String>;
+
+        fn calc24_print(goal: &Rational, nums: &CxxVector<Rational>, algo: Calc24Algo) -> usize;
+        //fn calc24_coll (goal: &Rational, nums: &CxxVector<Rational>,
+        //    algo: Calc24Algo) -> CxxVector<CxxString>; //Vec<String>;
     }
 }
 
@@ -894,6 +903,26 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<
 
 #[cfg(test)] mod tests {    use super::*;   // unit test
     // Need to import items from parent module, to access non-public members.
+
+    #[cfg(feature = "cxx")] #[test] fn test_cxx_bridge() {
+        /*impl From<Expr> for ffi_cxx::Expr {
+            fn from(e: Expr) -> Self {  use cxx::memory::SharedPtr;
+                Self { v: unsafe { core::mem::transmute(e.v) },
+                    a: SharedPtr::null(), b: SharedPtr::null(), op: ffi_cxx::Oper::Num
+                }
+            }
+        }*/
+
+        impl From<Rational> for ffi_cxx::Rational {
+            fn from(r: Rational) -> Self { unsafe { core::mem::transmute(r) } }
+        }
+
+        //let goal: Rational = 24.into();
+        //use cxx::{CxxString, CxxVector};
+        //let nums = (1..=4).map(Rational::from).collect::<Vec<_>>();
+        //    //.map(ffi_cxx::Rational::from).collect::<CxxVector<_>>();
+        //let _cnt = ffi_cxx::calc24_print(&goal.into(), &nums, DynProg);     // FIXME:
+    }
 
     #[test] fn parse_disp_rn() {
         let cases = [
@@ -907,7 +936,7 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<
             assert!(it.1.trim_start_matches('(').trim_end_matches(')')
                 .parse::<RNum<i32>>().is_ok_and(|v| v == it.0),
                 r"parsing {} != {}", Paint::red(&it.1), Paint::cyan(&it.0));
-        });
+        }); assert_eq!(" 2", format!("{:2}", RNum::from(2)));
     }
 
     #[test] fn reduce_rn() {
@@ -960,8 +989,9 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<
 
             let assert_closure = |algo, cxx: &str| {
                 #[cfg(feature = "cc")] let exps = if cxx.is_empty() {
-                    calc24_coll(&goal, &nums, algo) } else { calc24_cffi(&goal, &nums, algo) };
-                #[cfg(not(feature = "cc"))] let exps = calc24_coll(&goal, &nums, algo);
+                    calc24_coll(&goal, &nums, algo) } else {
+                    calc24_coll_cffi(&goal, &nums, algo)
+                };  #[cfg(not(feature = "cc"))] let exps = calc24_coll(&goal, &nums, algo);
 
                 exps.iter().for_each(|e| {  if res.is_empty() { return }
                     assert!(res.contains(&e.as_str()), r"Unexpect expr. by algo-{cxx}{:?}: {}",
@@ -978,18 +1008,6 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<
                 #[cfg(feature = "cc")] assert_closure(algo, "Cxx");
                 assert_closure(algo, "");
             }
-
-            #[cfg(feature = "cxx")] {
-                use cxx::{/*CxxVector, */memory::SharedPtr};
-                impl From<Expr> for ffi_cxx::Expr {
-                    fn from(e: Expr) -> Self { Self { v: unsafe { core::mem::transmute(e.v) },
-                        op: ffi_cxx::Oper::Num, a: SharedPtr::null(), b: SharedPtr::null() }
-                    }
-                }
-
-                let goal: Rational = unsafe { core::mem::transmute(goal) };
-                let exps = ffi_cxx::calc24_coll(&goal, &nums, DynProg);     // FIXME:
-            }
         });
     }
 
@@ -1005,8 +1023,10 @@ pub fn calc24_cffi(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> Vec<
         assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
-    #[cfg(feature = "cc")] #[test] fn solve24_c() {
-        /*#[link(name = "calc24")] */extern "C" { #[allow(dead_code)] fn test_24calc(); }
+    #[cfg(feature = "cc")] #[test] fn solve24_c() {     //#[link(name = "calc24")]
+        let nums = (1..=4).map(Rational::from).collect::<Vec<_>>();
+        assert_eq!(3, calc24_print_cffi(&24.into(), &nums, DynProg));
+        extern "C" { #[allow(dead_code)] fn test_24calc(); }
         unsafe { test_24calc(); }
     }
 

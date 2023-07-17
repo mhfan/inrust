@@ -52,7 +52,7 @@ pest_derive = "2.7"
 #chrono = "0.4"
 #proc_macro2 = "1.0"
 
-#cxx  = { version = "1.0", optional = true }
+cxx   = { version = "1.0", optional = true }
 dhat  = { version = "0.3", optional = true }
 pprof = { version = "0.12", features = [ "flamegraph", "criterion" ], optional = true }
 
@@ -69,15 +69,15 @@ criterion = "0.5"   # not allowed to be optional
 #csv = "1.1"
 
 [build-dependencies]  # used for compiling build script
-#cxx-build = { version = "1.0", optional = true }
+cxx-build = { version = "1.0", optional = true }
 cc = { version = "1.0", optional = true }
 #pkg-config = "0.3"
 #chrono = "0.4"
 
 [features]
 debug = []
-#cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
-default = [ "cc", "ahash" ]   # "serde", "num-rational", "num-bigint",
+cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
+default = [ "cc", "ahash" ]   # "cc", "cxx", "serde", "num-rational", "num-bigint",
 dhat-heap = [ "dhat" ]
 
 [[bench]]
