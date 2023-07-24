@@ -42,6 +42,7 @@ command = "cargo"
 toolchain = "nightly"
 env = { CC  = "clang", CXX = "clang++" }
 # cargo +nightly llvm-cov --include-ffi --doctests #--lcov --output-path lcov.info #nextest
+# cargo tarpaulin --run-types 'Tests,Doctests' --out Lcov --exclude-files 'inperse/src/*'
 args = [ "llvm-cov", "--include-ffi", "--doctests",
             "--lcov", "--output-path", "lcov.info", #"nextest",
 ]   # https://github.com/taiki-e/cargo-llvm-cov
@@ -84,4 +85,6 @@ args = [ "serve" ]
 cwd = "inyew"
 command = "trunk"
 args = [ "serve" ]
+
+# cargo modules generate tree --package inrust --lib --with-types --with-tests
 

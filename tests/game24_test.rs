@@ -8,14 +8,14 @@
     // like a 3rd party would. Hence, they only see public items.
 }
 
-#[test] fn game24_sols() {
+#[test] fn game24_sols() {  // XXX: many unwraps
     use {inrust::calc24::*, yansi::Paint};
 
     use std::{fs::File, io::{BufRead, BufReader}};
     BufReader::new(File::open("tests/game24_sols.fmh").unwrap())
         .lines().for_each(|line| line.unwrap().split(':')
-            .last().unwrap().split(' ').for_each(|str| if !str.is_empty() {
-                //let str = str.chars.map(|ch|
+            .last().unwrap().split(',').for_each(|str| if !str.is_empty() {
+                //let str = str.chars.map(|ch|  // cargo r -- -G > tests/game24_sols.fmh
                 //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
                 assert_eq!(str.parse::<Expr>().unwrap().value(),
                     &24.into(), "failed at: `{str}'");

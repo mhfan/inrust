@@ -24,7 +24,9 @@ enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 
 struct Expr;
 #include <memory>
-typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;     // TODO:
+typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;
+#define make_ptre(e) std::make_shared<Expr>(std::forward<Expr>(e))
+// XXX: why shared_ptr<Expr>(*Expr) cause performance collapse?
 
 struct Expr {   Rational v; PtrE a, b; Oper op;     // anonymous structure  // const
 
@@ -57,15 +59,6 @@ extern "C" void calc24_free(const char* ptr[], uint32_t cnt);
 #include "calc24.h"
 #endif//CALC24_H
 
-/* inline auto operator+(const Rational& lhs, const auto& rhs) noexcept {
-    return Rational(lhs.n * rhs.d + lhs.d * rhs.n, lhs.d * rhs.d); }
-inline auto operator-(const Rational& lhs, const auto& rhs) noexcept {
-    return Rational(lhs.n * rhs.d - lhs.d * rhs.n, lhs.d * rhs.d); }
-inline auto operator*(const Rational& lhs, const auto& rhs) noexcept {
-    return Rational(lhs.n * rhs.n,  lhs.d * rhs.d); }
-inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
-    return 0 == rhs.d ? Rational(0, 0) : Rational(lhs.n * rhs.d,  lhs.d * rhs.n); } */
-
 inline auto operator< (const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.n * rhs.d < lhs.d * rhs.n;
     //auto ord = lhs.n * rhs.d < lhs.d * rhs.n;
@@ -89,14 +82,23 @@ auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
     }   return false;
 }
 
-/* inline auto operator+(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v + rhs.v, Add, &lhs, &rhs); }
+/* inline auto operator+(const Rational& lhs, const auto& rhs) noexcept {
+    return Rational(lhs.n * rhs.d + lhs.d * rhs.n, lhs.d * rhs.d); }
+inline auto operator-(const Rational& lhs, const auto& rhs) noexcept {
+    return Rational(lhs.n * rhs.d - lhs.d * rhs.n, lhs.d * rhs.d); }
+inline auto operator*(const Rational& lhs, const auto& rhs) noexcept {
+    return Rational(lhs.n * rhs.n,  lhs.d * rhs.d); }
+inline auto operator/(const Rational& lhs, const auto& rhs) noexcept {
+    return 0 == rhs.d ? Rational(0, 0) : Rational(lhs.n * rhs.d,  lhs.d * rhs.n); }
+
+inline auto operator+(const Expr& lhs, const auto& rhs) noexcept {
+    return Expr(lhs.v + rhs.v, Add, make_ptre(lhs), make_ptre(rhs)); }
 inline auto operator-(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v - rhs.v, Sub, &lhs, &rhs); }
+    return Expr(lhs.v - rhs.v, Sub, make_ptre(lhs), make_ptre(rhs)); }
 inline auto operator*(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v * rhs.v, Mul, &lhs, &rhs); }
+    return Expr(lhs.v * rhs.v, Mul, make_ptre(lhs), make_ptre(rhs)); }
 inline auto operator/(const Expr& lhs, const auto& rhs) noexcept {
-    return Expr(lhs.v / rhs.v, Div, &lhs, &rhs); }
+    return Expr(lhs.v / rhs.v, Div, make_ptre(lhs), make_ptre(rhs)); }
 
 // for implicit use in unordered_set
 inline auto operator==(const PtrE& lhs, const PtrE& rhs) noexcept { return *lhs == *rhs; }
@@ -138,8 +140,6 @@ template <> struct std::hash<Expr> {
 };
 
 static const std::hash<Expr> hash_expr;
-#define make_ptre(e) std::make_shared<Expr>(std::forward<Expr>(e))
-// XXX: why shared_ptr<Expr>(*Expr) cause performance collapse?
 
 inline bool found_same(const auto& e, const auto& v, const Oper op) {
     return e.op == op && (e.a->v == v || e.b->v == v ||
@@ -394,8 +394,7 @@ using std::string;
 inline list<string> calc24_coll(const Rational& goal, const vector<Rational>& nums,
     Calc24Algo algo) {  list<string> exps;
     calc24_algo(goal, nums, algo, [&](auto&& e) {
-        std::stringstream ss; ss << e; exps.push_back(ss.str());
-    }); return exps;
+        std::stringstream ss; ss << e; exps.push_back(ss.str()); });    return exps;
 }
 
 inline string calc24_first(const Rational& goal, const vector<Rational>& nums,

@@ -79,8 +79,8 @@ pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
 /// let str = "Hello, World!";
 /// assert_eq!(inrust::misc::shell_pipe("echo", &[str], "").unwrap(), str.to_owned() + "\n");
 /// ```
-// https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
 pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> std::io::Result<String> {
+    // https://doc.rust-lang.org/rust-by-example/std_misc/process/pipe.html
     use std::process::{Command, Stdio};
 
     Command::new(prog).args(args).stdin(Stdio::piped())

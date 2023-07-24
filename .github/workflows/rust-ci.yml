@@ -72,7 +72,7 @@ jobs:
       #  cargo t --features num-rational -- --nocapture
       #  cargo r --features debug -- -G -2 1 2 3 4
       #  cargo +nightly fuzz run calc24
-      #  cargo r -- -G -2 1 2 3 4
+      #  cargo r -- -A 0 -G -2 1 2 3 4
 
     - name: Benchmark
       run: cargo bench
@@ -106,7 +106,7 @@ jobs:
         CC:  clang
         CXX: clang++
       run: cargo +nightly llvm-cov --include-ffi --doctests --lcov --output-path lcov.info #--workspace --all-features
-      #  cargo tarpaulin --exclude-files 'inperse/src/*' --run-types 'Tests,Doctests' --timeout 120 --out Xml
+      #  cargo tarpaulin --run-types 'Tests,Doctests' --out Lcov --exclude-files 'inperse/src/*'
       #  cargo install tarpaulin
       #uses: actions-rs/tarpaulin@v0.1    # XXX: no more working
       #with:

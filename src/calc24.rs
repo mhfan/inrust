@@ -33,7 +33,9 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
     //#[inline] fn is_positive(&self) -> bool { T::zero() < self.0 * self.1 }
 
     #[inline] pub const fn new_raw(n: T, d: T) -> Self { Self(n, d) }
-    #[inline] pub fn new(num: T, den: T) -> Self { *Self::new_raw(num, den).reduce() }
+    #[inline] pub fn new(num: T, den: T) -> Self {
+        let mut rn = Self::new_raw(num, den); rn.reduce(); rn
+    }
 
     /*pub */fn reduce(&mut self) -> &Self {
         #[inline] fn gcd<T: PrimInt>(mut a: T, mut b: T) -> T {
@@ -103,8 +105,17 @@ impl<T: PrimInt> PartialEq  for RNum<T> {
     #[inline] fn eq(&self, rhs: &Self) -> bool { self.cmp(rhs) == Ordering::Equal }
 }
 
-/* impl<T: PrimInt> std::ops::Add for RNum<T> { //std::ops::{Add, Sub, Mul, Div}
-    fn add(self, rhs: Self) -> Self::Output { todo!() }     type Output = Self;
+/* impl<T: PrimInt> std::ops::Add for RNum<T> {
+    fn add(self, rhs: Self) -> Self::Output {
+        let (an, ad, bn, bd) = (self.0, self.1, rhs.0, rhs.1);
+        Self::new_raw(an * bd + ad * bn, ad * bd)
+    }   type Output = Self;
+}
+
+impl std::ops::Add for Expr {   //std::ops::{Add, Sub, Mul, Div}
+    fn add(self, rhs: Self) -> Self::Output {
+        Self { v: self.v + rhs.v, m: Some((Rc::new(self), Rc::new(rhs), Oper::Add)) }
+    }   type Output = Self;
 } */
 
 #[derive(/*Debug, */Clone, Copy, PartialEq, Eq)]
@@ -551,10 +562,8 @@ pub  use Calc24Algo::*;
 // cargo run --features dhat-heap   // https://docs.rs/dhat/latest/dhat/
 
 #[inline] pub fn calc24_coll (goal: &Rational, nums: &[Rational],
-    algo: Calc24Algo) -> Vec<String> {
-    let mut exps = vec![];
-    calc24_algo(goal, nums, algo, |e| {
-        exps.push(e.to_string());   Some(()) });    exps
+    algo: Calc24Algo) -> Vec<String> {  let mut exps = vec![];
+    calc24_algo(goal, nums, algo, |e| { exps.push(e.to_string()); Some(()) });  exps
 }
 
 /** ```
@@ -565,8 +574,7 @@ pub  use Calc24Algo::*;
     ``` */
 #[inline] pub fn calc24_first(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> String {
     let mut sexp = String::new();
-    calc24_algo(goal, nums, algo, |e| {
-        sexp = e.to_string();   None });    sexp
+    calc24_algo(goal, nums, algo, |e| { sexp = e.to_string(); None });  sexp
 }
 
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
@@ -621,15 +629,15 @@ pub  use Calc24Algo::*;
 /** ```
     # use inrust::calc24::*;
     // require absolute/complete path since Doc-tests run in a separate process
-    let (goal, silent, min) = (24.into(), true, 1);
-    assert_eq!(game24_solvable(&goal, min, 10, 5, false, DynProg), (37, 1955, 0));
-    //assert_eq!(game24_solvable(&goal, min, 13, 5, silent, DynProg), (81, 6094, 0));
-    //assert_eq!(game24_solvable(&goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
-    //assert_eq!(game24_solvable(&goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
-    //assert_eq!(game24_solvable(&goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
-    assert_eq!(game24_solvable(&goal, min, 10, 4, false, DynProg), (149, 566, 1343));
+    let (goal, silent, min) = (&24.into(), true, 1);
+    assert_eq!(game24_solvable(goal, min, 10, 5, false, DynProg), (37, 1955, 0));
+    //assert_eq!(game24_solvable(goal, min, 13, 5, silent, DynProg), (81, 6094, 0));
+    //assert_eq!(game24_solvable(goal, min, 10, 6, silent, DynProg), (3,  4902, 0));
+    //assert_eq!(game24_solvable(goal, min, 13, 6, silent, DynProg), (3, 18392, 0));
+    //assert_eq!(game24_solvable(goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
+    assert_eq!(game24_solvable(goal, min, 10, 4, false, DynProg), (149, 566, 1343));
     for algo in [ DynProg, SplitSet, Inplace, Construct ] {
-        assert_eq!(game24_solvable(&goal, min, 13, 4, silent, algo), (458, 1362, 3017),
+        assert_eq!(game24_solvable(goal, min, 13, 4, silent, algo), (458, 1362, 3017),
             r"failed on algo-{algo:?}");
     }
     ``` */
@@ -668,10 +676,8 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
             rcnt.2 += exps.len() as u32;
 
             if silent { return }    //nums.shuffle(&mut rng);
-            nums.into_iter().for_each(|rn|
-                print!(r" {:2}", Paint::cyan(rn.numer())));     print!(r":");
-            exps.into_iter().for_each(|e|   // output solutions
-                print!(r" {}", Paint::green(e)));               println!();
+            nums.into_iter().for_each(|rn| print!(r" {:2}", Paint::cyan(rn.numer())));
+            println!(r": {}", Paint::green(exps.join(", ")));   // output solutions
         }
     }))));
 
@@ -708,31 +714,30 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         }).collect::<Vec<_>>();     spos += cnt;    print!(r": ");
 
         let exps = calc24_coll(goal, &nums, algo);
-        if  exps.is_empty() { println!(r"{}", Paint::yellow("None")); continue }
+        if  exps.is_empty() { print!("\r"); continue }
 
-        if 0 < batch {
-            exps.iter().for_each(|e| print!(r" {}", Paint::black(e)));
-            println!();     batch -= 1;     continue
+        if 0 < batch {  batch -= 1;     // Iterator::intersperse_with
+            println!(r"{}", Paint::black(exps.join(", ")).dimmed().bg(Color::Black));
+            if 0 == batch { println!(); }   continue
         }
 
+        let tnow = std::time::Instant::now();
         loop {  let mut es = String::new();     use std::io::Write;
-            std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
+            std::io::stdout().flush().expect(r"Failed to flush!");  //.unwrap();
             std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
 
-            let es = es.trim_end();
-            if  es.eq_ignore_ascii_case("N") || es.eq("?") {
-                print!(r"{}", Paint::new(r"Solution:").dimmed());
-                exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
-                if let Ok(n) = es[1..].parse::<u16>() { batch = n; }
-                println!();     break
+            let es = es.trim();
+            if  es.starts_with(['n', 'N']) || es.eq("?") { println!(r"{}: {}",
+                    Paint::new(r"Solution").dimmed(), Paint::green(exps.join(", ")));
+                if let Ok(n) = es[1..].parse::<u16>() { batch = n; }    break
             }
 
             if  es.eq_ignore_ascii_case("quit") { return }
             if  es.parse::<Expr>().is_ok_and(|e| e.value() == goal) {
-                print!(r"{} ", Paint::new(r"Correct!").bg(Color::Green));
-                exps.iter().for_each(|e| print!(r" {}", Paint::green(e)));
-                println!();
-            } else { print!(r"{} ", Paint::new(r"Tryagain:").dimmed()); }
+                print!(r"{}/{:.1}s: ", Paint::new(r"Bingo").bg(Color::Green),
+                    tnow.elapsed().as_secs_f32());
+                println!(r"{}", Paint::green(exps.join(", ")));     break;
+            } else { print!(r"{}: ", Paint::new(r"Tryagain").dimmed()); }
         }       println!();
     }
 }
@@ -749,55 +754,48 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                 }
                 Ok(rn) => { if rn.denom() == &0 {
                     eprintln!(r"Invalid rational number: {}/{}",
-                        rn.numer(), Paint::red(rn.denom())) }   Some(rn)
+                        rn.numer(), Paint::red(rn.denom())); }  Some(rn)
                 }
             }).collect::<Vec<_>>();
 
-        if  nums.len() < 2 { return eprintln!(r"{}",
-            Paint::yellow(r"Require two numbers at least!")) }
+        if  nums.len() < 2 { return eprintln!(r"{}", Paint::yellow(r"Insufficient numbers!")) }
         #[cfg(feature = "cc")] let cnt = if _cxx {
             calc24_print_cffi(goal, &nums, algo) } else { calc24_print(goal, &nums, algo)
         };  #[cfg(not(feature = "cc"))] let cnt = calc24_print(goal, &nums, algo);
 
-        if  cnt < 1 {
-            eprintln!(r"{}", Paint::yellow(r"Found NO solution!")) } else if 5 < cnt {
-            eprintln!(r"Got {} solutions.", Paint::cyan(cnt).bold());
-        }
+        if  cnt < 1 {       eprintln!(r"{}", Paint::yellow(r"Found NO solution!"));
+        } else if 5 < cnt { eprintln!(r"Got {} solutions.", Paint::cyan(cnt).bold()); }
     }
 
+    let (mut want_exit, mut cxx) = (false, false);
     let (mut goal, mut algo) = (24.into(), DynProg);
     let  mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
 
-    let (mut want_exit, mut cxx) = (false, false);
     if  let Some(opt) = nums.peek() {
-        let opt = opt.clone();
-        if  opt.eq_ignore_ascii_case("-A") {    nums.next();    cxx = opt == "-a";
-            if let Some(gs) = nums.next() { match gs.parse::<u8>() {
+        if  opt.eq_ignore_ascii_case("-A") {
+            cxx = opt == "-a";  nums.next();
+            match nums.next().unwrap_or("".to_owned()).parse::<u8>() {
                 Ok(n) => algo = match n {
-                    1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg,
-                },
+                    1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg, },
                 Err(e) => eprintln!(r"Error parsing ALGO: {}", Paint::red(e)),
-            } } else { eprintln!(r"Lack parameter for ALGO!") }
+            }
         }
     }
 
     if  let Some(opt) = nums.peek() {
-        let opt = opt.clone();
         if  opt.eq_ignore_ascii_case("-g") {
             if opt == "-G" { want_exit = true }     nums.next();
-            if let Some(gs) = nums.next() { match gs.parse::<Rational>() {
+            match nums.next().unwrap_or("".to_owned()).parse::<Rational>() {
+                Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
                 Ok(_goal) => goal = _goal,
-                Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
-            } } else { eprintln!(r"Lack parameter for GOAL!") }
+            }
 
-            if nums.len() < 1 {
-                if goal == 0.into() { (0..=100).for_each(|n| println!("{n} {}",
-                     game24_solvable(&n.into(), 1, 13, 4, true, algo).1));
-                } else { // solvable for 4 cards dealed from a deck, traverse 0..=100 as target
-                     game24_solvable(&goal, 1, 13, 4, false, algo);
-                }
-            } else { game24_helper(&goal, nums, algo, cxx); }
+            if nums.len() < 1 { // solvable for 4 cards dealed from a deck, traverse 0..=100
+                if goal == 0.into() { (0..=100).for_each(|n| println!("{n:3}: {}",
+                         game24_solvable(&n.into(), 1, 13, 4, true, algo).1));
+                } else { game24_solvable(&goal, 1, 13, 4, false, algo); }
+            } else {     game24_helper(&goal, nums, algo, cxx); }
             if want_exit { std::process::exit(0) }
         }
     }
@@ -822,13 +820,13 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
             if first.starts_with(['g', 'G']) {
                 match first[1..].parse::<Rational>() {
                     Ok(_goal) => {  goal = _goal;
-                        println!(r"### Reset GOAL to {} ###", Paint::magenta(&goal).bold());
-                    }
-                    Err(e) => eprintln!(r"Error parsing GOAL: {}", Paint::red(e)),
+                        println!(r"### Reset GOAL to {} ###", Paint::magenta(&goal).bold()); }
+                    Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("poker") ||
-                      first.eq_ignore_ascii_case("cards") {
-                game24_cards(&goal, 4, algo);   nums.next();    continue;
+                      first.eq_ignore_ascii_case("cards") {     nums.next();
+                let cnt = first[5..].parse::<u8>().unwrap_or(4);
+                game24_cards (&goal,  cnt, algo);   continue
             } else if first.eq_ignore_ascii_case("quit") { break }
         }       game24_helper(&goal, nums, algo, cxx);
     }
@@ -862,7 +860,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     //impl Drop for Cstr { fn drop(&mut self) { todo!() } }
 
     let mut calc24 = Calc24IO {
-        algo, goal: *goal, //unsafe { core::mem::transmute(goal) },
+        algo, goal: *goal, //unsafe { core::mem::copy(goal) },
         nums: nums.as_ptr(), ncnt: nums.len(),
         ecnt: 0,  exps: core::ptr::null_mut(),
     };
@@ -870,15 +868,13 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     //core::ptr::addr_of_mut!(calc24);
     debug_assert!(core::mem::size_of::<Rational>() == 8);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
-    unsafe { calc24_cffi(&mut calc24); }
 
-    if 0 < calc24.ecnt && !calc24.exps.is_null() { let exps = unsafe {
+    unsafe { calc24_cffi(&mut calc24); }    let exps = unsafe {
         core::slice::from_raw_parts(calc24.exps, calc24.ecnt as usize) }
             .iter().map(|&es| unsafe { std::ffi::CStr::from_ptr(es) }
                 .to_string_lossy().into_owned()).collect::<Vec<_>>();  //.to_str().unwrap()
-        extern "C" { fn calc24_free(ptr: *const *const c_char, cnt: u32); }
-        unsafe { calc24_free(calc24.exps, calc24.ecnt as u32); }    exps
-    } else { vec![] }  // XXX:
+    extern "C" { fn calc24_free(ptr: *const *const c_char, cnt: u32); }
+    unsafe { calc24_free(calc24.exps, calc24.ecnt as u32); }    exps
 }
 
 #[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO: https://cxx.rs
