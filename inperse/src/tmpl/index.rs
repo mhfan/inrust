@@ -72,9 +72,9 @@ impl Game24State {
 
         self.opd_elq.clear();       self.opr_elm = None;
         self.ncnt += 1;     if self.ncnt == self.nums.len() as u8 {
-            let str = str.chars().map(|ch|
-                match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
-            eqm_state.set(Some(str.parse::<Expr>().unwrap().value() == &self.goal));
+            //let str = str.chars().map(|ch|
+            //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
+            eqm_state.set(Some(str.parse::<Expr>().is_ok_and(|e| e.value() == &self.goal)));
         }
     }
 }
@@ -342,7 +342,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
                     exps.into_iter().map(|str| view! { cx, li { (str.chars()
                         .map(|ch| match ch { '*' => '×', '/' => '÷', _ => ch })
-                        .collect::<String>())}}).chain(std::iter::once_with(||
+                        .collect::<String>()) }}).chain(std::iter::once_with(||
                             if    5 < cnt     { view! { cx, span(class="text-white") {
                                 (t!(cx, "sol-total", { "cnt" = cnt })) }}
                             } else if cnt < 1 { view! { cx, span(class="text-red-500") {

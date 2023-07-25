@@ -200,7 +200,7 @@ impl Display for Expr {     #[inline]
 impl FromStr for Expr {
 /** ```
     # use inrust::calc24::{Expr, Rational};
-    let es = "((0 + 1 * 2 + 3) * 1 * 2 - (4 / (5/-6) / 8 + 7) - 9 + 10)"; // = 23/5
+    let es = "((0 + 1 * 2 + 3) * 1 × 2 - (4 / (5/-6) ÷ 8 + 7) - 9 + 10)"; // = 23/5
     assert!(es.parse::<Expr>().is_ok_and(|e| e.value() == &Rational::new_raw(23, 5)));
     ``` */
     fn from_str(s: &str) -> Result<Self, Self::Err> {   use pest::Parser;
