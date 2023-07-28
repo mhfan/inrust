@@ -7,11 +7,12 @@
     product     =  { value   ~ ((mul | div) ~   value)* }
 //  power       =  { value ~ (pow ~ power)? }   // exponential
 //  factorial   = @{ value ~ fac }
-//  negation    = @{ neg ~ value }
-//  rational    = @{ "("  ~ integer ~ "/" ~ integer ~ ")" }
+//  negation    = @{ neg ~ value }  // sequence operator is written as a tilde
+//  rational    = @{ "("  ~ integer ~ "/" ~ integer ~ ")" }     // XXX:
     value       =  { integer | ("(" ~ sum ~ ")") }
     integer     = @{ "-"? ~ ('0'..'9')+ }
-    WHITESPACE  = _{ " " | "\t" }
+    WHITESPACE  = _{ " " | "\t" }   // be silent with a leading low line (underscore)
+    // whitespace-sensitive need to be marked atomic with a leading at sign
 
         add =  { "+" } // Addition
         sub =  { "-" } // Subtraction

@@ -21,7 +21,7 @@ exclude  = [ "README-DSP.md", "tmp" ]   # "tests", "benches", "fuzz"
 
 [workspace.package]
 edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
-version = "0.3.7"
+version = "0.3.8"
 #readme = "README.md"
 license = "MIT OR Apache-2.0"
 authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
@@ -66,6 +66,8 @@ build-time = { version = "0.1", git = "https://github.com/AlephAlpha/build-time"
 [dev-dependencies]  # used for compiling tests, examples, and benchmarks
 criterion = "0.5"   # not allowed to be optional
 #bencher = "0.1"
+rexpect = "0.5"
+regex = "1.9"
 #csv = "1.1"
 
 [build-dependencies]  # used for compiling build script

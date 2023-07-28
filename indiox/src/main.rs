@@ -166,7 +166,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                             placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
                             rounded-full mx-2", }}  // https://regexr.com, https://regex101.com
-                    })
+                    })                              // https://rustexp.lpil.uk
                 }
               }} else { rsx! {
                 input { "type": "text", id: "overall", name: "operands",

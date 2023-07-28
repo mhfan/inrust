@@ -249,8 +249,8 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                         placeholder="?", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
                         class=format!("{num_class} aria-checked:ring-purple-600 \
                         aria-checked:ring rounded-full mx-2"))
-                    }}).collect()  // https://regexr.com, https://regex101.com
-                  ))
+                    }}).collect()   // https://regexr.com, https://regex101.com
+                  ))                // https://rustexp.lpil.uk
                 }
               }} else { view! { cx,
                 input(type="text", id="overall", name="operands", //hidden=*ovr_state.get(),

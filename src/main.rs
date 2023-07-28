@@ -26,7 +26,7 @@ use yansi::Paint;   // Color, Style
 //#![no_main]
 // src/main.rs (default application entry point)
 #[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
-fn main()/* -> Result<(), Box<dyn Error>>*/ {
+fn main()/* -> Result<(), Box<dyn std::error::Error>>*/ {
     eprintln!(r"{} v{}-g{}, {}, {} 🦀", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
         env!("BUILD_GIT_HASH"), build_time::build_time_local!("%H:%M:%S%:z %Y-%m-%d"),
         env!("CARGO_PKG_AUTHORS"));     //option_env!("ENV_VAR_NAME");

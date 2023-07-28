@@ -113,18 +113,19 @@ using std::ostream; //, std::istream;
 
 //inline istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
 inline ostream& operator<<(ostream& os, const Rational& r) {
-    return (1 == r.d && 0 <= r.n) ? os << r.n : os << '(' <<  r.n << '/' << r.d << ')';
+    return (1 == r.d && 0 <= r.n) ? os << r.n : os << r.n << '/' << r.d;
 }
 
 ostream& operator<<(ostream& os, const Expr& e) {
     if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
     //os << '(' << *e.a << ')' << char(e.op) << '(' << *e.b << ')';   return os;
-    if ((e.a->op == Add || e.a->op == Sub) && (e.op == Mul || e.op == Div))
-        os << '(' << *e.a << ')'; else os << *e.a;      os << char(e.op);
+    if ((e.a->op == Add || e.a->op == Sub) && (e.op == Mul || e.op == Div)) // (A +- B) */ b
+        os << '(' << *e.a << ')'; else os << *e.a;  os << ' ' << char(e.op) << ' ';
 
-    if ((e.op == Div && (e.b->op == Mul || e.b->op == Div)) ||
-        (e.op != Add && (e.b->op == Add || e.b->op == Sub)))
+    if ((e.op == Div && (e.b->op == Mul || e.b->op == Div ||    // a / (A */ B)
+                        (e.b->op == Num && e.b->v.d != 1))) ||  // a / (1/2)
+        (e.op != Add && (e.b->op == Add || e.b->op == Sub)))    // a */- (A +- B)
         os << '(' << *e.b << ')'; else os << *e.b;  return os;
 }
 
@@ -457,12 +458,6 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
     ss << b; assert(ss.str() == "6");   //ss.str("");
     //ss << e; assert(ss.str() == "1*(2-1/2)+2");
 
-    vector<Rational> nums = { 1, 2, 3, 4 };
-    cout << "Test calc24_first/print ..." << endl;
-    cout.setstate(std::ios_base::badbit);
-    if (calc24_first(24, nums, DynProg) != "1*2*3*4" ||
-        calc24_print(-2, nums, DynProg) != 11) abort();     cout.clear();   // XXX:
-
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; size_t cnt; };
     const vector<CaseT> cases {
         { 24, {    }, { }, 0 },
@@ -499,14 +494,16 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
         const Rational goal(it.goal);
         for (auto n: it.nums) nums.push_back(n);
 
+        if (it.goal == 5 && calc24_first(goal, nums, DynProg).empty()) abort();
+
         auto assert_closure = [&](auto algo, auto algs) {
             list<string> exps = calc24_coll(goal, nums, algo);
 
-            for (const auto& es: exps) {
+            for (auto& es: exps) {
+                es.erase(std::remove(es.begin(), es.end(), ' '), es.end()); // strip whitespace
                 if (it.cnt < 1 && std::find(it.exps.begin(),
-                    it.exps.end(), es) == it.exps.end()) {
-                    cerr << "Unexpect expr. by algo-" << algs << ": "
-                         << ss.str() << endl;   abort();
+                    it.exps.end(), es)   == it.exps.end()) {
+                    cerr << "Unexpect expr. by algo-" << algs << ": " << es << endl;   abort();
                 }
             }
 

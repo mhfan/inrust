@@ -19,7 +19,7 @@ fn bench_24calc(c: &mut Criterion) {
 
     use yansi::Paint;
     println!("Compute {} from {:?} ", Paint::cyan(goal), Paint::cyan(&nums));
-    let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
+    let nums = nums.into_iter().map(|n| n.into()).collect::<Vec<_>>();
     let (goal, mut cnt) = (goal.into(), 0);
 
     for algo in [ DynProg, Construct ] {    // XXX: SplitSet, Inplace,

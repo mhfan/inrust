@@ -34,8 +34,24 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
 
     #[inline] pub const fn new_raw(n: T, d: T) -> Self { Self(n, d) }
     #[inline] pub fn new(num: T, den: T) -> Self {
+        #[cfg(feature = "debug")] if den == T::zero() { panic!("zero division") }
         let mut rn = Self::new_raw(num, den); rn.reduce(); rn
     }
+
+    /** ```
+        # use inrust::calc24::RNum;
+        let cases = [ (RNum::new(-1, -1), RNum::new_raw( 1, 1)),
+                      (RNum::new(-4,  2), RNum::new_raw(-2, 1)),
+                      (RNum::new( 6, -2), RNum::new_raw(-3, 1)),
+                      (RNum::new( 0,  2), RNum::new_raw( 0, 1)),
+                      (RNum::new( 3,  2), RNum::new_raw( 3, 2)),
+        ];
+
+        cases.into_iter().for_each(|(a, b)| {
+            assert!(a.numer() == b.numer() && a.denom() == b.denom(),
+                "simplified rational: {a}");
+        });
+    ``` */
 
     /*pub */fn reduce(&mut self) -> &Self {
         #[inline] fn gcd<T: PrimInt>(mut a: T, mut b: T) -> T {
@@ -63,15 +79,28 @@ use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
 }
 
 impl<T: PrimInt + Display> Display for RNum<T> {
+    /** ```
+        # use inrust::calc24::RNum;
+        let cases = [ (RNum::from(1), "1"), (RNum::from(-1), "-1"),
+                      (RNum::from(0), "0"), (RNum::new_raw(1, 2), "1/2"),
+        ];
+
+        cases.iter().for_each(|it| {
+            assert_eq!(it.0.to_string(), it.1, r"display {} != {}", it.0, it.1);
+            assert!(it.1.parse::<RNum<i32>>().is_ok_and(|v| v == it.0),
+                //.trim_start_matches('(').trim_end_matches(')')
+                r"parsing {} != {}", it.1, it.0);
+        }); assert_eq!(" 2", format!("{:2}", RNum::from(2)));
+    ``` */
+
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
         let srn = self;     //srn.reduce();
-        if  srn.1.is_zero() { write!(f, r"(INV)")? } else {
-            let braket = srn.0 * srn.1 < T::zero() || !srn.1.is_one();
-            if  braket { write!(f, r"(")? }     //write!(f, r"{}", srn.0)?;
-            write!(f, "{:>width$}", srn.0, width = f.width().unwrap_or(0))?;
-            if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }
-            if  braket { write!(f, r")")? }
-        }   Ok(())
+        //if  srn.1.is_zero() { write!(f, r"(INV)")?; return Ok(()) }
+        //let braket = srn.is_negative() || !srn.1.is_one();  // XXX:
+        //if  braket { write!(f, r"(")? }
+        write!(f, "{:>width$}", srn.0, width = f.width().unwrap_or(0))?;
+        if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }   Ok(())
+        //if  braket { write!(f, r")")? }
     }
 }
 
@@ -81,6 +110,7 @@ impl<T: PrimInt + FromStr> FromStr for RNum<T> {
         let mut s = s.splitn(2, '/');
         let n = s.next().unwrap_or("" ).parse::<T>()?;
         let d = s.next().unwrap_or("1").parse::<T>()?;
+        #[cfg(feature = "debug")] if d == T::zero() { panic!("zero division") } // FIXME:
         Ok(Self::new_raw(n, d))
     }   type Err = T::Err;
 }
@@ -144,7 +174,7 @@ impl Expr {     //#![allow(dead_code)]
             '-' => { op = Oper::Sub; Rational::new_raw(an * bd - ad * bn, ad * bd) }
             '*' | '×' => { op = Oper::Mul; Rational::new_raw(an * bn, ad * bd) }
             '/' | '÷' => { op = Oper::Div;  //assert_ne!(bn, &0);
-                if *bn == 0 { return Err("Invalid divisor".to_owned()) }
+                if bn == &0 { return Err("Invalid divisor".to_owned()) }
                 Rational::new_raw(an * bd, ad * bn)
             }   _ => return Err("Invalid operator".to_owned())  //unreachable!()
         };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b), op)) })
@@ -154,22 +184,29 @@ impl Expr {     //#![allow(dead_code)]
         if let Some((a, b, op)) = &self.m {
             let op = *op;   use Oper::*;
             let bracket = if dbg { a.m.is_some() } else {
-                matches!(a.op(), Add | Sub) && matches!(op, Mul | Div)
+                matches!(a.op(), Add | Sub) && matches!(op, Mul | Div)  // (A +- B) */ b
             };  if bracket { write!(f, r"({a})")? } else { write!(f, r"{a}")? }
 
-            if !mdu { write!(f, r"{}", op as u8 as char)? } else {  // XXX: add space around?
+            if !mdu { write!(f, r" {} ", op as u8 as char)? } else {  // add space around
                 write!(f, r" {} ", match op { Mul => '×', Div => '÷', _ => op as u8 as char })?
-            }
+            }   // if bracket || b.m.is_none() && b.v.denom() == &1 { no_space_around_op }
 
             let bracket = if dbg { b.m.is_some() } else {
-                op == Div && matches!(b.op(), Mul | Div) ||
-                op != Add && matches!(b.op(), Add | Sub)
+                op == Div && match    b.op() {  Num => b.v.denom() != &1,   // a / (1/2)
+                      Mul | Div => true, _ => false } ||    // a / (A */ B)
+                op != Add && matches!(b.op(), Add | Sub)    // a *-/ (A +- B)
             };  if bracket { write!(f, r"({b})")? } else { write!(f, r"{b}")? }
         } else { write!(f, r"{}", self.v)? }    Ok(())
     }
 
     #[inline] fn op(&self) -> Oper { //self.op
         if let Some((.., op)) = &self.m { *op } else { Oper::Num }
+    }
+
+    fn traverse_num(&self, fop: &mut impl FnMut(&Rational)) {
+        if let Some((a, b, _)) = &self.m {
+            a.traverse_num(fop);    b.traverse_num(fop);
+        } else { fop(&self.v); }
     }
 
     //#[inline] fn is_zero(&self) -> bool { self.v.numer() == &0 }
@@ -285,11 +322,7 @@ impl Hash for Expr {
     }
 }
 
-/** ```
-    # use inrust::calc24::hash_combine;
-    assert_eq!(hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
-    ``` */
-#[allow(dead_code)] pub fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
+#[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
     //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
     lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
                                        .wrapping_add(lhs.wrapping_shr(2)))
@@ -299,8 +332,8 @@ impl Hash for Expr {
 // TODO: Zero, One, Rule, Sum, Product, Star, Cross, ...
 
 // several pruning rules to find inequivalent/unique expressions only
-fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
-    mut new_expr: F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
+fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
+    mut new_expr: impl FnMut(Expr) -> Option<()>) -> Option<()> {
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
 
     // XXX: check overflow and reduce?
@@ -337,7 +370,7 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     // (a * (A / B)) => ((a * A) / B) if a != 1, (1 * x) => kept in the final only,
     /* (a * (A * B)) => (A * (a * B)) if A  < a */  let op = Mul;
     if !(aop == op || (aop == Div   && !b.v.is_one())  || (Div == bop && !a.v.is_one()) ||
-        (!is_final && (a.v.is_one()  || b.v.is_one() )) || (op == bop && subl_cmp.get())) {
+        (!is_final && (a.v.is_one()  || b.v.is_one()))  || (op == bop && subl_cmp.get())) {
         new_expr(Expr { v: Rational::new_raw(a.v.numer() * b.v.numer(), dmd),
                         m: Some((a.clone(), b.clone(), op)) })?;
     }
@@ -388,7 +421,7 @@ fn form_compose<F>(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
 
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
-    mut each_found: F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
+    each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     use core::cell::RefCell;       // for interior mutability, shared ownership
     let n = nums.len();     let psn = 1 << n; // size of powerset
     let mut vexp = vec![RefCell::new(vec![]); psn];
@@ -433,7 +466,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
                     let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                     form_compose(a, b, is_final, ngoal, |e| {
                         if !is_final { exps.push(Rc::new(e)) }
-                        else if e.v == *goal { each_found(e)? }    Some(())
+                        else if &e.v == goal { each_found(e)? }    Some(())
                     })
                 }))?;
         }   hv.clear();
@@ -489,7 +522,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
                 let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                 form_compose(a, b, is_final, ngoal, |e| {
                     if !is_final { exps.push(Rc::new(e)) }
-                    else if e.v == *goal { each_found(e)? }    Some(())
+                    else if &e.v == goal { each_found(e)? }    Some(())
                 })
             })).is_none() { break }
     }   exps
@@ -514,7 +547,7 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
             // XXX: compare expr. rather than value to avoid more duplicate combinations
             let (ta, tb) = if b < a { (&b, &a) } else { (&a, &b) };
             form_compose(ta, tb, n == 2, ngoal, |e| {
-                if n == 2 { if e.v == *goal { each_found(e)? } } else { nums[i] = Rc::new(e);
+                if n == 2 { if &e.v == goal { each_found(e)? } } else { nums[i] = Rc::new(e);
                     calc24_inplace(goal, &mut nums[..n-1], ngoal, each_found)?;
                 }   Some(())
             })?; nums[i] = a;
@@ -544,7 +577,7 @@ fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
 
             let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
             form_compose(a, b, nums.is_empty(), ngoal, |e| {
-                if  nums.is_empty() { if e.v == *goal { each_found(e)? } } else {
+                if  nums.is_empty() { if &e.v == goal { each_found(e)? } } else {
                     nums.push(Rc::new(e));
                     calc24_construct(goal, &nums, ngoal, each_found, j - 1)?;
                     nums.pop();
@@ -568,9 +601,9 @@ pub  use Calc24Algo::*;
 
 /** ```
     # use inrust::calc24::*;
-    let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>();
-    assert_eq!(calc24_first(&24.into(), &nums, DynProg), "1*2*3*4".to_owned());
-    assert_eq!(calc24_print(&24.into(), &nums, DynProg), 3);
+    let nums = (1..=3).map(|n| n.into()).collect::<Vec<_>>();
+    assert_eq!(calc24_print(&5.into(), &nums, DynProg), 2);
+    assert_eq!(calc24_first(&5.into(), &nums, DynProg).replace(' ', ""), "2*3-1");
     ``` */
 #[inline] pub fn calc24_first(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> String {
     let mut sexp = String::new();
@@ -583,9 +616,9 @@ pub  use Calc24Algo::*;
         println!(r"{}", Paint::green(e)); cnt += 1; Some(()) });    cnt
 }
 
-#[inline] pub fn calc24_algo<F>(goal: &Rational, nums: &[Rational], algo: Calc24Algo,
-    mut each_found: F) where F: FnMut(Expr) -> Option<()> {
-    if 1 == nums.len() { return if nums[0] == *goal { each_found(nums[0].into()); } }
+#[inline] pub fn calc24_algo (goal: &Rational, nums: &[Rational], algo: Calc24Algo,
+    mut each_found: impl FnMut(Expr) -> Option<()>) {
+    if 1 == nums.len() { return if &nums[0] == goal { each_found(nums[0].into()); } }
     #[cfg(feature = "dhat-heap")] let _profiler = dhat::Profiler::new_heap();
     debug_assert!(nums.len() < core::mem::size_of::<usize>() * 8,
         r"Required by algo. DynProg & SplitSet");
@@ -604,18 +637,15 @@ pub  use Calc24Algo::*;
 
     match algo {    // TODO: output/count all possible expr. forms?
         DynProg   => { calc24_dynprog  (goal, &nums, ngoal, &mut each_found); }
-        SplitSet  => { calc24_splitset (goal, &nums, ngoal, &mut each_found);
+        SplitSet  => { calc24_splitset (goal, &nums, ngoal, &mut each_found); }
             //futures::executor::block_on(calc24_splitset(goal, &nums, ngoal, &mut each_found));
-        }
         Inplace   => { calc24_inplace  (goal, &mut nums, ngoal, &mut hash_unify); }
-        Construct => {
-            calc24_construct(goal, &nums, ngoal, &mut hash_unify, 1);
-        }
+        Construct => { calc24_construct(goal,     &nums, ngoal, &mut hash_unify, 1); }
     }
 }
 
-#[allow(dead_code)] #[inline] fn deck_traverse<F>(min: i32, max: i32, cnt: u8, mrpt: u8,
-    nums: &mut Vec<i32>, solve: &mut F) where F: FnMut(&[i32]) {
+#[allow(dead_code)] #[inline] fn deck_traverse(min: i32, max: i32, cnt: u8, mrpt: u8,
+    nums: &mut Vec<i32>, solve: &mut impl FnMut(&[i32])) {
     (min..=max).for_each(|x| {  let len = nums.len() as u8;
         if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
             if n == x { acc + 1 } else { acc }) == mrpt { return } else { nums.push(x) }
@@ -645,7 +675,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
     silent: bool, algo: Calc24Algo) -> (u16, u16, u32) {
     let mut rcnt = (0, 0, 0);
 
-    if 4 != cnt {    let mut nums = vec![];
+    if 4 != cnt {   let mut nums = vec![];
         deck_traverse(min, max, cnt, 4, &mut nums, &mut |nums: &[i32]| {
             let nums = nums.iter().map(|&n| n.into()).collect::<Vec<_>>();
             let res = calc24_first(goal, &nums, algo);
@@ -686,7 +716,6 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         rcnt.0 + rcnt.1, Paint::magenta(rcnt.2));   rcnt
 }
 
-#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
 pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
@@ -695,16 +724,15 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 
     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
     // https://www.me.uk/cards/makeadeck.cgi, https://github.com/revk/SVG-playing-cards
-    println!(r"{}, target {goal}", Paint::new(  // https://github.com/htdebeer/SVG-cards
-        r"24-game with cards (T=10, J=11, Q=12, K=13, A=1)").dimmed());
+    println!("\n24-game with poker/cards ({}), target {}\n",
+        Paint::green(r"T=10, J=11, Q=12, K=13, A=1"), Paint::yellow(goal));
 
-    loop {  use rand::seq::SliceRandom;
+    loop {  use rand::seq::SliceRandom;     // https://github.com/htdebeer/SVG-cards
         if deck.len() < (spos + cnt) as usize { spos = 0; }
         if spos == 0 { deck.shuffle(&mut rng); }
 
         let nums = deck[spos as usize..].partial_shuffle(&mut rng,
-            cnt as usize).0.iter().map(
-            #[cfg_attr(coverage_nightly, no_coverage)] |num| {  // cards deck dealer
+            cnt as usize).0.iter().map(|num| {  // cards deck dealer
             let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
             //let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
 
@@ -732,8 +760,14 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                 if let Ok(n) = es[1..].parse::<u16>() { batch = n; }    break
             }
 
-            if  es.eq_ignore_ascii_case("quit") { return }
-            if  es.parse::<Expr>().is_ok_and(|e| e.value() == goal) {
+            if  es.eq_ignore_ascii_case("quit") || es.eq_ignore_ascii_case("exit") { return }
+
+            if  es.parse::<Expr>().is_ok_and(|e| e.value() == goal && {
+                    let mut rnsv = vec![];
+                    e.traverse_num(&mut |&rn| rnsv.push(rn));   rnsv.sort_unstable();
+                    let mut nums = nums.clone();    nums.sort_unstable();
+                    if rnsv != nums { println!("Please use the given numbers exactly!");
+                        false } else { true } }) {
                 print!(r"{}/{:.1}s: ", Paint::new(r"Bingo").bg(Color::Green),
                     tnow.elapsed().as_secs_f32());
                 println!(r"{}", Paint::green(exps.join(", ")));     break;
@@ -742,21 +776,14 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     }
 }
 
-#[cfg_attr(coverage_nightly, no_coverage)] pub fn game24_cli() {
-    #[cfg_attr(coverage_nightly, no_coverage)]  //#[cfg(not(tarpaulin_include))]
+pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
-        let nums = nums.filter_map(
-            #[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
-            |s| match s.as_ref().parse::<Rational>() {
-                Err(why) => {
-                    eprintln!(r"Error parsing rational: {}", Paint::red(why));   None
-                }
-                Ok(rn) => { if rn.denom() == &0 {
-                    eprintln!(r"Invalid rational number: {}/{}",
-                        rn.numer(), Paint::red(rn.denom())); }  Some(rn)
-                }
-            }).collect::<Vec<_>>();
+        let nums = nums.filter_map(|s| match s.as_ref().parse::<Rational>() {
+            Err(why) => {   // https://github.com/rust-lang/rust/issues/113564
+                eprintln!(r"Fail parsing rational: {}", Paint::red(why));   None
+            }   Ok(rn) => Some(rn)
+        }).collect::<Vec<_>>();
 
         if  nums.len() < 2 { return eprintln!(r"{}", Paint::yellow(r"Insufficient numbers!")) }
         #[cfg(feature = "cc")] let cnt = if _cxx {
@@ -767,37 +794,33 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         } else if 5 < cnt { eprintln!(r"Got {} solutions.", Paint::cyan(cnt).bold()); }
     }
 
-    let (mut want_exit, mut cxx) = (false, false);
+    let (mut exit, mut cxx) = (false, false);
     let (mut goal, mut algo) = (24.into(), DynProg);
     let  mut nums = std::env::args().peekable();
     nums.next();    // skip the executable path
 
-    if  let Some(opt) = nums.peek() {
-        if  opt.eq_ignore_ascii_case("-A") {
-            cxx = opt == "-a";  nums.next();
-            match nums.next().unwrap_or("".to_owned()).parse::<u8>() {
-                Ok(n) => algo = match n {
-                    1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg, },
-                Err(e) => eprintln!(r"Error parsing ALGO: {}", Paint::red(e)),
-            }
+    if  nums.peek().is_some_and(|opt| {  cxx = opt == "-a";
+        opt.eq_ignore_ascii_case("-A")}) {  nums.next();
+        match nums.next().unwrap_or("".to_owned()).parse::<u8>() {
+            Ok(n) => algo = match n {
+                1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg, },
+            Err(e) => eprintln!(r"Fail parsing ALGO: {}", Paint::red(e)),
         }
     }
 
-    if  let Some(opt) = nums.peek() {
-        if  opt.eq_ignore_ascii_case("-g") {
-            if opt == "-G" { want_exit = true }     nums.next();
-            match nums.next().unwrap_or("".to_owned()).parse::<Rational>() {
-                Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
-                Ok(_goal) => goal = _goal,
-            }
-
-            if nums.len() < 1 { // solvable for 4 cards dealed from a deck, traverse 0..=100
-                if goal == 0.into() { (0..=100).for_each(|n| println!("{n:3}: {}",
-                         game24_solvable(&n.into(), 1, 13, 4, true, algo).1));
-                } else { game24_solvable(&goal, 1, 13, 4, false, algo); }
-            } else {     game24_helper(&goal, nums, algo, cxx); }
-            if want_exit { std::process::exit(0) }
+    if  nums.peek().is_some_and(|opt| { exit = opt == "-G";
+        opt.eq_ignore_ascii_case("-g")}) {  nums.next();
+        match nums.next().unwrap_or("".to_owned()).parse::<Rational>() {
+            Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
+            Ok(_goal) => goal = _goal,
         }
+
+        if nums.len() < 1 { // solvable for 4 cards dealed from a deck, traverse 0..=100
+            if goal == 0.into() { (0..=100).for_each(|n| println!("{n:3}: {}",
+                     game24_solvable(&n.into(), 1, 13, 4, true, algo).1));
+            } else { game24_solvable(&goal, 1, 13, 4, false, algo); }
+        } else {     game24_helper  (&goal, nums, algo, cxx); }
+        if exit { std::process::exit(0) }
     }
 
     /* use core::mem::size_of;   // size_of_val(a)
@@ -806,9 +829,8 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         size_of::<Oper>(), size_of::<Rational>()); */
 
     println!("\n### Solve {} calculation ###", Paint::magenta(&goal).bold());
-    loop {
-        print!("\n{}{}{}", Paint::new(r"Input integers/rationals for ").dimmed(),
-            Paint::cyan(&goal), Paint::new(": ").dimmed());
+    loop {  print!("\n{}{}{}", Paint::new(r"Input integers/rationals for ").dimmed(),
+            Paint::yellow(&goal), Paint::new(": ").dimmed());
 
         let mut nums = String::new();   use std::io::Write;
         std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
@@ -824,10 +846,10 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                     Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("poker") ||
-                      first.eq_ignore_ascii_case("cards") {     nums.next();
-                let cnt = first[5..].parse::<u8>().unwrap_or(4);
-                game24_cards (&goal,  cnt, algo);   continue
-            } else if first.eq_ignore_ascii_case("quit") { break }
+                      first.eq_ignore_ascii_case("cards") {
+                game24_cards (&goal, first[5..].parse::<u8>().unwrap_or(4), algo);  continue
+            } else if first.eq_ignore_ascii_case("quit") ||
+                      first.eq_ignore_ascii_case("exit") { break }
         }       game24_helper(&goal, nums, algo, cxx);
     }
 }
@@ -900,7 +922,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 #[cfg(test)] mod tests {    use super::*;   // unit test
     // Need to import items from parent module, to access non-public members.
 
-    #[cfg(feature = "cxx")] #[test] fn test_cxx_bridge() {
+    #[cfg(feature = "cxx")] #[test] fn cxx_bridge() {
         /*impl From<Expr> for ffi_cxx::Expr {
             fn from(e: Expr) -> Self {  use cxx::memory::SharedPtr;
                 Self { v: unsafe { core::mem::transmute(e.v) },
@@ -913,41 +935,25 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
             fn from(r: Rational) -> Self { unsafe { core::mem::transmute(r) } }
         }
 
-        //let goal: Rational = 24.into();
-        //use cxx::{CxxString, CxxVector};
-        //let nums = (1..=4).map(Rational::from).collect::<Vec<_>>();
-        //    //.map(ffi_cxx::Rational::from).collect::<CxxVector<_>>();
+        //let goal: Rational = 24.into();   use cxx::{CxxString, CxxVector};
+        //let nums = (1..=4).map(|n| n.into()).collect::<Vec<_>>(); //<CxxVector<_>>();
         //let _cnt = ffi_cxx::calc24_print(&goal.into(), &nums, DynProg);     // FIXME:
     }
 
-    #[test] fn parse_disp_rn() {
-        let cases = [
-            (RNum::from(0), "0"), (RNum::new_raw(1, 2), "(1/2)"),
-            (RNum::from(1), "1"), (RNum::from(-1), "(-1)"),
-        ];
-
-        cases.iter().for_each(|it| {
-            assert_eq!(it.0.to_string(), it.1, r"display {} != {}",
-                Paint::red(&it.0), Paint::cyan(&it.1));
-            assert!(it.1.trim_start_matches('(').trim_end_matches(')')
-                .parse::<RNum<i32>>().is_ok_and(|v| v == it.0),
-                r"parsing {} != {}", Paint::red(&it.1), Paint::cyan(&it.0));
-        }); assert_eq!(" 2", format!("{:2}", RNum::from(2)));
+    #[test] fn hash_combine() {
+        assert_eq!(super::hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
     }
 
-    #[test] fn reduce_rn() {
-        let cases = [
-            (RNum::new(-1, -1), RNum::new_raw( 1, 1)),
-            (RNum::new(-4,  2), RNum::new_raw(-2, 1)),
-            (RNum::new( 6, -2), RNum::new_raw(-3, 1)),
-            (RNum::new( 3,  2), RNum::new_raw( 3, 2)),
-            (RNum::new( 0,  2), RNum::new_raw( 0, 1)),
-        ];
-
-        cases.into_iter().for_each(|(a, b)| {
-            assert!(a.numer() == b.numer() && a.denom() == b.denom(),
-                "simplified rational: {a}");
-        });
+    #[test] fn deck_traverse() {   // for non-public function
+        let (mut nums, mut cnt) = (vec![], 0);
+        super::deck_traverse(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
+        assert_eq!(cnt,  6175);     cnt = 0;
+        super::deck_traverse(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
+        assert_eq!(cnt,  4905);     cnt = 0;
+        super::deck_traverse(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
+        assert_eq!(cnt, 18395);     cnt = 0;
+        super::deck_traverse(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
+        assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
     #[test] fn solve24() {
@@ -990,7 +996,8 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                 };  #[cfg(not(feature = "cc"))] let exps = calc24_coll(&goal, &nums, algo);
 
                 exps.iter().for_each(|e| {  if res.is_empty() { return }
-                    assert!(res.contains(&e.as_str()), r"Unexpect expr. by algo-{cxx}{:?}: {}",
+                    assert!(res.contains(&e.replace(' ', "").as_str()), // strip whitespace
+                        r"Unexpect expr. by algo-{cxx}{:?}: {}",
                         Paint::magenta(algo), Paint::red(e));
                 });
 
@@ -1007,23 +1014,10 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         });
     }
 
-    #[test] fn test_deck_traverse() {   // for non-public function
-        let (mut nums, mut cnt) = (vec![], 0);
-        deck_traverse(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
-        assert_eq!(cnt,  6175);     cnt = 0;
-        deck_traverse(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
-        assert_eq!(cnt,  4905);     cnt = 0;
-        deck_traverse(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
-        assert_eq!(cnt, 18395);     cnt = 0;
-        deck_traverse(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
-        assert_eq!(cnt, 10890);     //cnt = 0;
-    }
-
     #[cfg(feature = "cc")] #[test] fn solve24_c() {     //#[link(name = "calc24")]
-        let nums = (1..=4).map(Rational::from).collect::<Vec<_>>();
-        assert_eq!(3, calc24_print_cffi(&24.into(), &nums, DynProg));
-        extern "C" { #[allow(dead_code)] fn test_24calc(); }
-        unsafe { test_24calc(); }
+        let nums = (1..=2).map(Rational::from).collect::<Vec<_>>();
+        assert_eq!(0, calc24_print_cffi(&24.into(), &nums, DynProg));
+        extern "C" { fn test_24calc(); }    unsafe { test_24calc(); }
     }
 
     #[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
@@ -1039,11 +1033,10 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
             let (goal, now) = (goal.into(), std::time::Instant::now());
-            calc24_coll(&goal, &nums, DynProg); // XXX: other algo?
-            total_time += now.elapsed();
+            calc24_coll(&goal, &nums, DynProg);     total_time += now.elapsed();
         }
 
-        println!(r"Totally {}s for {} iterations.",
+        println!(r"Totally {}s for {} iterations.",     // XXX: other algo?
             Paint::magenta(total_time.as_millis() as f32 / 1000.0), Paint::magenta(cnt));
         assert!(total_time.as_secs() < 8);
     }
