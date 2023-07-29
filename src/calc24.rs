@@ -187,15 +187,20 @@ impl Expr {     //#![allow(dead_code)]
                 matches!(a.op(), Add | Sub) && matches!(op, Mul | Div)  // (A +- B) */ b
             };  if bracket { write!(f, r"({a})")? } else { write!(f, r"{a}")? }
 
-            if !mdu { write!(f, r" {} ", op as u8 as char)? } else {  // add space around
-                write!(f, r" {} ", match op { Mul => '×', Div => '÷', _ => op as u8 as char })?
-            }   // if bracket || b.m.is_none() && b.v.denom() == &1 { no_space_around_op }
-
+            //let nospace =            bracket || a.m.is_none() && a.v.denom() == &1;
             let bracket = if dbg { b.m.is_some() } else {
                 op == Div && match    b.op() {  Num => b.v.denom() != &1,   // a / (1/2)
                       Mul | Div => true, _ => false } ||    // a / (A */ B)
                 op != Add && matches!(b.op(), Add | Sub)    // a *-/ (A +- B)
-            };  if bracket { write!(f, r"({b})")? } else { write!(f, r"{b}")? }
+            };
+
+            //let nospace = nospace || bracket || b.m.is_none() && b.v.denom() == &1;
+            let op = if !mdu { op as u8 as char } else {
+                match op { Mul => '×', Div => '÷', _ => op as u8 as char }
+            };
+
+            if false   { write!(f, r"{op}")?  } else { write!(f, r" {op} ")? }
+            if bracket { write!(f, r"({b})")? } else { write!(f, r"{b}")? }
         } else { write!(f, r"{}", self.v)? }    Ok(())
     }
 

@@ -119,14 +119,21 @@ inline ostream& operator<<(ostream& os, const Rational& r) {
 ostream& operator<<(ostream& os, const Expr& e) {
     if (e.op == Num) return os << e.v;  //assert(e.a && e.b);
 
-    //os << '(' << *e.a << ')' << char(e.op) << '(' << *e.b << ')';   return os;
-    if ((e.a->op == Add || e.a->op == Sub) && (e.op == Mul || e.op == Div)) // (A +- B) */ b
-        os << '(' << *e.a << ')'; else os << *e.a;  os << ' ' << char(e.op) << ' ';
+    auto bracket = //dbg ? e.a->op != Num :     // (A +- B) */ b
+        (e.a->op == Add || e.a->op == Sub) && (e.op == Mul || e.op == Div);
+    if (bracket) os << '(' << *e.a << ')'; else os << *e.a;
+    //auto nospace =       bracket || e.a->op == Num && e.a->v.d == 1;
 
-    if ((e.op == Div && (e.b->op == Mul || e.b->op == Div ||    // a / (A */ B)
+    bracket = //dbg ? e.b->op != Num :
+        (e.op == Div && (e.b->op == Mul || e.b->op == Div ||    // a / (A */ B)
                         (e.b->op == Num && e.b->v.d != 1))) ||  // a / (1/2)
-        (e.op != Add && (e.b->op == Add || e.b->op == Sub)))    // a */- (A +- B)
-        os << '(' << *e.b << ')'; else os << *e.b;  return os;
+        (e.op != Add && (e.b->op == Add || e.b->op == Sub));    // a */- (A +- B)
+    //nospace = nospace || bracket || e.b->op == Num && e.b->v.d == 1;
+
+    auto op = char(e.op);   //if (false) switch (e.op) {
+    //    case Mul: op = '×'; case Div: op = '÷'; default: ; };   // XXX:
+    if (false  ) os << op; else os << ' ' << op << ' ';
+    if (bracket) os << '(' << *e.b << ')'; else os << *e.b;     return os;
 }
 
 inline auto hash_combine(size_t lhs, auto rhs) {
