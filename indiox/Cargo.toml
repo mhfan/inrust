@@ -1,7 +1,6 @@
 
 [package]
 name = "indiox"
-
 edition = "2021"
 version = "0.1.0"
 #edition.workspace = true
@@ -45,4 +44,6 @@ instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 #opt-level = "s"
 #strip = true
 #lto = true
+
+[workspace]
 

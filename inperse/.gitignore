@@ -1,7 +1,9 @@
 
 /dist
 /target
+/Cargo.lock
 /node_modules/
 /package-lock.json
 /static/tailwind.css
 /.perseus/
+
