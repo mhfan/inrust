@@ -19,14 +19,13 @@
 
 use yansi::Paint;   // Color, Style
 
-//#[allow(unused_macros)]
+//#[allow(unused_macros)]   // https://zjp-cn.github.io/tlborm/
 //macro_rules! var_args { ($($args:expr),*) => {{ }} }  //$(f($args);)*   // XXX:
 //macro_rules! printvar { ($var:expr) => { println!("{}: {:?}", stringify!($var), $var) } }
 
 //#![no_main]
 // src/main.rs (default application entry point)
-#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
-fn main()/* -> Result<(), Box<dyn std::error::Error>>*/ {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!(r"{} v{}-g{}, {}, {} 🦀", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
         env!("BUILD_GIT_HASH"), build_time::build_time_local!("%H:%M:%S%:z %Y-%m-%d"),
         env!("CARGO_PKG_AUTHORS"));     //option_env!("ENV_VAR_NAME");
@@ -53,7 +52,7 @@ fn main()/* -> Result<(), Box<dyn std::error::Error>>*/ {
     inrust::calc24::game24_cli();
     //guess_number();
 
-    //Ok(())
+    Ok(())
 }
 
 #[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
@@ -83,11 +82,10 @@ fn main()/* -> Result<(), Box<dyn std::error::Error>>*/ {
         let mut guess = String::new();
         std::io::stdout().flush().expect("Failed to flush!"); //.unwrap();
         std::io::stdin().read_line(&mut guess).expect("Failed to read!");
-        let guess = guess.trim();
 
-        //let guess: i32 = guess.parse().expect("Please type a number");
-        //match guess.parse::<i32>() { Ok(_guess) => { }, _ => () }
-        if let Ok(guess) = guess.parse::<i32>() { // isize
+        //let guess: i32 = guess.trim().parse().expect("Please type a number");
+        //match guess.trim().parse::<i32>() { Ok(_guess) => { }, _ => () }
+        if let Ok(guess) = guess.trim().parse::<i32>() { // isize
             //if (guess < secret) { } else if (secret < guess) { } else { }
             match guess.cmp(&secret) {
                 Ordering::Greater =>    println!("[{}]", Paint::magenta(too_big)),

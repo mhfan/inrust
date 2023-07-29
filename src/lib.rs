@@ -63,14 +63,11 @@ pub fn powerset<T>(set: &[T]) -> Vec<Vec<&T>> {
         psv.push(s0);   psv.push(s1);
     }   psv
 
-    /* for mask in 0..n {
-        let (mut ss, mut bits) = (vec![], mask);
+    /* for mask in 0..n {   let (mut ss, mut bits) = (vec![], mask);
         while 0 < bits {
-            // isolate the rightmost bit to select one item
-            let rightmost = bits & !(bits - 1);
-            // turn the isolated bit into an array index
-            let idx = rightmost.trailing_zeros() as usize;
-            ss.push(&slice[idx]);  bits &= bits - 1;   // zero the trailing bit
+            let rightmost = bits & !(bits - 1);     // isolate the rightmost bit to select one
+            let idx = rightmost.trailing_zeros();   // turn the isolated bit into an array index
+            ss.push(&slice[idx as usize]);  bits &= bits - 1;   // zero the trailing bit
         }  psv.push(ss);
     }      psv */
 }

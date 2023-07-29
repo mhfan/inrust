@@ -23,12 +23,13 @@ use {inrust::calc24::*, yansi::Paint, std::error::Error};
     let ns = ptys.exp_regex(r"\n( .*[2-9AJQK].*){4}: ")?.1;
     //println!(r"{}s: ", tnow.elapsed().as_secs_f32());
 
+    // XXX: how to just disable ansi escape codes for a pty/tty?
     let ns = regex::Regex::new( // regex for ANSI escape codes
         r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])").unwrap().replace_all(&ns, "");
     let nums = ns.chars().filter_map(|n| match n {
-            ' ' | '\n' | '\r' | ':' => None, _ => Some(Rational::from(match n {
+            ' ' | '\n' | '\r' | ':'   => None, _ => Some(match n {
             'T' => 10, 'J' => 11, 'Q' => 12, 'K' => 13, 'A' => 1, //'2'..='9'
-            _   => n as i32 - '0' as i32 })) }).collect::<Vec<_>>();
+            _   => n as i32 - '0' as i32 }.into()) }).collect::<Vec<_>>();
     let sol = calc24_first(&24.into(), &nums[(nums.len() - 4)..], DynProg);
 
     ptys.send_line(sol.as_str())?;  ptys.exp_regex(r".*Bingo.+: ")?;

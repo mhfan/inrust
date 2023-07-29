@@ -611,9 +611,9 @@ pub  use Calc24Algo::*;
 }
 
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
-    let mut cnt = 0;
+    let mut cnt = 0;    #[allow(clippy::unit_arg)]
     calc24_algo(goal, nums, algo, |e| {
-        println!(r"{}", Paint::green(e)); cnt += 1; Some(()) });    cnt
+        println!(r"{}", Paint::green(e)); Some(cnt += 1) });    cnt
 }
 
 #[inline] pub fn calc24_algo (goal: &Rational, nums: &[Rational], algo: Calc24Algo,
@@ -776,6 +776,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     }
 }
 
+#[allow(clippy::blocks_in_if_conditions)]
 pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
@@ -892,7 +893,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
 
     unsafe { calc24_cffi(&mut calc24); }    let exps = unsafe {
-        core::slice::from_raw_parts(calc24.exps, calc24.ecnt as usize) }
+        core::slice::from_raw_parts(calc24.exps, calc24.ecnt) }
             .iter().map(|&es| unsafe { std::ffi::CStr::from_ptr(es) }
                 .to_string_lossy().into_owned()).collect::<Vec<_>>();  //.to_str().unwrap()
     extern "C" { fn calc24_free(ptr: *const *const c_char, cnt: u32); }
