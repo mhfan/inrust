@@ -756,8 +756,10 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 
         let tnow = std::time::Instant::now();
         loop {  let mut es = String::new();     use std::io::Write;
-            std::io::stdout().flush().expect(r"Failed to flush!");  //.unwrap();
-            std::io::stdin().read_line(&mut es).expect(r"Failed to read!");
+            if let Err(e) = std::io::stdout().flush() {
+                eprintln!(r"Failed to flush: {e}") }
+            if let Err(e) = std::io::stdin().read_line(&mut es) {
+                eprintln!(r"Failed to read: {e}") }
 
             let es = es.trim();
             if  es.starts_with(['n', 'N']) || es.eq("?") { println!(r"{}: {}",
@@ -839,8 +841,9 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
             Paint::yellow(&goal), Paint::new(": ").dimmed());
 
         let mut nums = String::new();   use std::io::Write;
-        std::io::stdout().flush().expect(r"Failed to flush!"); //.unwrap();
-        std::io::stdin().read_line(&mut nums).expect(r"Failed to read!");
+        if let Err(e) = std::io::stdout().flush() { eprintln!(r"Failed to flush: {e}") }
+        if let Err(e) = std::io::stdin().read_line(&mut nums) {
+            eprintln!(r"Failed to read: {e}") }
         let mut nums = nums.split_ascii_whitespace().peekable();
         //nums.trim().split(' ').filter(|s| !s.is_empty()).peekable();
 
