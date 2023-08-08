@@ -47,6 +47,13 @@ args = [ "llvm-cov", "--include-ffi", "--doctests",
             "--lcov", "--output-path", "lcov.info", #"nextest",
 ]   # https://github.com/taiki-e/cargo-llvm-cov
 
+[tasks.codecov]
+#command = "codecov"
+dependencies = [ "coverage" ]
+env = { "CODECOV_TOKEN" = "ca307f14-d04b-4c00-8a75-8d6e81202e44" }
+#args = [ "-t", "${CODECOV_TOKEN}", #"--url", "https://app.codecov.io/gh/mhfan/inrust"
+#]
+
 [tasks.bench-fg]    # https://github.com/flamegraph-rs/flamegraph
 #command = "cargo"
 #args = [ "flamegraph", "--bench", "calc24_bench" ]
@@ -65,9 +72,10 @@ command = "cargo"   # cargo bench --features pprof
 args = [ "bench", "--features", "pprof", ]
 
 [tasks.publish]
-command = "cargo"
+#command = "cargo"
 #dependencies = [ "package" ]
-args = [ "publish", "--registry", "crates-io" ]
+env = { "CARGO_MAKE_CARGO_PUBLISH_FLAGS" = "--registry crates-io" }
+#args = [ "publish", "--registry", "crates-io" ]
 
 [tasks.indiox]
 cwd = "indiox"
