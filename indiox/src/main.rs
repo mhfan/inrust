@@ -70,6 +70,8 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
     let eqm_state = use_state(cx, || Option::<bool>::None);
     let game24 = use_ref(cx, Game24State::new);
 
+    let goal_elem = use_ref(cx, || None);
+
     let num_class = "px-4 py-2 my-4 w-fit appearance-none select-text \
         read-only:bg-transparent bg-stone-200 border border-purple-200 \
         text-center text-2xl text-purple-600 font-semibold \
@@ -194,7 +196,13 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                 }
 
                 input { "type": "text", id: "G", readonly: "true", value: "{game24.read().goal}",
-                    //ondblclick: num_editable, onchange: num_changed,    // FIXME:
+                    onmounted: |evt| goal_elem.set(Some(evt.inner().clone())),
+                    ondblclick: |_| if game24.read()._cnt == 1 {
+                        if let Some(_inp) = goal_elem.read().as_ref() {
+                            //let inp = _inp.get_raw_element().unwrap().dyn_into();
+                            //inp.set_read_only(false);   inp.focus().unwrap();
+                        }
+                    }, //onchange: num_changed,    // FIXME:
                     placeholder: "??", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                     maxlength: "8", size: "4", class: "{num_class} rounded-md",
                     "data-bs-toggle": "tooltip", title: "Double click to input new goal",

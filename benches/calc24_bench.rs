@@ -1,6 +1,8 @@
 
 // https://nnethercote.github.io/perf-book/introduction.html
 
+//#![feature(test)]   // #[bench] is still experimental
+
 //#[macro_use]
 //extern crate bencher;
 //use bencher::Bencher;

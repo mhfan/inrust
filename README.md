@@ -116,7 +116,7 @@ Rust/C++ 版本前一类算法的性能都比后一类算法高一个数量级�
   [Sycamore](https://sycamore-rs.netlify.app)/[Dioxus](https://dioxuslabs.com)/
   [slint](https://github.com/slint-ui/slint)/[egui](https://github.com/emilk/egui))
 + [x] Continuous Integration/Deployment (Github Action)
-+ [x] Continuous (Unit/Integrate/Doc/Fuzz) Test
++ [x] Continuous (Unit/Integration/Doc/Fuzz) Test
 + [x] conditional compilation
 + [x] Rust programming
 
