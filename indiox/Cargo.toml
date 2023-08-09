@@ -14,17 +14,17 @@ version = "0.1.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-dioxus-desktop = "0.3"
+dioxus-desktop = "0.4"
 #log  = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = { version = "0.2", features = [ "js" ] }
 #console_error_panic_hook = "0.1"
 wasm-logger = "0.2"     # WebAssembly Debug
-dioxus-web  = "0.3"
+dioxus-web  = "0.4"
 
 [dependencies]
-dioxus = "0.3"  # git = "https://github.com/DioxusLabs/dioxus"
+dioxus = "0.4"  # git = "https://github.com/DioxusLabs/dioxus"
 #dioxus-logger = "0.3"
 
 rand = "0.8"    # git = "https://github.com/mhfan/inrust",
