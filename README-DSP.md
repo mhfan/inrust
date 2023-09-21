@@ -26,4 +26,6 @@
 * <https://www.derivative-calculator.net> <https://www.integral-calculator.com>
 * <https://prajwalsouza.github.io/Experiments/Fourier-Transform-Visualization.html>
 
+* <https://github.com/jam1garner/binrw>
+
 ***Keeps simple things simple and makes complex things possible.***

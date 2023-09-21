@@ -2,9 +2,8 @@
  * $ID: calc24.rs        四, 09  6 2022 18:09:34 +0800  mhfan $ *
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
- * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
+ * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
  *                                                              *
- * Last modified: 四, 12 10 2023 15:09:03+0800        by mhfan #
  ****************************************************************/
 
 //pub mod calc24 {
@@ -14,6 +13,7 @@
 use yansi::{Paint, Color};  // Style
 //use itertools::Itertools;
 
+//use num_integer::Integer;     // for BigInt, somewhere `+ Copy'
 //type Rational = (i32, i32);   // i32/i64/i128
 #[cfg(not(feature = "num-rational"))] pub type Rational = RNum<i32>;
 #[cfg(feature = "num-rational")] pub type Rational = num_rational::Ratio<i32>;
@@ -23,7 +23,7 @@ use yansi::{Paint, Color};  // Style
 //#[cfg_attr(feature = "arbitrary", derive(arbitrary::Arbitrary))]
 #[derive(Clone, Copy)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
-use num_traits::PrimInt;    //use num_integer::Integer;     // for BigInt, somewhere `+ Copy'
+use num_traits::PrimInt;
 impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
     #[inline] pub const fn numer(&self) -> &T { &self.0 }
     #[inline] pub const fn denom(&self) -> &T { &self.1 }
@@ -69,9 +69,7 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
 }
 
 use core::convert::From;
-impl<T: PrimInt> From<T> for RNum<T> {
-    fn from(n: T) -> Self { Self::new_raw(n, T::one()) }
-}
+impl<T: PrimInt> From<T> for RNum<T> { fn from(n: T) -> Self { Self::new_raw(n, T::one()) } }
 
 use std::fmt::{Debug, Display, Formatter, Result as fmtResult};
 /*#[cfg(feature = "debug")] */impl<T: PrimInt + Display> Debug for RNum<T> {
@@ -115,7 +113,10 @@ impl<T: PrimInt + FromStr> FromStr for RNum<T> {
     }   type Err = T::Err;
 }
 
-use core::cmp::{Eq, Ord, Ordering, PartialEq};
+//  https://mp.weixin.qq.com/s/2ux6cW3QekBnSx-FKZLLzA
+//  https://en.wikipedia.org/wiki/Partially_ordered_set
+use core::cmp::{Eq, PartialEq, PartialOrd, Ord, Ordering}; // Eq ⊆ PartialEq ⊆ PartialOrd ⊆ Ord
+
 impl<T: PrimInt> Ord for RNum<T> {
     fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0))
         //let ord = (self.0 * rhs.1).cmp(&(self.1 * rhs.0));  // XXX:
@@ -130,7 +131,7 @@ impl<T: PrimInt> PartialOrd for RNum<T> {
     }
 }
 
-impl<T: PrimInt>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { }*/ }
+impl<T: PrimInt>  Eq for RNum<T> { /*fn assert_receiver_is_total_eq(&self) { } */}
 impl<T: PrimInt> PartialEq  for RNum<T> {
     #[inline] fn eq(&self, rhs: &Self) -> bool { self.cmp(rhs) == Ordering::Equal }
 }
@@ -158,10 +159,10 @@ impl std::ops::Add for Expr {   //std::ops::{Add, Sub, Mul, Div}
 
 use std::rc::Rc;
 type RcExpr = Rc<Expr>;   //*const Expr;
-//#[derive(/*Debug, */PartialEq, Eq, PartialOrd, Ord)] //#[repr(packed(4)/*, align(4)*/)]
+
+//#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)] // a & b refer to left & right operands
 pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)> }
 //pub struct Expr { v: Rational, a: *const Expr, b: *const Expr, op: Oper }  // XXX:
-// a & b refer to left & right operands
 
 impl Expr {     //#![allow(dead_code)]
     #[inline] pub fn value(&self) -> &Rational { &self.v }
@@ -195,8 +196,8 @@ impl Expr {     //#![allow(dead_code)]
             };
 
             //let nospace = nospace || bracket || b.m.is_none() && b.v.denom() == &1;
-            let op = if !mdu { op as u8 as char } else {
-                match op { Mul => '×', Div => '÷', _ => op as u8 as char }
+            let op = if !mdu { op as u8 as _ } else {
+                match op { Mul => '×', Div => '÷', _ => op as u8 as _ }
             };
 
             if false   { write!(f, r"{op}")?  } else { write!(f, r" {op} ")? }
@@ -289,7 +290,7 @@ impl Ord for Expr {
         match (&self.m, &rhs.m) {
             (Some((la, lb, lop)),
              Some((ra, rb, rop))) => {
-                let ord = (*lop as u8).cmp(&(*rop as u8));
+                let ord = (*lop as u8).cmp(&(*rop as _));
                 if  ord != Ordering::Equal { return ord }
                 let ord = la.cmp(ra);   // recursive
                 if  ord != Ordering::Equal { return ord }   lb.cmp(rb)  // recursive
@@ -651,7 +652,7 @@ pub  use Calc24Algo::*;
 
 #[allow(dead_code)] #[inline] fn deck_traverse(min: i32, max: i32, cnt: u8, mrpt: u8,
     nums: &mut Vec<i32>, solve: &mut impl FnMut(&[i32])) {
-    (min..=max).for_each(|x| {  let len = nums.len() as u8;
+    (min..=max).for_each(|x| {  let len = nums.len() as _;
         if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
             if n == x { acc + 1 } else { acc }) == mrpt { return } else { nums.push(x) }
 
@@ -733,11 +734,11 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         Paint::green(r"T=10, J=11, Q=12, K=13, A=1"), Paint::yellow(goal));
 
     loop {  use rand::seq::SliceRandom;     // https://github.com/htdebeer/SVG-cards
-        if deck.len() < (spos + cnt) as usize { spos = 0; }
+        if deck.len() < (spos + cnt) as _ { spos = 0; }
         if spos == 0 { deck.shuffle(&mut rng); }
 
-        let nums = deck[spos as usize..].partial_shuffle(&mut rng,
-            cnt as usize).0.iter().map(|num| {  // cards deck dealer
+        let nums = deck[spos as _..].partial_shuffle(&mut rng,
+            cnt as _).0.iter().map(|num| {  // cards deck dealer
             let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
             //let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
 
@@ -905,7 +906,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
             .iter().map(|&es| unsafe { std::ffi::CStr::from_ptr(es) }
                 .to_string_lossy().into_owned()).collect::<Vec<_>>();  //.to_str().unwrap()
     extern "C" { fn calc24_free(ptr: *const *const c_char, cnt: u32); }
-    unsafe { calc24_free(calc24.exps, calc24.ecnt as u32); }    exps
+    unsafe { calc24_free(calc24.exps, calc24.ecnt as _); }  exps
 }
 
 #[cfg(feature = "cxx")] #[cxx::bridge] mod ffi_cxx {    // TODO: https://cxx.rs

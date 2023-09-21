@@ -2,6 +2,7 @@
 ![Build status](https://github.com/mhfan/inrust/actions/workflows/rust-ci.yml/badge.svg)
 [![codecov](https://codecov.io/gh/mhfan/inrust/graph/badge.svg)](https://codecov.io/gh/mhfan/inrust)
 [![Crates.io](https://img.shields.io/crates/v/inrust.svg)](https://crates.io/crates/inrust)
+[![dependency status](https://deps.rs/repo/github/mhfan/inrust/status.svg)](https://deps.rs/repo/github/mhfan/inrust)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 # Rust study project from scratch

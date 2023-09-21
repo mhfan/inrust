@@ -2,7 +2,7 @@
  * $ID: main.rs          四, 09  6 2022 18:09:34 +0800  mhfan $ *
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
- * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
+ * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
  *                                                              *
  * Last modified: Thu 28 Sep 2023 11:38:45+0800 by mhfan        *
  ****************************************************************/

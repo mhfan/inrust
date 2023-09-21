@@ -103,11 +103,11 @@ opt-level = 3   # Enable high optimizations for dependencies, but not for own co
 
 [profile.release]
 codegen-units = 1   # Perform optimizations on all codegen units.
+strip = 'debuginfo' # keep 'symbols'
 panic = 'abort' # Do not perform backtrace for panic on release builds.
+#debug = 'full'  # for flamegraph
 #opt-level = 3   # default level
-#debug = true    # for flamegraph
-#strip = true	# Automatically strip symbols from the binary.
-lto = true
+lto = 'fat' # true
 
 #cargo build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 

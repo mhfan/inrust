@@ -2,8 +2,7 @@
  * $ID: calc24.h         二, 21  6 2022 14:05:39 +0800  mhfan $ *
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
- *                                                              *
- * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
+ * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
  *                                                              *
  * Last modified: 四, 29  9 2022 14:42:33 +0800       by mhfan #
  ****************************************************************/
