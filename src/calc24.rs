@@ -4,7 +4,7 @@
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 一, 24 10 2022 10:10:08 +0800       by mhfan #
+ * Last modified: 四, 12 10 2023 15:09:03+0800        by mhfan #
  ****************************************************************/
 
 //pub mod calc24 {
@@ -784,7 +784,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 }
 
 #[allow(clippy::blocks_in_if_conditions)]
-pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
+pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
         let nums = nums.filter_map(|s| match s.as_ref().parse::<Rational>() {
@@ -1029,7 +1029,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, no_coverage)]  // XXX:
         extern "C" { fn test_24calc(); }    unsafe { test_24calc(); }
     }
 
-    #[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
+    #[cfg_attr(coverage_nightly, coverage(off))] //#[cfg(not(tarpaulin_include))]
      #[ignore] /*#[bench] */#[test] fn solve24_random() {
         let (cnt, mut total_time) = (50, std::time::Duration::from_millis(0));
         for _ in 0..cnt {   use rand::{Rng, distributions::Uniform};

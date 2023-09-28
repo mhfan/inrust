@@ -4,7 +4,7 @@
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All Rights Reserved.             *
  *                                                              *
- * Last modified: 四, 09  6 2022 18:10:04 +0800       by mhfan #
+ * Last modified: Thu 28 Sep 2023 11:38:45+0800 by mhfan        *
  ****************************************************************/
 
 // https://cheats.rs
@@ -15,7 +15,7 @@
 // https://doc.rust-lang.org/rust-by-example/index.html
 // curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
-#![cfg_attr(coverage_nightly, feature(no_coverage))]
+#![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
 use yansi::Paint;   // Color, Style
 
@@ -55,7 +55,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-#[cfg_attr(coverage_nightly, no_coverage)] //#[cfg(not(tarpaulin_include))]
+#[cfg_attr(coverage_nightly, coverage(off))] //#[cfg(not(tarpaulin_include))]
 #[allow(dead_code)] fn guess_number() {     // interactive function
     //struct Param { max: i32, lang: bool }; let param = Param { max: 100, lang: true };
     //struct Param(i32, bool); let param = Param(100, true); //let param = (100, true);
