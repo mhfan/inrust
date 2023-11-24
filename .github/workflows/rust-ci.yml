@@ -26,6 +26,7 @@ jobs:
     #      - stable
     #      - nightly
     #
+    #    compiler: [gcc, clang]
     #    build: [linux, macos, windows]
     #    include:
     #      - build: linux
@@ -69,17 +70,17 @@ jobs:
 
     - name: Run tests
     #  uses: taiki-e/install-action@nextest
-      run: cargo test -- --color always --nocapture #cargo nextest r
-      #  cargo t --features num-rational -- --nocapture
-      #  cargo r --features debug -- -G -2 1 2 3 4
+      run: |
+        cargo r -F debug,num-rational -- -G -2 1 2 3 4
+        cargo t -- --color always --nocapture #cargo nextest r
       #  cargo +nightly fuzz run calc24
       #  cargo r -- -A 0 -G -2 1 2 3 4
 
     - name: Benchmark
       run: cargo bench
-      #  cargo bench --features pprof
-      #  cargo bench --features dhat-heap
-      #  cargo bench --features num-rational
+      #  cargo bench -F pprof
+      #  cargo bench -F dhat-heap
+      #  cargo bench -F num-rational
       #  sudo cargo flamegraph --bench calc24_bench
 
     #- name: Publish to crates-io
