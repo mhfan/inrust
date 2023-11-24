@@ -56,7 +56,8 @@ cxx   = { version = "1.0", optional = true }
 dhat  = { version = "0.3", optional = true }
 pprof = { version = "0.12", features = [ "flamegraph", "criterion" ], optional = true }
 
-ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
+gxhash = { version = "3.1", optional = true }
+ ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
 num-bigint   = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
 serde = { version = "1", features = [ "derive" ], optional = true }
@@ -79,8 +80,7 @@ chrono = "0.4"
 [features]
 debug = []
 cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
-default = [ "cc", "ahash", #"cxx", #"serde", #"num-rational", #"num-bigint",
-]
+default = [ "cc", "ahash" ] # "gxhash", "cxx", "serde", "num-rational", "num-bigint",
 dhat-heap = [ "dhat" ]
 
 [[bench]]

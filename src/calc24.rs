@@ -421,9 +421,11 @@ fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
 //use crate::list::List;
 //use std::collections::LinkedList as List;   // both seems lower performance than Vec
 
+// ahash is 30+% faster than std version, https://nnethercote.github.io/perf-book/hashing.html
 #[cfg(feature = "ahash")] use ahash::{AHashSet as HashSet, AHasher as DefaultHasher};
-#[cfg(not(feature = "ahash"))] use std::collections::{HashSet, hash_map::DefaultHasher};
-// 30+% faster than std version, refer to https://nnethercote.github.io/perf-book/hashing.html
+#[cfg(feature = "gxhash")] use gxhash::{GxHashSet as HashSet, GxHasher as DefaultHasher};
+#[cfg(not(any(feature = "ahash", feature = "gxhash")))] // https://github.com/ogxd/gxhash
+use std::collections::{HashSet, hash_map::DefaultHasher};
 
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
@@ -635,7 +637,7 @@ pub  use Calc24Algo::*;
     nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
     // so don't needs order-independent hasher  //quicksort(nums, |a, b| a.v < b.v);    // XXX:
 
-    let mut hexp = HashSet::new();
+    let mut hexp = HashSet::<u64>::default();
     let mut hash_unify = |e: Expr| {
         let mut hasher = DefaultHasher::default();  e.hash(&mut hasher);
         if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
