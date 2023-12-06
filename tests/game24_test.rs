@@ -1,8 +1,7 @@
 
 //mod common;   // subdirectory module
 
-#[test] fn largest() {
-    let array = [1, 2, 3];
+#[test] fn largest() {  let array = [1, 2, 3];
     assert_eq!(inrust::misc::largest(&array), &array[2]);
     // Integration tests (and benchmarks) 'depend' to the crate
     // like a 3rd party would. Hence, they only see public items.
@@ -65,7 +64,7 @@ use {inrust::calc24::*, yansi::Paint, std::error::Error};
             cnt.0 += 1u32;  cnt.1 += sols.len() as u32;
 
             assert_eq!(exps.len(), sols.len(), r"[{}]: {:?}\n[{}]: {:?}",   // line,
-                Paint::cyan(nstr), Paint::magenta(sols), Paint::cyan(nstr), Paint::green(exps));
+                Paint::cyan(nstr), Paint::magenta(&sols), Paint::cyan(nstr), Paint::green(&exps));
         });
 
     /* TODO: try use tokio and scraper to extract url and parse html?
@@ -84,5 +83,6 @@ use {inrust::calc24::*, yansi::Paint, std::error::Error};
         assert_eq!(exps.len(), record.len() - 1, r"{:?}\n[{}]: {:?}", record,
             Paint::cyan(&record[0]), Paint::green(exps));
     }*/ assert!(cnt == (1362, 3017), r"records: {}, solutions: {}",
-            Paint::red(cnt.0), Paint::red(cnt.1));  Ok(())
+            Paint::red(&cnt.0), Paint::red(&cnt.1));    Ok(())
 }
+

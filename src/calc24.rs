@@ -3,7 +3,6 @@
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
- *                                                              *
  ****************************************************************/
 
 //pub mod calc24 {
@@ -477,7 +476,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
                         else if &e.v == goal { each_found(e)? }    Some(())
                     })
                 }))?;
-        }   hv.clear();
+        }   Vec::clear(&mut hv);
     }   Some(())
 
     //vexp.pop().unwrap().into_inner() //vexp[psn - 1].take()
@@ -621,7 +620,7 @@ pub  use Calc24Algo::*;
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
     let mut cnt = 0;    #[allow(clippy::unit_arg)]
     calc24_algo(goal, nums, algo, |e| {
-        println!(r"{}", Paint::green(e)); Some(cnt += 1) });    cnt
+        println!(r"{}", Paint::green(&e)); Some(cnt += 1) });   cnt
 }
 
 #[inline] pub fn calc24_algo (goal: &Rational, nums: &[Rational], algo: Calc24Algo,
@@ -694,7 +693,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
             }
         });         if silent { return rcnt }
 
-        eprintln!(r"{} / {} sets solvable.", Paint::green(rcnt.1),
+        eprintln!(r"{} / {} sets solvable.", Paint::green(&rcnt.1),
             rcnt.0 + rcnt.1);   return rcnt
     }
 
@@ -715,13 +714,13 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
 
             if silent { return }    //nums.shuffle(&mut rng);
             nums.into_iter().for_each(|rn| print!(r" {:2}", Paint::cyan(rn.numer())));
-            println!(r": {}", Paint::green(exps.join(", ")));   // output solutions
+            println!(r": {}", Paint::green(&exps.join(", ")));  // output solutions
         }
     }))));
 
     if silent { return rcnt }
-    eprintln!(r"{} / {} sets with {} solutions.", Paint::green(rcnt.1),
-        rcnt.0 + rcnt.1, Paint::magenta(rcnt.2));   rcnt
+    eprintln!(r"{} / {} sets with {} solutions.", Paint::green(&rcnt.1),
+        rcnt.0 + rcnt.1, Paint::magenta(&rcnt.2));  rcnt
 }
 
 pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
@@ -751,9 +750,10 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 
         let exps = calc24_coll(goal, &nums, algo);
         if  exps.is_empty() { print!("\r"); continue }
+        let stre = exps.join(", ");
 
         if 0 < batch {  batch -= 1;     // Iterator::intersperse_with
-            println!(r"{}", Paint::black(exps.join(", ")).dimmed().bg(Color::Black));
+            println!(r"{}", Paint::black(&stre).dimmed().bg(Color::Black));
             if 0 == batch { println!(); }   continue
         }
 
@@ -766,7 +766,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 
             let es = es.trim();
             if  es.starts_with(['n', 'N']) || es.eq("?") { println!(r"{}: {}",
-                    Paint::new(r"Solution").dimmed(), Paint::green(exps.join(", ")));
+                    Paint::new(r"Solution").dimmed(), Paint::green(&stre));
                 if let Ok(n) = es[1..].parse::<u16>() { batch = n; }    break
             }
 
@@ -780,19 +780,19 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                         false } else { true } }) {
                 print!(r"{}/{:.1}s: ", Paint::new(r"Bingo").bg(Color::Green),
                     tnow.elapsed().as_secs_f32());
-                println!(r"{}", Paint::green(exps.join(", ")));     break;
+                println!(r"{}", Paint::green(&stre));   break;
             } else { print!(r"{}: ", Paint::new(r"Tryagain").dimmed()); }
         }       println!();
     }
 }
 
-#[allow(clippy::blocks_in_if_conditions)]
+#[allow(clippy::blocks_in_conditions)]
 pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
         let nums = nums.filter_map(|s| match s.as_ref().parse::<Rational>() {
             Err(why) => {   // https://github.com/rust-lang/rust/issues/113564
-                eprintln!(r"Fail parsing rational: {}", Paint::red(why));   None
+                eprintln!(r"Fail parsing rational: {}", Paint::red(&why));  None
             }   Ok(rn) => Some(rn)
         }).collect::<Vec<_>>();
 
@@ -802,7 +802,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         };  #[cfg(not(feature = "cc"))] let cnt = calc24_print(goal, &nums, algo);
 
         if  cnt < 1 {       eprintln!(r"{}", Paint::yellow(r"Found NO solution!"));
-        } else if 5 < cnt { eprintln!(r"Got {} solutions.", Paint::cyan(cnt).bold()); }
+        } else if 5 < cnt { eprintln!(r"Got {} solutions.", Paint::cyan(&cnt).bold()); }
     }
 
     let (mut exit, mut cxx) = (false, false);
@@ -815,14 +815,14 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         match nums.next().unwrap_or("".to_owned()).parse::<u8>() {
             Ok(n) => algo = match n {
                 1 => SplitSet, 2 => Inplace, 3 => Construct, _ => DynProg, },
-            Err(e) => eprintln!(r"Fail parsing ALGO: {}", Paint::red(e)),
+            Err(e) => eprintln!(r"Fail parsing ALGO: {}", Paint::red(&e)),
         }
     }
 
     if  nums.peek().is_some_and(|opt| { exit = opt == "-G";
         opt.eq_ignore_ascii_case("-g")}) {  nums.next();
         match nums.next().unwrap_or("".to_owned()).parse::<Rational>() {
-            Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
+            Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(&e)),
             Ok(_goal) => goal = _goal,
         }
 
@@ -855,7 +855,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
                 match first[1..].parse::<Rational>() {
                     Ok(_goal) => {  goal = _goal;
                         println!(r"### Reset GOAL to {} ###", Paint::magenta(&goal).bold()); }
-                    Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(e)),
+                    Err(e) => eprintln!(r"Fail parsing GOAL: {}", Paint::red(&e)),
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("poker") ||
                       first.eq_ignore_ascii_case("cards") {
@@ -997,26 +997,25 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         cases.into_iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;
             let cnt = if 0 < cnt { cnt } else { res.len() };
-            println!(r"Calculate {:3} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
+            println!(r"Calculate {:3} from {:?}", Paint::cyan(&goal), Paint::cyan(&nums));
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
             let goal = goal.into();
 
             let assert_closure = |algo, cxx: &str| {
-                #[cfg(feature = "cc")] let exps = if cxx.is_empty() {
-                    calc24_coll(&goal, &nums, algo) } else {
+                let exps = if cfg!(feature = "cc") && !cxx.is_empty() {
                     calc24_coll_cffi(&goal, &nums, algo)
-                };  #[cfg(not(feature = "cc"))] let exps = calc24_coll(&goal, &nums, algo);
+                } else { calc24_coll(&goal, &nums, algo) };
 
                 exps.iter().for_each(|e| {  if res.is_empty() { return }
                     assert!(res.contains(&e.replace(' ', "").as_str()), // strip whitespace
                         r"Unexpect expr. by algo-{cxx}{:?}: {}",
-                        Paint::magenta(algo), Paint::red(e));
+                        Paint::magenta(&algo), Paint::red(e));
                 });
 
                 println!(r"  {} solutions by algo-{cxx}{:?}",
-                    Paint::green(exps.len()), Paint::green(algo));
+                    Paint::green(&exps.len()), Paint::green(&algo));
                 assert!(exps.len() == cnt, r"Unexpect count by algo-{:?}: {} != {}",
-                    Paint::magenta(algo), Paint::red(exps.len()), Paint::cyan(cnt));
+                    Paint::magenta(&algo), Paint::red(&exps.len()), Paint::cyan(&cnt));
             };
 
             for algo in [ DynProg, SplitSet, Inplace, Construct ] {
@@ -1041,7 +1040,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
 
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());
-            println!(r"Compute {:2} from {:?}", Paint::cyan(goal), Paint::cyan(&nums));
+            println!(r"Compute {:2} from {:?}", Paint::cyan(&goal), Paint::cyan(&nums));
 
             let nums = nums.into_iter().map(Rational::from).collect::<Vec<_>>();
             let (goal, now) = (goal.into(), std::time::Instant::now());
@@ -1049,7 +1048,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         }
 
         println!(r"Totally {}s for {} iterations.",     // XXX: other algo?
-            Paint::magenta(total_time.as_millis() as f32 / 1000.0), Paint::magenta(cnt));
+            Paint::magenta(&(total_time.as_millis() as f32 / 1000.0)), Paint::magenta(&cnt));
         assert!(total_time.as_secs() < 8);
     }
 
@@ -1060,4 +1059,4 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     // cargo test -- --nocapture && cargo bench     # https://nexte.st/index.html
 }
 
-// vim:sts=4 ts=8 sw=4 noet
+// vim:sts=4 ts=4 sw=4 et

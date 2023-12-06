@@ -3,8 +3,6 @@
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
- *                                                              *
- * Last modified: Thu 28 Sep 2023 11:38:45+0800 by mhfan        *
  ****************************************************************/
 
 // https://cheats.rs
@@ -17,14 +15,13 @@
 
 #![cfg_attr(coverage_nightly, feature(coverage_attribute))]
 
-use yansi::Paint;   // Color, Style
-
 //#[allow(unused_macros)]   // https://zjp-cn.github.io/tlborm/
 //macro_rules! var_args { ($($args:expr),*) => {{ }} }  //$(f($args);)*   // XXX:
 //macro_rules! printvar { ($var:expr) => { println!("{}: {:?}", stringify!($var), $var) } }
 
-//#![no_main]
-// src/main.rs (default application entry point)
+use yansi::Paint;   // Color, Style
+
+//#![no_main] // src/main.rs (default application entry point)
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     eprintln!(r"{} v{}-g{}, {}, {} 🦀", env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"),
         env!("BUILD_GIT_HASH"), env!("BUILD_TIMESTAMP"), env!("CARGO_PKG_AUTHORS"));
@@ -32,8 +29,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //std::env::args().skip(1).for_each(|it| eprint!(" {it:?}") );
     //env::var("CASE_INSENSITIVE").is_err();    // run time environment
 
-    if !atty::is(atty::Stream::Stdout) { Paint::disable() }
-    if cfg!(windows) && !Paint::enable_windows_ascii() { Paint::disable() }
+    //yansi::whenever(yansi::Condition::TTY_AND_COLOR);
+    if (cfg!(windows) && !Paint::enable_windows_ascii()) ||
+        !atty::is(atty::Stream::Stdout) { Paint::disable() }
 
     //include_bytes!("relative_path");  //include!("relative_path");    // XXX:
     //panic!("Test a panic.");
@@ -72,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     use rand::Rng;
     let secret = rand::thread_rng().gen_range(1..=max); //dbg!(secret);
-    println!("\n### {title} (1~{}) ###", Paint::cyan(max).bold());
+    println!("\n### {title} (1~{}) ###", Paint::cyan(&max).bold());
 
     //use std::io::prelude::*;
     use std::{io::Write, cmp::Ordering};
@@ -97,4 +95,4 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 }
 
-// vim:sts=4 ts=8 sw=4 noet
+// vim:sts=4 ts=4 sw=4 et

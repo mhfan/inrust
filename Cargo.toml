@@ -34,18 +34,17 @@ rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer/traits etc.
 num-traits = "0.2"
 #itertools = "0.10"
-yansi = "0.5"
+#yansi = { version = "1.0", features = [ "detect-tty", "detect-env" ] }
+yansi = "0.5" # XXX: v1.0+ currently doesn't work on wasm
 atty  = "0.2"
 
 pest  = "2.7"
 pest_derive = "2.7"
-#mexe  = "0.2"   # XXX: make it support rational number?
-#float_eq  = "1"
-#float-cmp = "0.9"
 
-#async-std = "1.12"
 #async-recursion = "1.0"
+#async-std = "1.12"
 #futures = "0.3"
+#rayon = "1.8"  # data parallelism library, https://github.com/rayon-rs/rayon
 
 #syn = "1.0"
 #quote  = "1.0"
@@ -54,7 +53,7 @@ pest_derive = "2.7"
 
 cxx   = { version = "1.0", optional = true }
 dhat  = { version = "0.3", optional = true }
-pprof = { version = "0.12", features = [ "flamegraph", "criterion" ], optional = true }
+pprof = { version = "0.13", features = [ "flamegraph", "criterion" ], optional = true }
 
 gxhash = { version = "3.1", optional = true }
  ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
@@ -72,8 +71,8 @@ regex = "1.9"
 #csv = "1.1"
 
 [build-dependencies]  # used for compiling build script
+cc = { version = "1.0", features = [ "parallel" ], optional = true }
 cxx-build = { version = "1.0", optional = true }
-cc = { version = "1.0", optional = true }
 #pkg-config = "0.3"
 chrono = "0.4"
 
@@ -95,7 +94,7 @@ harness = false
 #proc-macro = true
 
 [profile.dev]
-incremental = true
+#incremental = false
 opt-level = 1   # Enable a small amount of optimization in debug mode
 
 [profile.dev.package."*"]
@@ -115,9 +114,8 @@ lto = 'fat' # true
 #inherits = "release"
 
 [workspace]
-members = [ #"inperse", "indiox", #"fuzz",
+members = [] #"inperse", "indiox", #"fuzz",
     #"inyew", "inyew/src-tauri",  #"inslint", "inegui",
-]
 #exclude = [ "indsp", "inbevy", "inwasm", "cortex-m" ]
 #resolver = "2"  # default for 2021 edition?
 

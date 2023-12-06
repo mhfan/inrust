@@ -4,8 +4,6 @@
  *                                                              *
  * Maintainer: 范美辉 (MeiHui FAN) <mhfan@ustc.edu>              *
  * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
- *                                                              *
- * Last modified: 四, 29  9 2022 14:42:33 +0800       by mhfan #
  ****************************************************************/
 
 // https://changkun.de/modern-cpp/zh-cn/00-preface/
@@ -540,4 +538,4 @@ int main(int argc, char* argv[]) {
 }
 #endif
 
-// vim:sts=4 ts=8 sw=4 noet
+// vim:sts=4 ts=4 sw=4 et
