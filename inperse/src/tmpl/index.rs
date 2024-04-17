@@ -91,18 +91,6 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
     //let gh_corner = view! { cx, };
     //#[component] fn gh_corner<G: Html>(cx: Scope) -> View<G> { }
 
-    let num_class  = "px-4 py-2 my-4 w-fit appearance-none select-text \
-        read-only:bg-transparent bg-stone-200 border border-purple-200 \
-        text-center text-2xl text-purple-600 font-semibold \
-        hover:text-white hover:bg-purple-600 hover:border-transparent \
-        focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 \
-        shadow-xl invalid:border-red-500 invalid:border-2";
-
-    let ctrl_class = "px-4 py-2 m-4 text-gray-900 font-bold bg-gradient-to-r \
-        from-stone-200 via-stone-400 to-stone-500 rounded-lg hover:bg-gradient-to-br \
-        focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
-        dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
-
     use sycamore::prelude::*;
     web_log!("try for debugging");  // perseus snoop serve/build
 
@@ -139,11 +127,6 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
         inp.set_read_only(false);   inp.focus().unwrap();
     };
 
-    let num_focusout = |e: Event| {
-        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
-        if !inp.read_only() { inp.set_read_only(true); }
-    };
-
     let num_changed = |e: Event| {
         let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
 
@@ -168,16 +151,29 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
         if  opd.iter().enumerate().any(|(i, elm)|
             if elm.is_same_node(Some(inp.as_ref())) { idx = i; true } else { false }) {
-            opd.remove(idx);    inp.blur().unwrap();
-                 set_checked(&inp, false);
-        } else { set_checked(&inp, true);
-
-            if 1 < idx { set_checked(&opd.pop_front().unwrap(), false);
-            }   opd.push_back(inp);
-
+            opd.remove(idx);    inp.blur().unwrap();    set_checked(&inp, false);
+        } else {                                        set_checked(&inp, true);
+            if 1 < idx { set_checked(&opd.pop_front().unwrap(), false); }   opd.push_back(inp);
             if 0 < idx && game24.opr_elm.is_some() { game24.form_expr(eqm_state); }
         }
     };
+
+    let num_focusout = |e: Event| {
+        let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
+        if !inp.read_only() { inp.set_read_only(true); }
+    };
+
+    let num_class  = "px-4 py-2 my-4 w-fit appearance-none select-text \
+        read-only:bg-transparent bg-stone-200 border border-purple-200 \
+        text-center text-2xl text-purple-600 font-semibold \
+        hover:text-white hover:bg-purple-600 hover:border-transparent \
+        focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2 \
+        shadow-xl invalid:border-red-500 invalid:border-2";
+
+    let ctrl_class = "px-4 py-2 m-4 text-gray-900 font-bold bg-gradient-to-r \
+        from-stone-200 via-stone-400 to-stone-500 rounded-lg hover:bg-gradient-to-br \
+        focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
+        dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
     view! { cx,
         // <!--#include file="gh-corner.html" -->
@@ -228,7 +224,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
             div(id="expr-skel") {
               (if *ovr_state.get() { view! { cx,
                 span(id="nums-group", data-bs-toggle="tooltip", title=t!(cx, "num-tips"),
-                    on:focusout=num_focusout, on:dblclick=num_editable,
+                    on:dblclick=num_editable, on:focusout=num_focusout,
                     on:change=num_changed, on:click=num_checked) {
 
                     //Indexed(iterable = game24.nums, view = |cx, num| view! { ... })
@@ -284,7 +280,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                 }
 
                 input(type="text", id="G", value=game24.get_untracked().goal.to_string(),
-                    on:focusout=num_focusout, on:dblclick=num_editable, on:change=num_changed,
+                    on:dblclick=num_editable, on:change=num_changed, on:focusout=num_focusout,
                     placeholder="??", inputmode="numeric", pattern=r"-?\d+(\/\d+)?",
                     maxlength="8", size="4", class=format!("{num_class} rounded-md"),
                     data-bs-toggle="tooltip", title=t!(cx, "input-goal"), readonly=true)

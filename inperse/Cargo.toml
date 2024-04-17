@@ -39,5 +39,15 @@ perseus-warp = { version = "0.4", features = [ "dflt-server" ] }
 getrandom = { version = "0.2", features = [ "js" ] }
 #wee_alloc = "0.4"
 
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+codegen-units = 1
+strip = 'debuginfo'
+opt-level = "s"
+panic = 'abort'
+lto = true
+
 [workspace]
 
