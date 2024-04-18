@@ -2,6 +2,10 @@
 use dioxus::prelude::*;
 use inrust::calc24::*;
 use instant::Instant;
+use std::collections::VecDeque;
+
+use web_sys::{HtmlElement, HtmlInputElement};
+use {dioxus::web::WebEventExt, wasm_bindgen::JsCast};
 
 struct Game24State {
     goal: Rational,
@@ -11,18 +15,18 @@ struct Game24State {
     deck: Vec<u8>,  // hold all cards number
     spos: u8,       // shuffle position
 
-    _cnt: u8,       // combined numbers count
+    ncnt: u8,       // combined numbers count
     tnow: Instant,  // timing
 
-    //opr_elm:   Option<HtmlInputElement>,    // element of selected operator
-    //opd_elq: VecDeque<HtmlInputElement>,    // elements queue of selected operands
+    opr_elm:   Option<HtmlInputElement>,    // element of selected operator
+    opd_elq: VecDeque<HtmlInputElement>,    // elements queue of selected operands
 }
 
 impl Game24State {
     fn new() -> Self {
         let mut game24 = Self {  goal: 24.into(), nums: vec![],
-            deck: (0..13*4).collect(), spos: 0, _cnt: 1, tnow: Instant::now(),
-            //opr_elm: None, opd_elq: VecDeque::new(),
+            deck: (0..13*4).collect(), spos: 0, ncnt: 1, tnow: Instant::now(),
+            opr_elm: None, opd_elq: VecDeque::new(),
         };  game24.dealer(4);   game24
     }
 
@@ -43,34 +47,112 @@ impl Game24State {
             if !calc24_first(&self.goal, &self.nums, DynProg).is_empty() { break }
         }   self.tnow = Instant::now();
     }
-}
 
-fn main() {                           //dioxus_desktop::launch(app);
-    //dioxus_logger::init(log::LevelFilter::Info).expect("failed to init logger");
-    #[cfg(not(target_arch = "wasm32"))] dioxus_desktop::launch_cfg(app,
-        dioxus_desktop::Config::new().with_window(
-            dioxus_desktop::WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
-        .with_custom_head("<link rel='stylesheet' href='dist/tailwind.css'/>".into())
-        //.with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
-        //.with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
-    );
+    fn form_expr(&mut self, eqm_state: &mut Signal<Option<bool>>) {
+        let opd = &self.opd_elq;
+        let opr = self.opr_elm.as_ref().unwrap();
 
-    #[cfg(target_arch = "wasm32")] { //Config::new(log::Level::Trace)
-        wasm_logger::init(wasm_logger::Config::default());  // init debug tool for WebAssembly
-        //console_error_panic_hook::set_once();     // did in dioxus_web::launch?
-        dioxus_web::launch(app);
+        let str = format!("({} {} {})", opd[0].value(), opr.value(), opd[1].value());
+        opd[0].set_size(str.len() as u32);  opd[0].set_value(&str);
+        opd.iter().for_each(|elm| set_checked(elm, false));
+        opd[1].set_hidden(true);    opr.set_checked(false);
+
+        self.opd_elq.clear();       self.opr_elm = None;
+        self.ncnt += 1;     if self.ncnt == self.nums.len() as u8 {
+            //let str = str.chars().map(|ch|
+            //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
+            eqm_state.set(Some(str.parse::<Expr>().is_ok_and(|e| e.value() == &self.goal)));
+        }
     }
 }
 
-//fn not_found(cx: Scope) -> Element { rsx!(cx, Redirect{ to: "/" }) }
+fn set_checked(elm: &HtmlElement, checked: bool) {
+    if checked { elm.   set_attribute("aria-checked", "true").unwrap();
+    } else {     elm.remove_attribute("aria-checked").unwrap(); }
+}
 
-fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
-    let ovr_state = use_state(cx, || true);
-    let resolving = use_state(cx, || false);
-    let eqm_state = use_state(cx, || Option::<bool>::None);
-    let game24 = use_ref(cx, Game24State::new);
+fn main() {
+    dioxus_logger::init(tracing::Level::INFO).expect("failed to init logger");
 
-    let goal_elem = use_ref(cx, || None);
+    //tracing::info!("starting game24");
+    #[cfg(not(feature = "desktop"))] launch(app);
+    #[cfg(feature = "desktop")] LaunchBuilder::desktop().with_cfg( // XXX:
+        dioxus::desktop::Config::new().with_window(
+        dioxus::desktop::WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
+        .with_custom_head("<link rel='stylesheet' href='dist/tailwind.css'/>".into())
+        //.with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
+        //.with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
+    ).launch(app);
+}
+
+//fn not_found() -> Element { rsx!(Redirect{ to: "/" }) }
+
+fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
+    let mut ovr_state = use_signal(|| true);
+    let mut resolving = use_signal(|| false);
+    let mut eqm_state = use_signal(|| Option::<bool>::None);
+    let mut game24 = use_signal(Game24State::new);
+
+    use_effect(move || {  let _ = ovr_state.read();  // clear_state
+        game24.with_mut(|game| {
+            if !game.opd_elq.is_empty() { game.opd_elq.clear(); }
+            if let Some(opr) = &game.opr_elm {
+                opr.set_checked(false);     game.opr_elm = None;
+            }
+
+            if *resolving.peek() { resolving.set(false); }
+            if  eqm_state.peek().is_some() { eqm_state.set(None); }
+            if 1 != game.ncnt { game.ncnt = 1; }
+        });
+    });
+
+    let num_editable = move |evt: Event<MouseData>|
+        if game24.peek().ncnt == 1 {
+            let inp = evt.web_event().target().unwrap()
+                .dyn_into::<HtmlInputElement>().unwrap();
+            inp.set_read_only(false);   inp.focus().unwrap();
+    };
+
+    let num_changed = move |evt: Event<FormData>| {
+        let inp = evt.web_event().target().unwrap()
+            .dyn_into::<HtmlInputElement>().unwrap();
+
+        if  inp.check_validity() {  inp.set_read_only(true);
+            game24.with_mut(|game| {
+                let nums =  &mut game.nums;
+
+                let val = inp.value().parse::<Rational>().unwrap();
+                if let Ok(idx) = inp.get_attribute("id").unwrap().get(1..).unwrap()
+                    .parse::<u8>() { nums[idx as usize] = val; } else { game.goal = val; }
+
+                if *resolving.peek() { resolving.set(false); }
+                game.tnow = Instant::now();
+            });
+        } else if inp.focus().is_ok() { inp.select(); }
+    };
+
+    let num_focusout = move |evt: Event<FocusData>| {
+        let inp = evt.web_event().target().unwrap()
+            .dyn_into::<HtmlInputElement>().unwrap();
+        if !inp.read_only() { inp.set_read_only(true); }
+    };
+
+    let num_checked = move |evt: Event<MouseData>| {
+        let inp = evt.web_event().target().unwrap()
+            .dyn_into::<HtmlInputElement>().unwrap();
+        game24.with_mut(|game| {
+            let opd = &mut game.opd_elq;
+            let mut idx = opd.len();
+
+            if  opd.iter().enumerate().any(|(i, elm)|
+                if elm.is_same_node(Some(inp.as_ref())) { idx = i; true } else { false }) {
+                opd.remove(idx);    inp.blur().unwrap();    set_checked(&inp, false);
+            } else {                                        set_checked(&inp, true);
+                if 1 < idx { set_checked(&opd.pop_front().unwrap(), false); }  opd.push_back(inp);
+                if 0 < idx && game.opr_elm.is_some() { game.form_expr(&mut eqm_state); }
+            }
+        });
+    };
 
     let num_class = "px-4 py-2 my-4 w-fit appearance-none select-text \
         read-only:bg-transparent bg-stone-200 border border-purple-200 \
@@ -84,8 +166,7 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
         focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
         dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
-    //log::info!("");
-    cx.render(rsx! {    //render_lazy!(rsx!( //rsx!(cx,
+    rsx! {
         /* Router { // XXX:
             Route { to: "/indiox", self::homepage{} }
             Route { to: "", self::not_found{} }
@@ -97,14 +178,14 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
         //link { rel: "stylesheet",
         //    href: "https://cdn.jsdelivr.net/npm/tw-elements/dist/css/index.min.css" }
 
-        style { "html {{ background-color: #15191D; color: #DCDCDC; }} \
-            body {{ font-family: Courier, Monospace; text-align: center; height: 100vh; }}"
+        style { dangerous_inner_html: format_args!("{}\n{}", // XXX:
+            "html { background-color: #15191D; color: #DCDCDC; }",
+            "body { font-family: Courier, Monospace; text-align: center; height: 100vh; }")
         }
 
         header { class: "text-4xl m-8",
-            a { href: format_args!("{}", env!("CARGO_PKG_REPOSITORY")),
-                dangerous_inner_html: format_args!("{}",
-                    include_str!("../assets/gh-corner.html")),
+            a { href: format_args!("{}", env!("CARGO_PKG_REPOSITORY")), dangerous_inner_html:
+                      format_args!("{}", include_str!("../assets/gh-corner.html")),
                 class: "github-corner", "aria-label": "View source on GitHub", }
             a { href: "https://github.com/mhfan/inrust", "24 Challenge" }
         }
@@ -129,10 +210,19 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
 
             fieldset { id: "ops-group", "data-bs-toggle": "tooltip",
                 title: "Click to (un)check\nDrag over to replace/exchange",
-                "disabled": format_args!("{}", eqm_state.get().is_some() || !*ovr_state.get()),
-                //onclick: ops_selected, // how to cache selected operator element/component?
+                "disabled": format_args!("{}", eqm_state.read().is_some() || !*ovr_state.read()),
+                // use onclick instead of onchange for capable of de-selection
+                onclick: move |evt| if let Ok(inp) = evt.web_event().target().unwrap()
+                    .dyn_into::<HtmlInputElement>() { game24.with_mut(|game| {
+                        if  inp.is_same_node(game.opr_elm.as_ref().map(|elm|
+                            elm.as_ref())) { game.opr_elm = None;
+                            inp.set_checked(false);     return
+                        }                    game.opr_elm = Some(inp);
+                        if game.opd_elq.len() == 2 { game.form_expr(&mut eqm_state); }
+                    });
+                },
 
-                [ "+", "-", "×", "÷" ].into_iter().map(|op| rsx! {
+                {[ "+", "-", "×", "÷" ].into_iter().map(|op| rsx! {
                     div { class: "mx-6 my-4 inline-block",
                         input { "type": "radio", name: "ops", id: "{op}",
                             class: "hidden peer",          value: "{op}",
@@ -144,15 +234,16 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                             peer-checked:ring-indigo-500 peer-checked:ring-offset-2 \
                             peer-checked:bg-transparent rounded-md shadow-xl", "{op}" }
                     }
-                })
+                })}
             }
 
             div { id: "expr-skel",
-              if *ovr_state.get() { rsx! {
+              if *ovr_state.read() {
                 span { id: "nums-group", "data-bs-toggle": "tooltip",
                     title: "Click to (un)check\nDouble click to input\nDrag over to exchange",
-                    //ondblclick: num_editable, onchange: num_changed, onclick: num_checked,
-                    game24.read().nums.iter().enumerate().map(|(idx, num)| {
+                    ondoubleclick: num_editable, onchange: num_changed,
+                    onclick: num_checked, onfocusout: num_focusout,
+                    {game24.peek().nums.iter().enumerate().map(|(idx, num)| {
                         /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
                         // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
 
@@ -168,41 +259,41 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
                             placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
                             rounded-full mx-2", }}  // https://regexr.com, https://regex101.com
-                    })                              // https://rustexp.lpil.uk
+                    })}                              // https://rustexp.lpil.uk
                 }
-              }} else { rsx! {
+              } else {
                 input { "type": "text", id: "overall", name: "operands",
                     "data-bs-toggle": "tooltip", title: "Input space seperated numbers",
                     placeholder: "???", //minlength: "32", size: "16",
                     inputmode: "numeric", pattern: r"\s*(-?\d+(\/\d+)?\s*){{2,9}}",
                     class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
-                    rounded-full mx-2", onchange: |evt| {   resolving.set(false);
-                        game24.with_mut(|game24| game24.nums =
-                            evt.data.value.split_ascii_whitespace()
-                                .filter_map(|s| s.parse::<Rational>().ok()).collect()); }, }
-              }}
+                    rounded-full mx-2", onchange: move |evt| {
+                        if *resolving.peek() { resolving.set(false); }
+                        let inp = evt.web_event().target().unwrap()
+                            .dyn_into::<HtmlInputElement>().unwrap();
+                        let vs  = inp.value();  if inp.check_validity() && !vs.is_empty() {
+                            game24.with_mut(|game| game.nums = vs.split_ascii_whitespace()
+                                .filter_map(|s| s.parse::<Rational>().ok()).collect());
+                            //resolving.set(true);
+                        } else if inp.focus().is_ok() { inp.select(); }
+                    }, }
+              }
 
                 //"data-bs-toggle": "collapse", "data-bs-target": "#all-solutions",
                 //    "aria-expanded": "false", "aria-controls": "all-solutions",
-                button { ondblclick: |_| resolving.set(true),
+                button { ondoubleclick: move |_| resolving.set(true),
                     class: "px-4 py-2 m-4 text-3xl font-bold rounded-md focus:ring-indigo-500 \
                     aria-checked:ring-2 aria-checked:text-lime-500 aria-checked:ring-lime-400 \
                     aria-[checked=false]:text-red-500 aria-[checked=false]:ring-red-400 \
                     hover:outline-none hover:ring-2 hover:ring-indigo-400 focus:ring-offset-2 \
                     aria-[checked=false]:ring-2",   //text-white
                     "data-bs-toggle": "tooltip", title: "Double click to get solutions",
-                    aria_checked: "{eqm_state.get():?}", match *eqm_state.get() {
+                    aria_checked: "{eqm_state.read():?}", match *eqm_state.read() {
                         Some(true) => "=", Some(false) => "≠", _ => "≠?" }
                 }
 
-                input { "type": "text", id: "G", readonly: "true", value: "{game24.read().goal}",
-                    onmounted: |evt| goal_elem.set(Some(evt.inner().clone())),
-                    ondblclick: |_| if game24.read()._cnt == 1 {
-                        if let Some(_inp) = goal_elem.read().as_ref() {
-                            //let inp = _inp.get_raw_element().unwrap().dyn_into();
-                            //inp.set_read_only(false);   inp.focus().unwrap();
-                        }
-                    }, //onchange: num_changed,    // FIXME:
+                input { "type": "text", id: "G", readonly: "true", value: "{game24.peek().goal}",
+                    ondoubleclick: num_editable, onchange: num_changed, onfocusout: num_focusout,
                     placeholder: "??", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                     maxlength: "8", size: "4", class: "{num_class} rounded-md",
                     "data-bs-toggle": "tooltip", title: "Double click to input new goal",
@@ -222,61 +313,58 @@ fn app(cx: Scope) -> Element {  //let win = dioxus_desktop::use_window(&cx);
             div { id: "ctrl-btns",
                 input { "type": "reset", value: "Dismiss", class: "{ctrl_class}",
                     "data-bs-toogle": "tooltip", title: "Click to dismiss expr.",
-                    onclick: |_| ovr_state.needs_update(),
+                    onclick: move |_| needs_update(), //ovr_state.needs_update(), // XXX:
                 }
 
                 select { class: "{ctrl_class} appearance-none", "data-bs-toogle": "tooltip",
                     title: "Click to set numbers count\nOverall - single element for all numbers",
-                    onchange: |evt| { let val = evt.data.value.parse::<u8>().unwrap();
+                    onchange: move |evt| { let val = evt.value().parse::<u8>().unwrap();
                         if val == 1 {
-                            game24.with_mut(|game24| game24.nums.clear());  ovr_state.set(false);
+                            game24.with_mut(|game| game.nums.clear());  ovr_state.set(false);
                         } else {
-                            game24.with_mut(|game24| game24.dealer(val));   ovr_state.set(true);
-                        }   resolving.set(false);
+                            game24.with_mut(|game| game.dealer(val));   ovr_state.set(true);
+                        }
                     },
 
-                    option { value: "1", selected: !ovr_state, "Overall" }
-                    (4..=6).map(|n| rsx! { option { value: "{n}", selected: format_args!("{}",
-                            *ovr_state.get() && n == game24.read().nums.len()), "{n} nums" }})
+                    option { value: "1", "Overall" } // selected: !*ovr_state.read(),
+                    {(4..=6).map(|n| rsx! { option { value: "{n}", selected: format_args!("{}",
+                        /* *ovr_state.read() && */n == game24.peek().nums.len()), "{n} nums" }})}
                 }
 
-                button { class: "{ctrl_class}", onclick: |_| if *ovr_state.get() {
-                        game24.with_mut(|game24| game24.dealer(game24.nums.len() as u8));
-                        resolving.set(false);
-                    //} else {    ovr_state.needs_update();     // XXX:
-                    }, "data-bs-toogle": "tooltip", title: "Click to refresh new", "Refresh" }
+                button { class: "{ctrl_class}", onclick: move |_| { if *ovr_state.peek() {
+                        game24.with_mut(|game| game.dealer(game.nums.len() as u8));
+                    }   needs_update(); //ovr_state.needs_update();   // XXX:
+                }, "data-bs-toogle": "tooltip", title: "Click to refresh new", "Refresh" }
             }
 
-            if *eqm_state.get() == Some(true) { rsx! {
+            if *eqm_state.read() == Some(true) {
                 div { id: "timer", class: "mx-1 font-sans text-yellow-600 absolute left-0",
                     "data-bs-toggle": "tooltip", title: "Time for calculation",
-                    format!("{:.1}s", game24.read().tnow.elapsed().as_secs_f32())
+                    {format!("{:.1}s", game24.peek().tnow.elapsed().as_secs_f32())}
                 }
-            }}
+            }
 
-            if *resolving.get() && !game24.read().nums.is_empty() { rsx! {
+            if *resolving.read() && !game24.peek().nums.is_empty() {
                 ul { id: "all-solutions", class: "overflow-y-auto ml-auto mr-auto \
                     w-fit text-left text-lime-500 text-xl", "data-bs-toggle": "tooltip",
-                    title: "All inequivalent solutions",  game24.with(|game24| {
-                    let exps = calc24_coll(&game24.goal, &game24.nums, DynProg);
+                    title: "All inequivalent solutions", {game24.with_peek(|game| {
+                    let exps = calc24_coll(&game.goal, &game.nums, DynProg);
                     let cnt  = exps.len();
 
-                    exps.into_iter().map(|str| rsx! { li { str.chars().map(|ch|
+                    exps.into_iter().map(|str| rsx! { li { {str.chars().map(|ch|
                         match ch { '*' => '×', '/' => '÷', _ => ch }).collect::<String>()
-                    }}).chain(std::iter::once_with(move ||  // capatured 'cnt' by value
-                        if    5 < cnt     { rsx! {
-                            span { class: "text-white", format_args!("Got {cnt} solutions") }}
-                        } else if cnt < 1 { rsx! {
-                            span { class: "text-red-500", "Got NO solutions!" }
-                        }} else { rsx! { "" } }
-                    ))
-                })}
-            }}
+                    }}}).chain(std::iter::once_with(move || rsx! { if 5 < cnt {
+                        span { class: "text-white", {format_args!("Got {cnt} solutions")} }
+                    } else if cnt < 1 {
+                        span { class: "text-red-500", "Got NO solutions!" }
+                    }}))
+                })}}
+            }
         }
 
         footer { class: "m-4", "Copyright © 2022 by " 
             a { href: "https://github.com/mhfan", "mhfan" }
         }
-    })
+    }
 }
 

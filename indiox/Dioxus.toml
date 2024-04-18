@@ -1,5 +1,5 @@
 
-# cargo install --git https://github.com/Dioxuslabs/cli
+# cargo install dioxus-cli # --git https://github.com/Dioxuslabs/cli
 
 [application]
 name = "indiox"     # App (Project) Name
@@ -31,8 +31,9 @@ script = [] # Javascript code file, serve: [dev-server] only
 [application.tools]
 # use binaryen.wasm-opt for output Wasm file
 # binaryen just will trigger in `web` platform
-binaryen = { wasm_opt = true }
+#binaryen = { wasm_opt = true }
 
 # default value: input = "public/tailwind.css", config = "src/tailwind.config.js"
 #tailwindcss = { input = "tailwind_base.css", config = "tailwind.config.js" }
 #tailwindcss = { input = "main.css", config = "tailwind.config.js" }
+
