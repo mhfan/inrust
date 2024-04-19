@@ -19,7 +19,7 @@ args = [ "t", "--doc" ]
 
 [tasks.run-sample]
 command = "cargo"
-args = [ "r", #"--features", "debug", #"num-rational,debug",
+args = [ "r", #"-F", "debug", #"num-rational,debug",
             "--", "-G", "-2", "1", "2", "3", "4",
 ]
 
@@ -60,16 +60,16 @@ env = { "CODECOV_TOKEN" = "ca307f14-d04b-4c00-8a75-8d6e81202e44" }
 script = [ "sudo cargo flamegraph --bench calc24_bench" ]
 
 [tasks.bench-mem]
-command = "cargo"   # cargo bench --features dhat-heap
-args = [ "bench", "--features", "dhat-heap", ]
+command = "cargo"   # cargo bench -F dhat-heap
+args = [ "bench", "-F", "dhat-heap", ]
 
 [tasks.bench-num]
-command = "cargo"   # cargo bench --features num-rational
-args = [ "bench", "--features", "num-rational", ]
+command = "cargo"   # cargo bench -F num-rational
+args = [ "bench", "-F", "num-rational", ]
 
 [tasks.bench-pprof]
-command = "cargo"   # cargo bench --features pprof
-args = [ "bench", "--features", "pprof", ]
+command = "cargo"   # cargo bench -F pprof
+args = [ "bench", "-F", "pprof", ]
 
 [tasks.publish]
 #command = "cargo"
