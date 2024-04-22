@@ -8,6 +8,7 @@
 
 //pub mod external_mod;     // mod file or dir with various mod.rs, relative to src/.
 pub mod calc24;
+pub mod prime;
 pub mod list;
 
 pub mod misc {
