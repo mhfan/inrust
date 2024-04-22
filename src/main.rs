@@ -74,16 +74,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     //use std::io::prelude::*;
     use std::{io::Write, cmp::Ordering};
-    let _result = 'label: loop {    // unused prefixed with underscore
+    let _res = 'label: loop {   // unused prefixed with underscore
         print!("\n{}", Paint::white(prompt).dimmed());
 
         let mut guess = String::new();
-        std::io::stdout().flush().expect("Failed to flush!"); //.unwrap();
-        std::io::stdin().read_line(&mut guess).expect("Failed to read!");
+        std::io::stdout().flush().expect("Failed to flush"); //.unwrap();
+        std::io::stdin().read_line(&mut guess).expect("Failed to read");
 
-        //let guess: i32 = guess.trim().parse().expect("Please type a number");
-        //match guess.trim().parse::<i32>() { Ok(_guess) => { }, _ => () }
-        if let Ok(guess) = guess.trim().parse::<i32>() { // isize
+        let guess = guess.trim();
+        //let guess: i32 = guess.parse().expect("Please type a number");
+        //match guess.parse::<i32>() { Ok(_guess) => { }, _ => () }
+        if let Ok(guess) = guess.parse::<i32>() { // isize
             //if (guess < secret) { } else if (secret < guess) { } else { }
             match guess.cmp(&secret) {
                 Ordering::Greater =>    println!("[{}]", Paint::magenta(too_big)),

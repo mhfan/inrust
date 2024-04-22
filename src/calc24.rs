@@ -8,8 +8,6 @@
 //pub mod calc24 {
 
 //use std::io::prelude::*;
-
-use yansi::{Paint, Color};  // Style
 //use itertools::Itertools;
 
 //use num_integer::Integer;     // for BigInt, somewhere `+ Copy'
@@ -23,7 +21,7 @@ use yansi::{Paint, Color};  // Style
 #[derive(Clone, Copy)] #[repr(C)] pub struct RNum<T>(T, T);   // { n: T, d: T };
 
 use num_traits::PrimInt;
-impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
+impl<T: PrimInt> RNum<T> {   //#![allow(dead_code)]
     #[inline] pub const fn numer(&self) -> &T { &self.0 }
     #[inline] pub const fn denom(&self) -> &T { &self.1 }
     #[inline] fn is_one (&self) -> bool { self.0 == self.1 }
@@ -83,7 +81,7 @@ impl<T: PrimInt + Display> Display for RNum<T> {
         ];
 
         cases.iter().for_each(|it| {
-            assert_eq!(it.0.to_string(), it.1, r"display {} != {}", it.0, it.1);
+            assert!(it.0.to_string() == it.1, r"display {} != {}", it.0, it.1);
             assert!(it.1.parse::<RNum<i32>>().is_ok_and(|v| v == it.0),
                 //.trim_start_matches('(').trim_end_matches(')')
                 r"parsing {} != {}", it.1, it.0);
@@ -208,7 +206,7 @@ impl Expr {     //#![allow(dead_code)]
         if let Some((.., op)) = &self.m { *op } else { Oper::Num }
     }
 
-    fn traverse_num(&self, fop: &mut impl FnMut(&Rational)) {
+    #[allow(dead_code)] fn traverse_num(&self, fop: &mut impl FnMut(&Rational)) {
         if let Some((a, b, _)) = &self.m {
             a.traverse_num(fop);    b.traverse_num(fop);
         } else { fop(&self.v); }
@@ -619,8 +617,7 @@ pub  use Calc24Algo::*;
 
 #[inline] pub fn calc24_print(goal: &Rational, nums: &[Rational], algo: Calc24Algo) -> usize {
     let mut cnt = 0;    #[allow(clippy::unit_arg)]
-    calc24_algo(goal, nums, algo, |e| {
-        println!(r"{}", Paint::green(&e)); Some(cnt += 1) });   cnt
+    calc24_algo(goal, nums, algo, |e| { println!(r"{e}"); Some(cnt += 1) });   cnt
 }
 
 #[inline] pub fn calc24_algo (goal: &Rational, nums: &[Rational], algo: Calc24Algo,
@@ -651,7 +648,7 @@ pub  use Calc24Algo::*;
     }
 }
 
-#[allow(dead_code)] #[inline] fn deck_traverse(min: i32, max: i32, cnt: u8, mrpt: u8,
+#[inline] fn deck_traverse(min: i32, max: i32, cnt: u8, mrpt: u8,
     nums: &mut Vec<i32>, solve: &mut impl FnMut(&[i32])) {
     (min..=max).for_each(|x| {  let len = nums.len() as _;
         if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
@@ -674,7 +671,7 @@ pub  use Calc24Algo::*;
     //assert_eq!(game24_solvable(goal, min, 10, 7, silent, DynProg), (0, 10890, 0));
     assert_eq!(game24_solvable(goal, min, 10, 4, false, DynProg), (149, 566, 1343));
     for algo in [ DynProg, SplitSet, Inplace, Construct ] {
-        assert_eq!(game24_solvable(goal, min, 13, 4, silent, algo), (458, 1362, 3017),
+        assert!(game24_solvable(goal, min, 13, 4, silent, algo) == (458, 1362, 3017),
             r"failed on algo-{algo:?}");
     }
     ``` */
@@ -765,8 +762,8 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                 eprintln!(r"Failed to read: {e}") }
 
             let es = es.trim();
-            if  es.starts_with(['n', 'N']) || es.eq("?") { println!(r"{}: {}",
-                    Paint::new(r"Solution").dimmed(), Paint::green(&stre));
+            if  es.starts_with(['n', 'N']) || es.eq("?") {
+                println!(r"{}: {stre}", Paint::new(r"Solution").dimmed());
                 if let Ok(n) = es[1..].parse::<u16>() { batch = n; }    break
             }
 
@@ -786,6 +783,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     }
 }
 
+use yansi::{Paint, Color};  // Style
 #[allow(clippy::blocks_in_conditions)]
 pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
@@ -880,7 +878,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     //exps: *mut *const Expr,
 }
 
-#[cfg(feature = "cc")] #[inline] fn calc24_print_cffi(goal: &Rational, nums: &[Rational],
+#[cfg(feature = "cc")] #[inline] pub fn calc24_print_cffi(goal: &Rational, nums: &[Rational],
     algo: Calc24Algo) -> usize {
     let mut calc24 = Calc24IO { algo, goal: *goal,
         nums: nums.as_ptr(), ncnt: nums.len(),
@@ -956,15 +954,15 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         assert_eq!(super::hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
     }
 
-    #[test] fn deck_traverse() {   // for non-public function
+    #[test] fn deck_traverse() {    use super::deck_traverse;   // for non-public function
         let (mut nums, mut cnt) = (vec![], 0);
-        super::deck_traverse(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  6175);     cnt = 0;
-        super::deck_traverse(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 10, 6, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt,  4905);     cnt = 0;
-        super::deck_traverse(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 13, 6, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt, 18395);     cnt = 0;
-        super::deck_traverse(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
+        deck_traverse(1, 10, 7, 4, &mut nums, &mut |_| cnt += 1);
         assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
