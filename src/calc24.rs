@@ -648,8 +648,10 @@ pub  use Calc24Algo::*;
     }
 }
 
-#[inline] fn deck_traverse(min: i32, max: i32, cnt: u8, mrpt: u8,
-    nums: &mut Vec<i32>, solve: &mut impl FnMut(&[i32])) {
+//#[cfg(feature = "cli")] pub mod cli {}  use super::*;   //#[cfg(not(target_arch = "wasm32"))]
+
+#[cfg(feature = "cli")] #[inline] fn deck_traverse(min: i32, max: i32, cnt: u8,
+    mrpt: u8, nums: &mut Vec<i32>, solve: &mut impl FnMut(&[i32])) {
     (min..=max).for_each(|x| {  let len = nums.len() as _;
         if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
             if n == x { acc + 1 } else { acc }) == mrpt { return } else { nums.push(x) }
@@ -675,7 +677,7 @@ pub  use Calc24Algo::*;
             r"failed on algo-{algo:?}");
     }
     ``` */
-pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
+#[cfg(feature = "cli")] pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
     silent: bool, algo: Calc24Algo) -> (u16, u16, u32) {
     let mut rcnt = (0, 0, 0);
 
@@ -720,7 +722,7 @@ pub fn game24_solvable(goal: &Rational, min: i32, max: i32, cnt: u8,
         rcnt.0 + rcnt.1, Paint::magenta(&rcnt.2));  rcnt
 }
 
-pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
+#[cfg(feature = "cli")] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
     let (mut rng, mut spos, mut batch)= (rand::thread_rng(), 0, 0);
@@ -750,7 +752,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
         let stre = exps.join(", ");
 
         if 0 < batch {  batch -= 1;     // Iterator::intersperse_with
-            println!(r"{}", Paint::black(&stre).dimmed().bg(Color::Black));
+            println!(r"{}", Paint::black(&stre).dim().bg(Color::Black));
             if 0 == batch { println!(); }   continue
         }
 
@@ -763,7 +765,7 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
 
             let es = es.trim();
             if  es.starts_with(['n', 'N']) || es.eq("?") {
-                println!(r"{}: {stre}", Paint::new(r"Solution").dimmed());
+                println!(r"{}: {stre}", Paint::new(r"Solution").dim());
                 if let Ok(n) = es[1..].parse::<u16>() { batch = n; }    break
             }
 
@@ -778,13 +780,13 @@ pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
                 print!(r"{}/{:.1}s: ", Paint::new(r"Bingo").bg(Color::Green),
                     tnow.elapsed().as_secs_f32());
                 println!(r"{}", Paint::green(&stre));   break;
-            } else { print!(r"{}: ", Paint::new(r"Tryagain").dimmed()); }
+            } else { print!(r"{}: ", Paint::new(r"Tryagain").dim()); }
         }       println!();
     }
 }
 
-use yansi::{Paint, Color};  // Style
-#[allow(clippy::blocks_in_conditions)]
+#[cfg(feature = "cli")] use yansi::{Paint, Color};  // Style
+#[cfg(feature = "cli")] #[allow(clippy::blocks_in_conditions)]
 pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     fn game24_helper<I, S>(goal: &Rational, nums: I, algo: Calc24Algo, _cxx: bool)
         where I: Iterator<Item = S>, S: AsRef<str> {    // XXX: use closure instead?
@@ -838,8 +840,8 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         size_of::<Oper>(), size_of::<Rational>()); */
 
     println!("\n### Solve {} calculation ###", Paint::magenta(&goal).bold());
-    loop {  print!("\n{}{}{}", Paint::new(r"Input integers/rationals for ").dimmed(),
-            Paint::yellow(&goal), Paint::new(": ").dimmed());
+    loop {  print!("\n{}{}{}", Paint::new(r"Input integers/rationals for ").dim(),
+            Paint::yellow(&goal), Paint::new(": ").dim());
 
         let mut nums = String::new();   use std::io::Write;
         if let Err(e) = std::io::stdout().flush() { eprintln!(r"Failed to flush: {e}") }
@@ -966,6 +968,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         assert_eq!(cnt, 10890);     //cnt = 0;
     }
 
+    use yansi::Paint; // Style, Color
     #[test] fn solve24() {
         let cases = [
             ( 24, vec![  ], vec![], 0),

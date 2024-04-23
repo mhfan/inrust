@@ -29,9 +29,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //std::env::args().skip(1).for_each(|it| eprint!(" {it:?}") );
     //env::var("CASE_INSENSITIVE").is_err();    // run time environment
 
-    //yansi::whenever(yansi::Condition::TTY_AND_COLOR);
-    if (cfg!(windows) && !Paint::enable_windows_ascii()) ||
-        !atty::is(atty::Stream::Stdout) { Paint::disable() }
+    yansi::whenever(yansi::Condition::TTY_AND_COLOR);
+    //if (cfg!(windows) && !Paint::enable_windows_ascii()) ||
+    //    !atty::is(atty::Stream::Stdout) { Paint::disable() }
 
     //include_bytes!("relative_path");  //include!("relative_path");    // XXX:
     //panic!("Test a panic.");
@@ -76,7 +76,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //use std::io::prelude::*;
     use std::{io::Write, cmp::Ordering};
     let _res = 'label: loop {   // unused prefixed with underscore
-        print!("\n{}", Paint::white(prompt).dimmed());
+        print!("\n{}", Paint::white(prompt).dim());
 
         let mut guess = String::new();
         std::io::stdout().flush().expect("Failed to flush"); //.unwrap();

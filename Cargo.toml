@@ -34,9 +34,8 @@ rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer/traits etc.
 num-traits = "0.2"
 #itertools = "0.10"
-#yansi = { version = "1.0", features = [ "detect-tty", "detect-env" ] }
-yansi = "0.5" # XXX: v1.0+ currently doesn't work on wasm
-atty  = "0.2"
+yansi = { version = "1.0", features = [ "detect-tty", "detect-env" ], optional = true }
+#atty  = "0.2"
 
 pest  = "2.7"
 pest_derive = "2.7"
@@ -78,8 +77,9 @@ chrono = "0.4"
 
 [features]
 debug = []
+cli = [ "yansi" ]
 cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
-default = [ "cc", "ahash" ] # "gxhash", "cxx", "serde", "num-rational", "num-bigint",
+default = [ "cc", "cli", "ahash" ] # "gxhash", "cxx", "serde", "num-rational", "num-bigint",
 dhat-heap = [ "dhat" ]
 
 [[bench]]

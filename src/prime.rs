@@ -60,11 +60,11 @@ pub fn prime_factor(x: u64) -> Vec<(u32, u32)> {    assert!(x != 0);
 //HashMap.entry(n).and_modify(|cnt| *cnt += 1).or_insert(1);
 
 #[cfg_attr(coverage_nightly, coverage(off))] //#[cfg(not(tarpaulin_include))]
-#[allow(dead_code)] pub fn factor_prime_cli() {
+#[allow(dead_code)] #[cfg(feature = "cli")] pub fn factor_prime_cli() {
     println!("\n### Fractorization of prime ###");
 
     loop {  use std::io::Write;     let mut nstr = String::new();
-        print!("\n{}", yansi::Paint::white("Input an arbitrary integer: ").dimmed());
+        print!("\n{}", yansi::Paint::white("Input an arbitrary integer: ").dim());
         std::io::stdout().flush().expect("Failed to flush"); //.unwrap();
         std::io::stdin().read_line(&mut nstr).expect("Failed to read");
 
