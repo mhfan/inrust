@@ -224,7 +224,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
 
                 {[ "+", "-", "×", "÷" ].into_iter().map(|op| rsx! {
                     div { class: "mx-6 my-4 inline-block",
-                        input { "type": "radio", name: "ops", id: "{op}",
+                        input { r#type: "radio", name: "ops", id: "{op}",
                             class: "hidden peer",          value: "{op}",
                         }   // require value='xxx', default is 'on'
 
@@ -254,7 +254,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                             10..=13 => court[(num - 10) as usize].to_owned(),
                             _ => "?".to_owned() }, suits[sid as usize]);     //num  // TODO: */
 
-                        rsx! { input { "type": "text", id: "N{idx}", value: "{num}", name: "nums",
+                        rsx! { input { r#type: "text", id: "N{idx}", value: "{num}", name: "nums",
                             maxlength: "6", size: "3", readonly: "true", draggable: "true",
                             placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
@@ -262,7 +262,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                     })}                              // https://rustexp.lpil.uk
                 }
               } else {
-                input { "type": "text", id: "overall", name: "operands",
+                input { r#type: "text", id: "overall", name: "operands",
                     "data-bs-toggle": "tooltip", title: "Input space seperated numbers",
                     placeholder: "???", //minlength: "32", size: "16",
                     inputmode: "numeric", pattern: r"\s*(-?\d+(\/\d+)?\s*){{2,9}}",
@@ -292,7 +292,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                         Some(true) => "=", Some(false) => "≠", _ => "≠?" }
                 }
 
-                input { "type": "text", id: "G", readonly: "true", value: "{game24.peek().goal}",
+                input { r#type: "text", id: "G", readonly: "true", value: "{game24.peek().goal}",
                     ondoubleclick: num_editable, onchange: num_changed, onfocusout: num_focusout,
                     placeholder: "??", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                     maxlength: "8", size: "4", class: "{num_class} rounded-md",
@@ -311,7 +311,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
             }   // invisible vs hidden
 
             div { id: "ctrl-btns",
-                input { "type": "reset", value: "Dismiss", class: "{ctrl_class}",
+                input { r#type: "reset", value: "Dismiss", class: "{ctrl_class}",
                     "data-bs-toogle": "tooltip", title: "Click to dismiss expr.",
                     onclick: move |_| needs_update(), //ovr_state.needs_update(), // XXX:
                 }
