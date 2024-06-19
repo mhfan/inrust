@@ -5,6 +5,8 @@
  * Copyright (c) 2022 M.H.Fan, All rights reserved.             *
  ****************************************************************/
 
+/// calc24
+
 //pub mod calc24 {
 
 //use std::io::prelude::*;

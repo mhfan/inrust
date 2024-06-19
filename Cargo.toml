@@ -69,6 +69,9 @@ rexpect = "0.5"
 regex = "1.9"
 #csv = "1.1"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
 [build-dependencies]  # used for compiling build script
 cc = { version = "1.0", features = [ "parallel" ], optional = true }
 cxx-build = { version = "1.0", optional = true }
