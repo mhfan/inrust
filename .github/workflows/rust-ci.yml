@@ -45,17 +45,11 @@ jobs:
 
     #- name: Install toolchain
     #  uses: dtolnay/rust-toolchain@stable
-    #
-    #  uses: actions-rs/toolchain@v1
-    #  with:
-    #    toolchain: nightly
-    #    #toolchain: ${{ matrix.rust }}
-    #    #target: ${{ matrix.target }}
-    #    #profile: minimal
-    #    #override: true
 
-    #- uses: Swatinem/rust-cache@v2
-    - uses: actions/cache@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - uses: actions/cache@v4
       with:
         path: |
           ~/.cargo/bin/
@@ -64,9 +58,6 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-    - name: Checkout repository
-      uses: actions/checkout@v3
 
     - name: Run tests
     #  uses: taiki-e/install-action@nextest
@@ -96,17 +87,21 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - uses: Swatinem/rust-cache@v2
-    - uses: taiki-e/install-action@cargo-llvm-cov
     - run: rustup toolchain install nightly --profile minimal --component llvm-tools
+    - uses: Swatinem/rust-cache@v2  # should be after rustup
 
+    - uses: taiki-e/install-action@cargo-llvm-cov # https://github.com/taiki-e/cargo-llvm-cov
     - name: Generate code coverage  # https://github.com/actions-rs/tarpaulin
       env:
-        CC:  clang
-        CXX: clang++
-      run: cargo +nightly llvm-cov --include-ffi --doctests --lcov --output-path lcov.info #--workspace --all-features
+        CC:  clang-18
+        CXX: clang++-18
+      #  LLVM_COV:  llvm-cov-18
+      #  LLVM_PROF: llvm-prof-18
+      run: |
+        wget https://apt.llvm.org/llvm.sh && chmod u+x llvm.sh && sudo ./llvm.sh 18
+        cargo +nightly llvm-cov --include-ffi --doctests --lcov --output-path lcov.info #--workspace --all-features
       #  cargo tarpaulin --run-types 'Tests,Doctests' --out Lcov --exclude-files 'inperse/src/*'
       #  cargo install tarpaulin
       #uses: actions-rs/tarpaulin@v0.1    # XXX: no more working
@@ -116,9 +111,9 @@ jobs:
       #  run-types: 'Tests,Doctests'
 
     - name: Upload to codecov.io
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       with:
-      #  token: ${{secrets.CODECOV_TOKEN}}  # not required for public repos
+        token: ${{secrets.CODECOV_TOKEN}}  # not required for public repos
       #  fail_ci_if_error: true
         files: lcov.info
 
