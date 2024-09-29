@@ -11,6 +11,42 @@ pub mod calc24;
 pub mod prime;
 pub mod list;
 
+/*  https://pubchem.ncbi.nlm.nih.gov/periodic-table/
+    https://commons.wikimedia.org/wiki/File:元素周期表.png
+    https://commons.wikimedia.org/wiki/File:Periodic_table_large.svg
+    https://www.futurity.org/periodic-table-new-elements-1087782-2/
+    https://www.vertex42.com/Files/pdfs/2/periodic-table_color.pdf
+    https://www.vertex42.com/ExcelTemplates/periodic-table-of-elements.html
+    https://commons.wikimedia.org/wiki/File:Periodic_Table_-_Atomic_Properties_of_the_Elements.png
+    https://commons.wikimedia.org/wiki/File:Periodic_Table_of_the_elements.jpg
+    https://commons.wikimedia.org/wiki/File:Periodic_table_detailed_enwp.svg
+    https://en.wikipedia.org/wiki/Periodic_table, https://ptable.com */
+#[allow(unused)] pub struct ElemInfo {
+    group: u8,   // max: 18 (column)
+    period: u8,  // max:  7 (row)
+
+    ordinal: u8, // max: 118
+    symbol: [u8; 2], //word: String,
+    name: char,  // pinying: String,
+    mass: f32,   // weight
+
+    //  shell capacity: 4 * n^2, subshell capacity: 4 * (l + 1) - 2
+    //  orbital: s/p/d/f/g/h/i (l: 0 ~ 6)
+    config: [u8; 5],
+    block: u8,   // s, f, d, p
+
+    //  metals (alkali, alkali-earth, lanthanoids, actinoids, transition, other),
+    //  metalloids/semi-metals and nonmetals (other, halogens, noble-gases)
+    class: u8,
+
+    oxidation: [u8; 20], // valence
+
+    grativity: f32,
+    ionisation: f32,
+    //radius: f32, density: f32, affinity: f32, discoverer: String, year: u16,
+    //synthetic: bool, melting: f32, boiling: f32, phase: u8,
+}
+
 pub mod misc {
 use num_traits::PrimInt;
 pub struct Fibonacci<T> { curr: T, next: T }
