@@ -12,14 +12,14 @@ default_platform = "web"
 
 [web.app]
 title = "24 Puzzle"     # HTML title tag content
+base_path = "indiox"    # "/"
 #index_on_404 = true
-#base_path = "indiox"
 
 [web.watcher]
 reload_html = true  # when watcher trigger, regenerate the `index.html`
 
 # which files or dirs will be watcher monitoring
-watch_path = [ "src", "assets" ]
+watch_path = [ "src", "assets", "index.html", "tailwind_base.css", "tailwind.config.js" ]
 
 [web.resource]  # include `assets` in web platform
 style = [ "tailwind.css" ]  # CSS style file

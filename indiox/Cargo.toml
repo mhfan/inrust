@@ -18,11 +18,11 @@ getrandom = { version = "0.2", features = [ "js" ] }
 #wasm-logger = "0.2"     # WebAssembly Debug
 
 [dependencies]
-dioxus = { version = "0.5", features = [ "web" ] } # "router", "desktop", "web"
+dioxus = { version = "0.5", features = [ "web" ] } # "web", "fullstack", "router"
 
 #console_error_panic_hook = "0.1"
-dioxus-logger = "0.5"
-tracing = "0.1"
+#dioxus-logger = "0.5"
+#tracing = "0.1"
 #log = "0.4"
 
 wasm-bindgen = "0.2"
@@ -34,15 +34,23 @@ rand = "0.8"    # git = "https://github.com/mhfan/inrust",
 inrust  = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde",
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 
+[features]
+default = []
+desktop = ["dioxus/desktop"]
+server  = ["dioxus/axum"]
+web = ["dioxus/web"]
+
 [profile.dev]
 opt-level = 1
 
 [profile.release]
-strip = "debuginfo"
 codegen-units = 1
-#opt-level = "s"
+strip = true # "debuginfo"
+opt-level = "z" # "s"
 panic = 'abort'
 lto = true
+#debug = false
+#incremental = false
 
 [workspace]
 
