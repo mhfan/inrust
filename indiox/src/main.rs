@@ -72,16 +72,16 @@ fn set_checked(elm: &HtmlElement, checked: bool) {
 }
 
 fn main() {
-    dioxus_logger::init(tracing::Level::INFO).expect("failed to init logger");
-
+    //dioxus_logger::init(tracing::Level::INFO).expect("failed to init logger");
     //tracing::info!("starting game24");
+
     #[cfg(not(feature = "desktop"))] launch(app);
-    #[cfg(feature = "desktop")] LaunchBuilder::desktop().with_cfg( // XXX:
-        dioxus::desktop::Config::new().with_window(
-        dioxus::desktop::WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
-        .with_custom_head("<link rel='stylesheet' href='dist/tailwind.css'/>".into())
+    #[cfg(feature = "desktop")] LaunchBuilder::desktop().with_cfg(dioxus::desktop::Config::new()
+        .with_window(dioxus::desktop::WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
         //.with_custom_head("<script src='https://cdn.tailwindcss.com'/>".into())
-        //.with_custom_index(r"<!DOCTYPE html><html>...</html>".into())
+        .with_custom_head("<link rel='stylesheet' href='tailwind.css'/>".into())
+        .with_custom_index(include_str!("../index.html").replace(r"{base_path}", ".")
+            .replace(r"{style_include}{script_include}", "").into())
     ).launch(app);
 }
 
@@ -178,20 +178,20 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
         //link { rel: "stylesheet",
         //    href: "https://cdn.jsdelivr.net/npm/tw-elements/dist/css/index.min.css" }
 
-        style { dangerous_inner_html: format_args!("{}\n{}", // XXX:
+        style { dangerous_inner_html: format!("{}\n{}", // XXX:
             "html { background-color: #15191D; color: #DCDCDC; }",
             "body { font-family: Courier, Monospace; text-align: center; height: 100vh; }")
         }
 
         header { class: "text-4xl m-8",
-            a { href: format_args!("{}", env!("CARGO_PKG_REPOSITORY")), dangerous_inner_html:
-                      format_args!("{}", include_str!("../assets/gh-corner.html")),
+            a { href: format!("{}", env!("CARGO_PKG_REPOSITORY")), dangerous_inner_html:
+                      format!("{}", include_str!("../assets/gh-corner.html")),
                 class: "github-corner", "aria-label": "View source on GitHub", }
             a { href: "https://github.com/mhfan/inrust", "24 Challenge" }
         }
 
         main { class: "mt-auto mb-auto",
-            div { id: "play-cards", class: "relative", hidden: true,
+            /* div { id: "play-cards", class: "relative", hidden: true,
                 img { src: "poker-modern-qr-Maze/2C.svg",
                     class: "inline-block absolute origin-bottom-left -rotate-[15deg]", }
                 img { src: "poker-modern-qr-Maze/3D.svg",
@@ -200,7 +200,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                     class: "inline-block absolute origin-bottom-left  rotate-[5deg]", }
                 img { src: "poker-modern-qr-Maze/5S.svg",
                     class: "inline-block absolute origin-bottom-left  rotate-[15deg]", }
-            }   // TODO:
+            }   // TODO: */
 
             p { class: "hidden",
                 "Click on a operator and two numbers to form expression, " br {}
@@ -210,7 +210,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
 
             fieldset { id: "ops-group", "data-bs-toggle": "tooltip",
                 title: "Click to (un)check\nDrag over to replace/exchange",
-                "disabled": format_args!("{}", eqm_state.read().is_some() || !*ovr_state.read()),
+                "disabled": format!("{}", eqm_state.read().is_some() || !*ovr_state.read()),
                 // use onclick instead of onchange for capable of de-selection
                 onclick: move |evt| if let Ok(inp) = evt.web_event().target().unwrap()
                     .dyn_into::<HtmlInputElement>() { game24.with_mut(|game| {
@@ -222,19 +222,18 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                     });
                 },
 
-                {[ "+", "-", "×", "÷" ].into_iter().map(|op| rsx! {
-                    div { class: "mx-6 my-4 inline-block",
-                        input { r#type: "radio", name: "ops", id: "{op}",
-                            class: "hidden peer",          value: "{op}",
-                        }   // require value='xxx', default is 'on'
+                for op in [ "+", "-", "×", "÷" ] { div {
+                    class: "mx-6 my-4 inline-block",
+                    input { r#type: "radio", name: "ops", id: "{op}",
+                        class: "hidden peer",          value: "{op}",
+                    }   // require value='xxx', default is 'on'
 
-                        label { "for": "{op}", draggable: "true",
-                            class: "px-4 py-2 bg-indigo-600 text-white text-3xl font-bold \
-                            hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2 \
-                            peer-checked:ring-indigo-500 peer-checked:ring-offset-2 \
-                            peer-checked:bg-transparent rounded-md shadow-xl", "{op}" }
-                    }
-                })}
+                    label { "for": "{op}", draggable: "true",
+                        class: "px-4 py-2 bg-indigo-600 text-white text-3xl font-bold \
+                        hover:bg-indigo-400 peer-checked:outline-none peer-checked:ring-2 \
+                        peer-checked:ring-indigo-500 peer-checked:ring-offset-2 \
+                        peer-checked:bg-transparent rounded-md shadow-xl", "{op}" }
+                } }
             }
 
             div { id: "expr-skel",
@@ -243,7 +242,7 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                     title: "Click to (un)check\nDouble click to input\nDrag over to exchange",
                     ondoubleclick: num_editable, onchange: num_changed,
                     onclick: num_checked, onfocusout: num_focusout,
-                    {game24.peek().nums.iter().enumerate().map(|(idx, num)| {
+                    for (idx, num) in game24.peek().nums.iter().enumerate() {
                         /*let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
                         // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
 
@@ -254,12 +253,12 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                             10..=13 => court[(num - 10) as usize].to_owned(),
                             _ => "?".to_owned() }, suits[sid as usize]);     //num  // TODO: */
 
-                        rsx! { input { r#type: "text", id: "N{idx}", value: "{num}", name: "nums",
+                        input { r#type: "text", id: "N{idx}", value: "{num}", name: "nums",
                             maxlength: "6", size: "3", readonly: "true", draggable: "true",
                             placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
                             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
-                            rounded-full mx-2", }}  // https://regexr.com, https://regex101.com
-                    })}                              // https://rustexp.lpil.uk
+                            rounded-full mx-2", }  // https://regexr.com, https://regex101.com
+                    }                              // https://rustexp.lpil.uk
                 }
               } else {
                 input { r#type: "text", id: "overall", name: "operands",
@@ -327,8 +326,8 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                     },
 
                     option { value: "1", "Overall" } // selected: !*ovr_state.read(),
-                    {(4..=6).map(|n| rsx! { option { value: "{n}", selected: format_args!("{}",
-                        /* *ovr_state.read() && */n == game24.peek().nums.len()), "{n} nums" }})}
+                    for n in 4..=6 { option { value: "{n}", selected: format!("{}",
+                        /* *ovr_state.read() && */n == game24.peek().nums.len()), "{n} nums" } }
                 }
 
                 button { class: "{ctrl_class}", onclick: move |_| { if *ovr_state.peek() {
@@ -351,14 +350,16 @@ fn app() -> Element {   //let win = dioxus_desktop::use_window(&cx);
                     let exps = calc24_coll(&game.goal, &game.nums, DynProg);
                     let cnt  = exps.len();
 
-                    exps.into_iter().map(|str| rsx! { li { {str.chars().map(|ch|
+                    rsx! { for s in exps { li { { s.chars().map(|ch|
                         match ch { '*' => '×', '/' => '÷', _ => ch }).collect::<String>()
-                    }}}).chain(std::iter::once_with(move || rsx! { if 5 < cnt {
-                        span { class: "text-white", {format_args!("Got {cnt} solutions")} }
+                    } } }
+
+                    if 5 < cnt {
+                        span { class: "text-white", {format!("Got {cnt} solutions")} }
                     } else if cnt < 1 {
                         span { class: "text-red-500", "Got NO solutions!" }
-                    }}))
-                })}}
+                    } }
+                })} }
             }
         }
 

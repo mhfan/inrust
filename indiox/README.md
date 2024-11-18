@@ -1,40 +1,21 @@
-# dioxus-template
 
-> a template for starting a dioxus project to be used with [dioxus-cli](https://github.com/DioxusLabs/cli)
+## Instructions
 
-## Usage
+1. Install npm: <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>
+2. Install the tailwind css cli: <https://tailwindcss.com/docs/installation>
+3. Install the tw-elements package: `npm install tw-elements`
+4. Run the following command in the root of the project to start the tailwind CSS compiler:
 
-#### use `dioxus-cli` init the template:
-
-```
-dioxus init hello-dioxus
-```
-
-or you can choose the template, for this tempalte:
-
-```
-dioxus init hello-dioxus --template=gh:dioxuslabs/dioxus-template
+```bash
+npx tailwindcss -i tailwind_base.css -o dist/tailwind.css --watch
 ```
 
-#### Start a `dev-server` for the project:
+Launch the Dioxus Web/Desktop app:
 
-```
-cd ./hello-dioxus
-dioxus serve
-```
+```bash
+dx serve #--verbose
+dx serve --platform web
 
-or package this project:
-
-```
-dioxus build --release
-```
-
-## Project Structure
-
-```
-.project
-- public # save the assets you want include in your project.
-- src # put your code
-- - utils # save some public function
-- - components # save some custom components
+dx serve --platform desktop #rm -rf dist
+cd dist && cargo r --features desktop
 ```
