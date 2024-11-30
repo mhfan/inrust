@@ -52,9 +52,9 @@ pest_derive = "2.7"
 
 cxx   = { version = "1.0", optional = true }
 dhat  = { version = "0.3", optional = true }
-pprof = { version = "0.13", features = [ "flamegraph", "criterion" ], optional = true }
+pprof = { version = "0.14", features = [ "flamegraph", "criterion" ], optional = true }
 
-gxhash = { version = "3.1", optional = true }
+gxhash = { version = "3.4", optional = true }
  ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
 num-bigint   = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
@@ -65,12 +65,15 @@ serde = { version = "1", features = [ "derive" ], optional = true }
 [dev-dependencies]  # used for compiling tests, examples, and benchmarks
 criterion = "0.5"   # not allowed to be optional
 #bencher = "0.1"
-rexpect = "0.5"
-regex = "1.9"
+rexpect = "0.6"
+regex = "1.11"
 #csv = "1.1"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
 [build-dependencies]  # used for compiling build script
-cc = { version = "1.0", features = [ "parallel" ], optional = true }
+cc = { version = "1.2", features = [ "parallel" ], optional = true }
 cxx-build = { version = "1.0", optional = true }
 #pkg-config = "0.3"
 chrono = "0.4"

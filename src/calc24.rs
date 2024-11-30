@@ -49,7 +49,6 @@ impl<T: PrimInt> RNum<T> {   //#![allow(dead_code)]
                 "simplified rational: {a}");
         });
     ``` */
-
     /*pub */fn reduce(&mut self) -> &Self {
         #[inline] fn gcd<T: PrimInt>(mut a: T, mut b: T) -> T {
             // fast Euclid's algorithm for Greatest Common Denominator
@@ -87,7 +86,6 @@ impl<T: PrimInt + Display> Display for RNum<T> {
                 r"parsing {} != {}", it.1, it.0);
         }); assert_eq!(" 2", format!("{:2}", RNum::from(2)));
     ``` */
-
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
         let srn = self;     //srn.reduce();
         //if  srn.1.is_zero() { write!(f, r"(INV)")?; return Ok(()) }

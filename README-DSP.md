@@ -20,6 +20,7 @@
 
 * [Streamlining Digital Signal Processing: A Tricks of the Trade Guidebook](https://ieeexplore.ieee.org/book/6241055)
 * <https://crates.io/crates/fixed/reverse_dependencies>
+* <https://en.wikipedia.org/wiki/Libfixmath>
 * <https://lib.rs/keywords/fixed>
 
 * [RustFFT](https://github.com/ejmahler/RustFFT)
