@@ -36,14 +36,17 @@ jobs:
       - uses: cargo-bins/cargo-binstall@main
       - name: Install Dioxus and TailwindCSS
         run: |
-            cargo binstall dioxus-cli
+            cargo binstall dioxus-cli #perseus-cli
             npm install tailwindcss tw-elements -D #-g
 
       - name: Build Project
+        #env:
+        #  PERSEUS_BASE_PATH: https://mhfan.github.io/inperse
         run: | #cargo r --bin syncd -F syncdep
             npx tailwindcss -m -i tailwind_base.css -o assets/tailwind.css
             dx build -r --platform web
-            #cargo t
+        #    perseus deploy -e
+        #    cargo t
 
       #- name: Setup GitHub Pages
       #  uses: actions/configure-pages@v4
@@ -54,6 +57,7 @@ jobs:
         with:   # https://github.com/actions/upload-pages-artifact
           path: target/dx/${{ github.event.repository.name }}/release/web/public
         #  path: target/dx/${{ env.REPO_NAME }}/release/web/public
+        #  path: pkg # for perseus
 
   deploy:
     #if: github.ref == 'refs/heads/master'

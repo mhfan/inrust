@@ -44,10 +44,12 @@ opt-level = 1
 
 [profile.release]
 codegen-units = 1
-strip = 'debuginfo'
-opt-level = "s"
+strip = true # "debuginfo"
+opt-level = "z" # "s"
 panic = 'abort'
 lto = true
+#debug = false
+#incremental = false
 
 [workspace]
 
