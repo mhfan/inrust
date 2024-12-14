@@ -18,30 +18,23 @@ getrandom = { version = "0.2", features = [ "js" ] }
 #wasm-logger = "0.2"     # WebAssembly Debug
 
 [dependencies]
-dioxus = { version = "0.5", features = [ "web" ] } # "web", "fullstack", "router"
-
-#console_error_panic_hook = "0.1"
-#dioxus-logger = "0.5"
+dioxus = { version = "0.6" } #, features = [ "fullstack", "router" ]
 #tracing = "0.1"
-#log = "0.4"
 
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3", features = [ #'Window', 'Document',
-    'HtmlInputElement', #'HtmlCanvasElement', 'CanvasRenderingContext2d'
+    'HtmlInputElement', 'HtmlCollection', #'HtmlCanvasElement', 'CanvasRenderingContext2d'
 ] }
 
-rand = "0.8"    # git = "https://github.com/mhfan/inrust",
-inrust  = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde",
+rand = "0.8"    # XXX: path = "..", why not work with 'dx serve'?
+inrust  = { git = "https://github.com/mhfan/inrust", default-features = false, features = [ "ahash" ] }  # "cc", "serde",
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 
 [features]
-default = []
+default = ["web"]
 desktop = ["dioxus/desktop"]
-server  = ["dioxus/axum"]
-web = ["dioxus/web"]
-
-[profile.dev]
-opt-level = 1
+mobile  = ["dioxus/mobile"]
+web     = ["dioxus/web"]
 
 [profile.release]
 codegen-units = 1
@@ -51,6 +44,18 @@ panic = 'abort'
 lto = true
 #debug = false
 #incremental = false
+
+[profile.dev]
+opt-level = 1
+
+[profile.wasm-dev]
+inherits = "dev"
+
+[profile.server-dev]
+inherits = "dev"
+
+[profile.android-dev]
+inherits = "dev"
 
 [workspace]
 
