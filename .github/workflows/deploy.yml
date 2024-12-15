@@ -1,0 +1,95 @@
+
+name: Build/Publish/Deploy  # https://docs.github.com/en/actions
+
+on:
+  push:
+    branches:
+      - master
+
+  workflow_dispatch:  # Allows you to run this workflow manually from the Actions tab
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      #- run: rustup update
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+      #- uses: swatinem/rust-cache@v2
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+            ~/.npm
+            indiox/node_modules/
+            indiox/package.json
+            indiox/package-lock.json
+            inperse/node_modules/
+            inperse/package.json
+            inperse/package-lock.json
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      #-  uses: taiki-e/install-action@nextest
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Build 'indiox' with Dioxus
+        working-directory: indiox
+        run: |
+          cargo binstall dioxus-cli@0.6.0
+          npm install tailwindcss tw-elements -D #-g
+          npx tailwindcss -i tailwind_base.css -o assets/tailwind.css -m
+          dx build -r --platform web
+        #  cargo t #cargo nextest r
+
+      - name: Build 'inperse' with Perseus
+        working-directory: inperse
+        env:
+          PERSEUS_BASE_PATH: https://mhfan.github.io/inrust
+        run: |
+          cargo binstall perseus-cli
+          npm install tailwindcss tw-elements -D #-g
+          npx tailwindcss -i tailwind_base.css -o static/tailwind.css -m
+          cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
+          perseus deploy -e
+
+      - name: Combine site files
+        env:
+          REPO_NAME: ${GITHUB_REPOSITORY#$GITHUB_REPOSITORY_OWNER/}
+        run: |
+          rm -rf inperse/pkg/indiox
+          cp -r indiox/target/dx/indiox/release/web/public inperse/pkg/indiox
+          #target/dx/${{ github.event.repository.name }}/release/web/public
+          #target/dx/${{ env.REPO_NAME }}/release/web/public
+
+      #- name: Setup GitHub Pages
+      #  uses: actions/configure-pages@v4
+      - name: Upload Artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:   # https://github.com/actions/upload-pages-artifact
+          path: inperse/pkg
+
+  deploy:
+    #if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    needs: build
+
+    permissions:  # Grant GITHUB_TOKEN the permissions required to make a Pages deployment
+      pages: write      # to deploy to Pages
+      id-token: write   # to verify the deployment originates from an appropriate source
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:  # https://github.com/actions/deploy-pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        id: deployment
+

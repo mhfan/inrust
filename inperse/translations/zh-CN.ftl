@@ -2,8 +2,8 @@
 greeting = 你好，世界！
 header = 计算 24 点
 title  = 24 点挑战
-refresh = Refresh
-dismiss = Dismiss
+refresh = 刷 新
+dismiss = 还 原
 click = 点击
 copyright = 版权所有 © 2022
 refresh-tips = {click}刷新题目

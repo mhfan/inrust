@@ -2,7 +2,7 @@
 # cargo binstall dioxus-cli # dx new foo
 
 [application]
-name = "indiox"     # dioxus project name
+name = "indiox"     # App (Project) name
 
 # you can also use `dx serve/build --platform XXX` to use other platform
 default_platform = "web"    # value: web | desktop | mobile
@@ -16,7 +16,7 @@ level = "4"     # The level wasm-opt should target. z is the smallest. 4 is the 
 
 [web.app]
 title = "24 Puzzle"     # HTML title tag content
-base_path = "indiox"    # "/"
+base_path = "inrust/indiox"    # "/"
 #index_on_404 = true
 
 [web.watcher]
@@ -26,8 +26,8 @@ reload_html = true  # when watcher trigger, regenerate the `index.html`
 watch_path = [ "src", "assets", "index.html", "tailwind_base.css", "tailwind.config.js" ]
 
 #[web.resource]  # include `assets` in web platform
-#style = [ "assets/tailwind.css" ]  # CSS style file
-#script = [] # Javascript code file
+#style = [ "assets/tailwind.css" ]  # Additional CSS style files
+#script = [] # Additional JavaScript files
 
 [web.resource.dev]
 script = [] # Javascript code file, serve: [dev-server] only

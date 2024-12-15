@@ -68,18 +68,21 @@ impl Game24State {
 }
 
 fn set_display_none(elm: &HtmlElement, hide: bool) {
-    if hide { elm.   set_attribute("style", "display: none;").unwrap();
-    } else {  elm.remove_attribute("style").unwrap(); }
+    let attr = "style";
+    let _ = if hide { elm.set_attribute(attr, "display: none;")
+    } else { elm.remove_attribute(attr) };
 }
 
 fn set_aria_checked(elm: &HtmlElement, checked: bool) {
-    if checked { elm.   set_attribute("aria-checked", "true").unwrap();
-    } else {     elm.remove_attribute("aria-checked").unwrap(); }
+    let attr = "aria-checked";
+    let _ = if checked { elm.set_attribute(attr, "true")
+    } else { elm.remove_attribute(attr) };
 }
 
 fn main() {
-    //dioxus::logger::initialize_default(); //tracing::debug!("initialized");
+    //dioxus::logger::initialize_default(); //tracing::info!("initialized");
     #[cfg(not(feature = "desktop"))]  dioxus::launch(app);
+
     #[cfg(feature = "desktop")] { use dioxus::desktop::{self, WindowBuilder};
     LaunchBuilder::desktop().with_cfg(desktop::Config::new()
         .with_window(WindowBuilder::new().with_title(env!("CARGO_PKG_NAME")))
@@ -88,22 +91,21 @@ fn main() {
 }
 
 fn app() -> Element {
-    let head_style = r"
-html { background-color: #15191D; color: #DCDCDC; }
-body { font-family: Courier, Monospace; text-align: center; height: 100vh; }
-";
+    let head_style = r"html { background-color: #15191D; color: #DCDCDC; }
+        body { font-family: Courier, Monospace; text-align: center; height: 100vh; }";
 
-    use dioxus::document::{Link, Title, Style/*, Script, Meta*/};
+    use dioxus::document::{Link, Style/*, Title, Script, Meta*/};
     rsx! {
         /* Router { // XXX:
             Route { to: "/indiox", self::solver{} }
             Route { to: "", self::not_found{} }
         } */
 
-        Title { "24 Puzzle" } Style { {head_style} }
-        Link { rel: "icon",       href: "assets/favicon.ico" }
+        //Title { "24 Puzzle" } // respect index.html and Dioxus.toml
+        //Link { rel: "icon",       href: "assets/favicon.ico" }
         Link { rel: "stylesheet", href: "assets/tailwind.css" }
         //Script { src: "https://cdn.tailwindcss.com" }
+        Style { {head_style} }
 
         header { class: "text-4xl m-8",
             a { href: env!("CARGO_PKG_REPOSITORY"),
@@ -120,7 +122,7 @@ body { font-family: Courier, Monospace; text-align: center; height: 100vh; }
 //fn not_found() -> Element { rsx!(Redirect{ to: "/" }) }
 
 //static GAME24: GlobalSignal<Game24State> = Signal::global(Game24State::new);
-fn solver() -> Element {
+fn solver() -> Element {    // TODO: l10n
     //use_context_provider(|| Game24State::new);
     //let mut game24 = use_context::<Game24State>();
     let mut ovr_state = use_signal(|| true);
@@ -214,11 +216,9 @@ fn solver() -> Element {
         focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
         dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
-    let _edit_style = r"
-[contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
-[contenteditable='true'].single-line br { display: none; }
-[contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }
-";
+    let _edit_style = r"[contenteditable='true'].single-line br { display: none; }
+        [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
+        [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }";
 
     rsx! { main { class: "mt-auto mb-auto",
             /* div { id: "play-cards", class: "relative", hidden: true,

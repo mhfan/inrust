@@ -9,8 +9,7 @@ on:
 
   #schedule: -cron:'0 0 * * *'
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
+  workflow_dispatch:  # Allows you to run this workflow manually from the Actions tab
 
 env:
   CARGO_TERM_COLOR: always
@@ -59,8 +58,8 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+    #-  uses: taiki-e/install-action@nextest
     - name: Run tests
-    #  uses: taiki-e/install-action@nextest
       run: |
         cargo r -F debug,num-rational -- -G -2 1 2 3 4
         cargo t -- --color always --nocapture #cargo nextest r

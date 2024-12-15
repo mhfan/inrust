@@ -80,8 +80,9 @@ impl Game24State {
 }
 
 fn set_aria_checked(elm: &HtmlElement, checked: bool) {
-    if checked { elm.   set_attribute("aria-checked", "true").unwrap();
-    } else {     elm.remove_attribute("aria-checked").unwrap(); }
+    let attr = "aria-checked";
+    let _ = if checked { elm.set_attribute(attr, "true")
+    } else { elm.remove_attribute(attr) };
 }
 
 #[sycamore::component] fn _show_solutions<G: Html>(cx: Scope) -> View<G> { view! { cx, } }
@@ -176,11 +177,9 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
         focus:ring-4 focus:outline-none focus:ring-stone-300 shadow-lg shadow-stone-500/50 \
         dark:focus:ring-stone-800 dark:shadow-lg dark:shadow-stone-800/80";
 
-    let _edit_style = r"
-[contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
-[contenteditable='true'].single-line br { display: none; }
-[contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }
-";
+    let _edit_style = r"[contenteditable='true'].single-line br { display: none; }
+        [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
+        [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }";
 
     view! { cx,
         // <!--#include file="gh-corner.html" -->
@@ -359,19 +358,19 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
 // Unlike in build state, in request state we get access to the information that
 // the user sent with their HTTP request.
-#[engine_only_fn] async fn get_request_state(_info: StateGeneratorInfo<()>,
+#[allow(unused)] #[engine_only_fn] async fn get_request_state(_info: StateGeneratorInfo<()>,
     _req: perseus::Request) -> PageState { PageState { } }
     //Result<PageState, BlamedError<std::convert::Infallible>>
 
 // This function will be run when you build your app, to generate default state ahead-of-time
-#[allow(dead_code)] #[engine_only_fn] async fn get_build_state(_info: StateGeneratorInfo<()>)
+#[allow(unused)] #[engine_only_fn] async fn get_build_state(_info: StateGeneratorInfo<()>)
     //Result<PageState, BlamedError<std::io::Error>>
     -> PageState { PageState { } }
 
 // This will run every time `.revalidate_after()` permits the page to be revalidated.
 // This acts as a secondary check, and can perform arbitrary logic to check
 // if we should actually revalidate a page
-#[allow(dead_code)] #[engine_only_fn] async fn should_revalidate(_info: StateGeneratorInfo<()>,
+#[allow(unused)] #[engine_only_fn] async fn should_revalidate(_info: StateGeneratorInfo<()>,
     _req: perseus::Request) -> bool { true }
     // For simplicity's sake, this will always say we should revalidate,
     // but you could make this check any condition
@@ -383,7 +382,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 //
 // Note also that there's almost no point in using build paths without build state, as every
 // page would come out exactly the same (unless you differentiated them on the client...)
-#[allow(dead_code)] async fn get_build_paths() -> BuildPaths {
+#[allow(unused)] async fn get_build_paths() -> BuildPaths {
     BuildPaths { paths: vec![], extra: ().into() }
 }
 
@@ -392,9 +391,9 @@ pub fn get_template<G: Html>() -> Template<G> {
         //.revalidate_after(Duration::new(5, 0))    // "5s".to_string()
         //.should_revalidate_fn(should_revalidate)
         //.amalgamate_states_fn(amalgamate_states)
-        .request_state_fn(get_request_state)
-        //.build_state_fn(get_build_state)
+        //.request_state_fn(get_request_state)
+        .build_state_fn(get_build_state)
         //.build_paths_fn(get_build_paths)
-        .incremental_generation()
+        //.incremental_generation()
         .head(add_head).build()
 }

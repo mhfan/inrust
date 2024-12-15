@@ -33,9 +33,9 @@ pub fn main<G: Html>() -> PerseusApp<G> {
             link(rel="stylesheet", href=".perseus/static/tailwind.css")
             //script(src="https://cdn.tailwindcss.com")
 
-            style { "html { background-color: #15191D; color: #DCDCDC; } \
-                body { font-family: Courier, Monospace; text-align: center; height: 100vh; }"
-            }
+            style { r"html { background-color: #15191D; color: #DCDCDC; }
+                body { font-family: Courier, Monospace; text-align: center; height: 100vh; }
+            " }
         }   body { perseus::prelude::PerseusRoot() }
         // Quirk: this creates a wrapper `<div>` around the root `<div>` by necessity
         }}).error_views(ErrorViews::unlocalized_development_default())

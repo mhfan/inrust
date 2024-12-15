@@ -35,7 +35,11 @@ A project to accumulate my knowledge about Rust programming and engineering.
 
 ![24 cards game](assets/24-cards-cmdl.jpg?raw=true)
 
-PS: 另外用 [Yew](https://yew.rs) 框架开发了一个 [在线的交互界面](https://github.com/mhfan/inyew)。
+### 几个在线交互界面
+
++ 基于 [Perseus](https://framesurge.sh/perseus/) 框架开发的 [在线游戏界面](https://github.com/mhfan/inrust)；
++ 基于 [Dioxus](https://dioxuslabs.com) 框架开发的 [在线/桌面应用](https://github.com/mhfan/inrust/indiox)；
++ 基于 [Yew](https://yew.rs) 框架开发的 [在线交互界面](https://github.com/mhfan/inyew)；
 
 ### 自上而下分集计算法 (Top-down divide)
 
