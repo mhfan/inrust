@@ -89,11 +89,11 @@ impl<T: PrimInt + Display> Display for RNum<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
         let srn = self;     //srn.reduce();
         //if  srn.1.is_zero() { write!(f, r"(INV)")?; return Ok(()) }
-        //let braket = srn.is_negative() || !srn.1.is_one();  // XXX:
-        //if  braket { write!(f, r"(")? }
+        //let bracket = srn.is_negative() || !srn.1.is_one();  // XXX:
+        //if  bracket { write!(f, r"(")? }
         write!(f, "{:>width$}", srn.0, width = f.width().unwrap_or(0))?;
         if  !srn.1.is_one() { write!(f, r"/{}", srn.1)? }   Ok(())
-        //if  braket { write!(f, r")")? }
+        //if  bracket { write!(f, r")")? }
     }
 }
 
@@ -232,7 +232,7 @@ impl Display for Expr {     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false, false) }
 }
 
-//impl std::error::Error for ExprError {}     // convertable to Box<dyn Error>
+//impl std::error::Error for ExprError {}     // convertible to Box<dyn Error>
 #[derive(pest_derive::Parser)] #[grammar = "arith_expr.pest"] struct ArithExpr;
 
 impl FromStr for Expr {
@@ -511,7 +511,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
             #[cfg(feature = "debug")] eprintln!(r"dup"); continue
             } else { hv.push(h1) }
         }   #[cfg(feature = "debug")] eprintln!(r"pick");
-        //}     // no gain no penality for performance
+        //}     // no gain no penalty for performance
 
         if 1 < ns0.len() { ns0 = calc24_splitset(&IR, &ns0, ngoal, each_found); }
         if 1 < ns1.len() { ns1 = calc24_splitset(&IR, &ns1, ngoal, each_found); }
@@ -824,7 +824,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
             Ok(_goal) => goal = _goal,
         }
 
-        if nums.len() < 1 { // solvable for 4 cards dealed from a deck, traverse 0..=100
+        if nums.len() < 1 { // solvable for 4 cards dealt from a deck, traverse 0..=100
             if goal == 0.into() { (0..=100).for_each(|n| println!("{n:3}: {}",
                      game24_solvable(&n.into(), 1, 13, 4, true, algo).1));
             } else { game24_solvable(&goal, 1, 13, 4, false, algo); }
@@ -1007,13 +1007,13 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
 
                 exps.iter().for_each(|e| {  if res.is_empty() { return }
                     assert!(res.contains(&e.replace(' ', "").as_str()), // strip whitespace
-                        r"Unexpect expr. by algo-{cxx}{:?}: {}",
+                        r"Unexpected expr. by algo-{cxx}{:?}: {}",
                         Paint::magenta(&algo), Paint::red(e));
                 });
 
                 println!(r"  {} solutions by algo-{cxx}{:?}",
                     Paint::green(&exps.len()), Paint::green(&algo));
-                assert!(exps.len() == cnt, r"Unexpect count by algo-{:?}: {} != {}",
+                assert!(exps.len() == cnt, r"Unexpected count by algo-{:?}: {} != {}",
                     Paint::magenta(&algo), Paint::red(&exps.len()), Paint::cyan(&cnt));
             };
 

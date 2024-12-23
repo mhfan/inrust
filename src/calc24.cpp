@@ -507,7 +507,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
                 es.erase(std::remove(es.begin(), es.end(), ' '), es.end()); // strip whitespace
                 if (it.cnt < 1 && std::find(it.exps.begin(),
                     it.exps.end(), es)   == it.exps.end()) {
-                    cerr << "Unexpect expr. by algo-" << algs << ": " << es << endl;   abort();
+                    cerr << "Unexpected expr. by algo-" << algs << ": " << es << endl;  abort();
                 }
             }
 
@@ -516,7 +516,7 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
 
             if (cnt < 1) cnt = it.exps.size();
             if (cnt != n) {
-                cerr << "Unexpect count by algo-" << algs << ": "
+                cerr << "Unexpected count by algo-" << algs << ": "
                      << n << " != " << cnt << endl;     abort();
             }
         };

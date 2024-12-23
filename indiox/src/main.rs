@@ -288,7 +288,7 @@ fn solver() -> Element {    // TODO: l10n
                         }   // https://regexr.com, https://regex101.com
                     }       // https://rustexp.lpil.uk
                 } } else { input { r#type: "text", id: "overall", name: "operands",
-                    "data-bs-toggle": "tooltip", title: "Input space seperated numbers",
+                    "data-bs-toggle": "tooltip", title: "Input space separated numbers",
                     placeholder: "???", //minlength: "32", size: "16",
                     inputmode: "numeric", pattern: r"\s*(-?\d+(\/\d+)?\s*){{2,9}}",
                     class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
@@ -331,11 +331,11 @@ fn solver() -> Element {    // TODO: l10n
 
             div { id: "ctrl-btns",
                 input { r#type: "reset", value: "Dismiss", class: "{ctrl_class}",
-                    "data-bs-toogle": "tooltip", title: "Click to dismiss expr.",
+                    "data-bs-toggle": "tooltip", title: "Click to dismiss expr.",
                     onclick: move |_| { let state = *ovr_state.peek(); ovr_state.set(state); },
                 }
 
-                select { class: "{ctrl_class} appearance-none", "data-bs-toogle": "tooltip",
+                select { class: "{ctrl_class} appearance-none", "data-bs-toggle": "tooltip",
                     title: "Click to set numbers count\nOverall - single element for all numbers",
                     name: "count-ctrl", onchange: move |evt| {
                         let val = evt.value().parse::<u8>().unwrap();
@@ -352,7 +352,7 @@ fn solver() -> Element {    // TODO: l10n
                         let mut game = game24.write();
                         let len = game.nums.len() as u8;    game.dealer(len);
                         ovr_state.set(true); } else { ovr_state.set(false); }
-                }, "data-bs-toogle": "tooltip", title: "Click to refresh new", "Refresh" }
+                }, "data-bs-toggle": "tooltip", title: "Click to refresh new", "Refresh" }
             }
 
             if *eqm_state.read() == Some(true) { div {

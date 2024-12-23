@@ -298,14 +298,14 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
             div(id="ctrl-btns") {
                 input(type="reset", value=t!(cx, "dismiss"), class=ctrl_class,
                     on:click=|_| ovr_state.trigger_subscribers(),
-                    data-bs-toogle="tooltip", title=t!(cx, "dismiss-tips"))
+                    data-bs-toggle="tooltip", title=t!(cx, "dismiss-tips"))
 
                 select(class=format!("{ctrl_class} appearance-none"), name="count-ctrl",
                     on:change=|e: Event| {  let cnt = e.target().unwrap()
                         .dyn_into::<HtmlSelectElement>().unwrap().value().parse::<u8>().unwrap();
                         if 1 == cnt { game24.modify().nums.clear(); ovr_state.set(false);
                         } else {      game24.modify().dealer(cnt);  ovr_state.set(true); }
-                    }, data-bs-toogle="tooltip", title=t!(cx, "change-count")) {
+                    }, data-bs-toggle="tooltip", title=t!(cx, "change-count")) {
 
                     option(value="1") { "Overall" }
                     (View::new_fragment((4..=6).map(|n| view! { cx, option(value=n.to_string(),
@@ -313,7 +313,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                             (format!("{n} nums")) } }).collect()))
                 }
 
-                button(class=ctrl_class, data-bs-toogle="tooltip", title=t!(cx, "refresh-tips"),
+                button(class=ctrl_class, data-bs-toggle="tooltip", title=t!(cx, "refresh-tips"),
                     on:click=|_| { if *ovr_state.get_untracked() {
                         game24.modify().dealer(game24.get_untracked().nums.len() as u8);
                     }   ovr_state.trigger_subscribers(); }) { (t!(cx, "refresh")) }

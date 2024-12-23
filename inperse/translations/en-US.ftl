@@ -2,7 +2,7 @@
 # https://projectfluent.org/fluent/guide/
 
 greeting = Hello, world!
-header = 24 Chanllenge
+header = 24 Challenge
 title  = 24 Puzzle
 refresh = Refresh
 dismiss = Dismiss
@@ -18,7 +18,7 @@ input-goal = Double click to input new goal
 solutions = All inequivalent solutions
 time-calc = Time for calculation
 drag-over = Drag over to replace/exchange
-space-nums = Input space seperated numbers
+space-nums = Input space separated numbers
 ops-tips = {click-check}
            {drag-over}
 num-tips = {click-check}
