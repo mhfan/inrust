@@ -181,11 +181,14 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
         [contenteditable='true'].single-line { white-space: nowrap; overflow: hidden; }
         [contenteditable='true'].single-line  * { display: inline; white-space: nowrap; }";
 
+    //if let Some(elm) = web_sys::window().unwrap().document().unwrap()
+    //    .get_element_by_id("spinner") { elm.remove(); }
     view! { cx,
         // <!--#include file="gh-corner.html" -->
         // https://en.wikipedia.org/wiki/Server_Side_Includes
         //object(type="text/html", data=".perseus/static/gh-corner.html")
 
+        script { "document.getElementById('spinner').style.display = 'none';" }
         header(class="text-4xl m-8") {  //(gh_corner)     // interpolation
             a(href=env!("CARGO_PKG_REPOSITORY"),
                 dangerously_set_inner_html=include_str!("../../static/gh-corner.html"),

@@ -36,9 +36,27 @@ pub fn main<G: Html>() -> PerseusApp<G> {
             style { r"html { background-color: #15191D; color: #DCDCDC; }
                 body { font-family: Courier, Monospace; text-align: center; height: 100vh; }
             " }
-        }   body { perseus::prelude::PerseusRoot() }
-        // Quirk: this creates a wrapper `<div>` around the root `<div>` by necessity
-        }}).error_views(ErrorViews::unlocalized_development_default())
+        }   body {
+            div(class="spin-container", id="spinner") {
+                style { r"
+.spin-container { position: absolute; display: flex;
+  justify-content: center; width: 100vw; margin-top: 8rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-anim { color: #e5e7eb; stroke: #2563eb; animation: spin 1s linear infinite; }
+"               }
+                svg(viewBox="0 0 100 100", class="spin-anim", xmlns="http://www.w3.org/2000/svg",
+                    aria-hidden="true", fill="none", stroke-width="5", width="100", height="100") {
+                    circle(cx="50", cy="50", r="45", stroke="currentColor")
+                    path(d="M50,5a45,45 0 0 1 45,45",
+                        stroke-linecap="round", stroke="currentStroke")
+                }
+            }
+
+            perseus::prelude::PerseusRoot()
+            // Quirk: this creates a wrapper `<div>` around the root `<div>` by necessity
+        }}}).error_views(ErrorViews::unlocalized_development_default())
         // .error_views(get_error_views)
 
         /*.plugins(Plugins::new().plugin(perseus_size_opt::perseus_size_opt,

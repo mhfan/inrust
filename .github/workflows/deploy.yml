@@ -60,8 +60,8 @@ jobs:
           perseus deploy -e
 
       - name: Combine site files
-        env:
-          REPO_NAME: ${GITHUB_REPOSITORY#$GITHUB_REPOSITORY_OWNER/}
+        #env:
+        #  REPO_NAME: ${GITHUB_REPOSITORY#$GITHUB_REPOSITORY_OWNER/}
         run: |
           rm -rf inperse/pkg/indiox
           cp -r indiox/target/dx/indiox/release/web/public inperse/pkg/indiox

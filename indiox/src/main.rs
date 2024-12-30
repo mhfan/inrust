@@ -94,6 +94,8 @@ fn app() -> Element {
     let head_style = r"html { background-color: #15191D; color: #DCDCDC; }
         body { font-family: Courier, Monospace; text-align: center; height: 100vh; }";
 
+    //if let Some(elm) = web_sys::window().unwrap().document().unwrap()
+    //    .get_element_by_id("spinner") { elm.remove(); }
     use dioxus::document::{Link, Style/*, Title, Script, Meta*/};
     rsx! {
         /* Router { // XXX:
@@ -107,6 +109,7 @@ fn app() -> Element {
         //Script { src: "https://cdn.tailwindcss.com" }
         Style { {head_style} }
 
+        script { "document.getElementById('spinner').style.display = 'none';" }
         header { class: "text-4xl m-8",
             a { href: env!("CARGO_PKG_REPOSITORY"),
                 dangerous_inner_html: include_str!("../assets/gh-corner.html"),
