@@ -7,7 +7,7 @@ name = "indiox"     # App (Project) name
 # you can also use `dx serve/build --platform XXX` to use other platform
 default_platform = "web"    # value: web | desktop | mobile
 
-#asset_dir = "assets"       # resource (static) file folder
+asset_dir = "assets"	    # resource (static) file folder
 #out_dir = "dist"    # Web `build` & `serve` dist path
 #hot_reload = true   # hot reload by default
 

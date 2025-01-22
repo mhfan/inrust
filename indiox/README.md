@@ -7,7 +7,7 @@ and tw-elements package: <https://tw-elements.com/docs/standard/getting-started/
 4. Run the following command in the root of the project to start the tailwind CSS compiler:
 
 ```bash
-npm install tailwindcss tw-elements -D #-g
+npm install tailwindcss@3.4.17 tw-elements -D #-g
 
 npx tailwindcss -i tailwind_base.css -o dist/tailwind.css -w #-m
 ```
