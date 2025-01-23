@@ -1,7 +1,13 @@
 
-#/pkg
+/pkg
 /dist
+
 /target
 /Cargo.lock
+
 /static/tailwind.css
+
+/package-lock.json
+/package.json
+/node_modules
 

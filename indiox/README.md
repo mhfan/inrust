@@ -2,14 +2,14 @@
 ## Instructions
 
 1. Install npm: <https://docs.npmjs.com/downloading-and-installing-node-js-and-npm>
-2. Install the tailwind css cli: <https://tailwindcss.com/docs/installation>
+2. Install the tailwind cli: <https://tailwindcss.com/docs/installation>
 and tw-elements package: <https://tw-elements.com/docs/standard/getting-started/quick-start/>
 4. Run the following command in the root of the project to start the tailwind CSS compiler:
 
 ```bash
-npm install tailwindcss@3.4.17 tw-elements -D #-g
+npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
 
-npx tailwindcss -i tailwind_base.css -o dist/tailwind.css -w #-m
+npx tailwindcss -i input.css -o dist/tailwind.css -w #-m
 ```
 
 Launch the Dioxus Web/Desktop app:

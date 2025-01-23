@@ -42,11 +42,11 @@ jobs:
       - name: Build 'indiox' with Dioxus
         working-directory: indiox
         run: |
+          #cargo t #cargo nextest r
           cargo binstall dioxus-cli
-          npm install tailwindcss@3.4.17 tw-elements -D #-g
-          npx tailwindcss -i tailwind_base.css -o assets/tailwind.css -m
+          npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
+          npx tailwindcss -i input.css -o assets/tailwind.css -m
           dx build -r --platform web
-        #  cargo t #cargo nextest r
 
       - name: Build 'inperse' with Perseus
         working-directory: inperse
@@ -54,9 +54,9 @@ jobs:
           PERSEUS_BASE_PATH: https://mhfan.github.io/inrust
         run: |
           cargo install perseus-cli
-          #cp ../indiox/assets/tailwind.css static/
-          npm install tailwindcss@3.4.17 tw-elements -D #-g
-          npx tailwindcss -i tailwind_base.css -o static/tailwind.css -m
+          cp ../indiox/assets/tailwind.css static/
+          #npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
+          #npx tailwindcss -i tailwind_base.css -o static/tailwind.css -m
           cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
           perseus deploy -e
 
