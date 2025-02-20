@@ -162,21 +162,21 @@ pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)> }
 impl Expr {     //#![allow(dead_code)]
     #[inline] pub fn value(&self) -> &Rational { &self.v }
     fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
-        let (an, ad) = (a.v.numer(), a.v.denom());
-        let (bn, bd) = (b.v.numer(), b.v.denom());
+        let (&an, &ad) = (a.v.numer(), a.v.denom());
+        let (&bn, &bd) = (b.v.numer(), b.v.denom());
 
         let op: Oper;   let v = match ops {
             '+' => { op = Oper::Add; Rational::new_raw(an * bd + ad * bn, ad * bd) }
             '-' => { op = Oper::Sub; Rational::new_raw(an * bd - ad * bn, ad * bd) }
             '*' | '×' => { op = Oper::Mul; Rational::new_raw(an * bn, ad * bd) }
             '/' | '÷' => { op = Oper::Div;  //assert_ne!(bn, &0);
-                if bn == &0 { return Err("Invalid divisor".to_owned()) }
+                if bn == 0 { return Err("Invalid divisor".to_owned()) }
                 Rational::new_raw(an * bd, ad * bn)
             }   _ => return Err("Invalid operator".to_owned())  //unreachable!()
         };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b), op)) })
     }
 
-    fn fmt(&self, f: &mut Formatter<'_>, dbg: bool, mdu: bool) -> fmtResult {
+    fn fmt(&self, f: &mut Formatter<'_>, dbg: bool) -> fmtResult {
         if let Some((a, b, op)) = &self.m {
             let op = *op;   use Oper::*;
             let bracket = if dbg { a.m.is_some() } else {
@@ -191,7 +191,7 @@ impl Expr {     //#![allow(dead_code)]
             };
 
             //let nospace = nospace || bracket || b.m.is_none() && b.v.denom() == &1;
-            let op = if !mdu { op as u8 as _ } else {
+            let op = if !f.alternate() { op as u8 as _ } else {
                 match op { Mul => '×', Div => '÷', _ => op as u8 as _ }
             };
 
@@ -201,7 +201,7 @@ impl Expr {     //#![allow(dead_code)]
     }
 
     #[inline] fn op(&self) -> Oper { //self.op
-        if let Some((.., op)) = &self.m { *op } else { Oper::Num }
+        if let Some((.., op)) = self.m { op } else { Oper::Num }
     }
 
     #[allow(dead_code)] fn traverse_num(&self, fop: &mut impl FnMut(&Rational)) {
@@ -225,11 +225,11 @@ impl From<Rational> for Expr {
 }
 
 #[cfg(feature = "debug")] impl Debug for Expr {
-    #[inline] fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, true, false) }
+    #[inline] fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, true) }
 }
 
-impl Display for Expr {     #[inline]
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false, false) }
+impl Display for Expr {
+    #[inline] fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult { self.fmt(f, false) }
 }
 
 //impl std::error::Error for ExprError {}     // convertible to Box<dyn Error>
@@ -721,8 +721,8 @@ pub  use Calc24Algo::*;
 }
 
 #[cfg(feature = "cli")] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
-    let court  = [ "T", "J", "Q", "K" ]; // ♠Spade, ♡Heart, ♢Diamond, ♣Club
-    let suits = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
+    let court_face = "_A23456789TJQK";  // ♠Spade, ♡Heart, ♢Diamond, ♣Club
+    let suit_color = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
     let (mut rng, mut spos, mut batch)= (rand::thread_rng(), 0, 0);
     let mut deck = (0..13*4u8).collect::<Vec<_>>();
 
@@ -736,13 +736,13 @@ pub  use Calc24Algo::*;
         if spos == 0 { deck.shuffle(&mut rng); }
 
         let nums = deck[spos as _..].partial_shuffle(&mut rng,
-            cnt as _).0.iter().map(|num| {  // cards deck dealer
+            cnt as _).0.iter().map(|&num| {     // cards deck dealer
             let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
-            //let (sid, num) = num.div_rem(&13);  let num = num + 1;  //sid %= 4;
+            //let (sid, num) = num.div_rem(13);   let num = num + 1;  //sid %= 4;
 
-            print!(r" {}", Paint::new(match num { 1 => "A".to_owned(),    // String::from
-                2..=9 => num.to_string(), _ => court[num as usize - 10].to_owned() })
-                .bold().bg(suits[sid as usize]));   (num as i32).into()
+            let ch = court_face.chars().nth(num as usize).unwrap_or('?');
+            print!(r" {}", Paint::new(ch).bold().bg(suit_color[sid as usize]));
+            (num as i32).into()
         }).collect::<Vec<_>>();     spos += cnt;    print!(r": ");
 
         let exps = calc24_coll(goal, &nums, algo);
