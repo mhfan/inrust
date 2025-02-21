@@ -2,7 +2,7 @@
 [package]
 name = "inperse"
 edition = "2021"
-version = "0.1.0"
+version = "0.1.4"
 #edition.workspace = true
 #version.workspace = true
 #license.workspace = true

@@ -2,7 +2,7 @@
 [package]
 name = "indiox"
 edition = "2021"
-version = "0.1.5"
+version = "0.1.6"
 #edition.workspace = true
 #version.workspace = true
 #license.workspace = true
@@ -12,10 +12,6 @@ version = "0.1.5"
 #description.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = [ "js" ] }
-#wasm-logger = "0.2"     # WebAssembly Debug
 
 [dependencies]
 dioxus = { version = "0.6" } #, features = [ "fullstack", "router" ]
@@ -29,6 +25,11 @@ web-sys = { version = "0.3", features = [ #'Window', 'Document',
 rand = "0.8"    # XXX: path = "..", why not work with 'dx serve'?
 inrust  = { git = "https://github.com/mhfan/inrust", default-features = false, features = [ "ahash" ] }  # "cc", "serde",
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+#gloo-timers = { version = "0.3", features = [ "futures" ] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = [ "js" ] }
+#wasm-logger = "0.2"     # WebAssembly Debug
 
 [features]
 default = ["web"]

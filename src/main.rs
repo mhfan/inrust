@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };  // i18n mechanism?
 
     use rand::Rng;
-    let secret = rand::thread_rng().gen_range(1..=max); //dbg!(secret);
+    let secret = rand::rng().random_range(1..=max); //dbg!(secret);
     println!("\n### {title} (1~{}) ###", Paint::cyan(&max).bold());
 
     //use std::io::prelude::*;

@@ -695,8 +695,7 @@ pub  use Calc24Algo::*;
     }
 
     //let mut pks = (min..=max).collect::<Vec<_>>();
-    //let mut rng = rand::thread_rng();
-    //use rand::seq::SliceRandom;
+    //let mut rng = rand::rng();  use rand::seq::SliceRandom;
     //pks.shuffle(&mut rng);
 
     // C^52_4 = 270725, C^(13+4-1)_4 = 1820
@@ -723,7 +722,7 @@ pub  use Calc24Algo::*;
 #[cfg(feature = "cli")] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
     let court_face = "_A23456789TJQK";  // ♠Spade, ♡Heart, ♢Diamond, ♣Club
     let suit_color = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
-    let (mut rng, mut spos, mut batch)= (rand::thread_rng(), 0, 0);
+    let (mut rng, mut spos, mut batch)= (rand::rng(), 0, 0);
     let mut deck = (0..13*4u8).collect::<Vec<_>>();
 
     // https://en.wikipedia.org/wiki/Playing_cards_in_Unicode
@@ -1033,9 +1032,9 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     #[cfg_attr(coverage_nightly, coverage(off))] //#[cfg(not(tarpaulin_include))]
      #[ignore] /*#[bench] */#[test] fn solve24_random() {
         let (cnt, mut total_time) = (50, std::time::Duration::from_millis(0));
-        for _ in 0..cnt {   use rand::{Rng, distributions::Uniform};
-            let mut rng = rand::thread_rng();
-            let dst = Uniform::new(1, 20);
+        for _ in 0..cnt {   use rand::{Rng, distr::Uniform};
+            let dst = Uniform::new(1, 20).unwrap();
+            let mut rng = rand::rng();
 
             let (goal, nums) = (rng.sample(dst),
                 rng.sample_iter(dst).take(6).collect::<Vec<_>>());

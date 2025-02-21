@@ -21,7 +21,7 @@ exclude  = [ "README-DSP.md", "tmp" ]   # "tests", "benches", "fuzz"
 
 [workspace.package]
 edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
-version = "0.3.8"
+version = "0.3.9"
 #readme = "README.md"
 license = "MIT OR Apache-2.0"
 authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
@@ -30,11 +30,11 @@ authors = [ "MeiHui FAN <mhfan@ustc.edu>" ]
 description = "Algorithms and WebUI for 24-Game/Puzzle/Challenge"
 
 [dependencies]  # 'cargo tree', to visualize the dependency graph
-rand = "0.8"
 #num  = "0.4"    # rational/complex/bigint/integer/traits etc.
 num-traits = "0.2"
 #itertools = "0.10"
 yansi = { version = "1.0", features = [ "detect-tty", "detect-env" ], optional = true }
+rand  = { version = "0.9", optional = true }
 #atty  = "0.2"
 
 pest  = "2.7"
@@ -67,6 +67,7 @@ criterion = "0.5"   # not allowed to be optional
 #bencher = "0.1"
 rexpect = "0.6"
 regex = "1.11"
+rand = "0.9"
 #csv = "1.1"
 
 [lints.rust]
@@ -80,7 +81,7 @@ chrono = "0.4"
 
 [features]
 debug = []
-cli = [ "yansi" ]
+cli = [ "yansi", "rand" ]
 cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
 default = [ "cc", "cli", "ahash" ] # "gxhash", "cxx", "serde", "num-rational", "num-bigint",
 dhat-heap = [ "dhat" ]
