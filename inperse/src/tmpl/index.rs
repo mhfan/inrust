@@ -122,16 +122,20 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
     //let eqm_node = create_node_ref(cx);   // XXX:
     //let eqm_elm = eqm_node.get::<DomNode>().unchecked_into::<HtmlElement>();*/
 
-    let num_editable = |e: Event| if 1 == game24.get_untracked().ncnt {
+    let num_editable = move |e: Event| if 1 == game24.get_untracked().ncnt {
         let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
         //let end = inp.value().len() as u32; inp.set_selection_range(end, end).unwrap();
-        inp.set_read_only(false);   inp.focus().unwrap();
+        inp.set_read_only(false);
+        sycamore::futures::spawn_local_scoped(cx, async move {
+            gloo_timers::future::sleep(std::time::Duration::from_millis(20)).await;
+            inp.focus().unwrap();   // XXX: why need to click again?
+        });
     };
 
     let num_changed = |e: Event| {
         let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
 
-        if  inp.check_validity() {  inp.set_read_only(true);
+        if  inp.check_validity() && !inp.value().is_empty() {   inp.set_read_only(true);
             let mut game24 = game24.modify();
             let nums =  &mut game24.nums;
 
@@ -146,6 +150,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
 
     let num_checked = |e: Event| {
         let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
+        if !inp.read_only() { return }
         let mut game24 = game24.modify();
         let opd = &mut game24.opd_elq;
         let mut idx = opd.len();
@@ -264,8 +269,8 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
                     rounded-full mx-2"), on:change=|e: Event| {
                         if *resolving.get_untracked() { resolving.set(false); }
                         let inp = e.target().unwrap().dyn_into::<HtmlInputElement>().unwrap();
-                        let vs  = inp.value();  if inp.check_validity() && !vs.is_empty() {
-                            game24.modify().nums = vs.split_ascii_whitespace()
+                        if  inp.check_validity() && !inp.value().is_empty() {
+                            game24.modify().nums =   inp.value().split_ascii_whitespace()
                                 .filter_map(|s| s.parse::<Rational>().ok()).collect();
                             //resolving.set(true);
                         } else if inp.focus().is_ok() { inp.select(); }

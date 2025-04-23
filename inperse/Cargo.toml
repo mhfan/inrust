@@ -25,6 +25,7 @@ web-sys = { version  = "0.3", features = [ "HtmlInputElement", "HtmlSelectElemen
 rand = "0.8"    # git = "https://github.com/mhfan/inrust",
 inrust = { path = "..", default-features = false, features = [ "ahash", "serde" ] }  # "cc"
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+gloo-timers = { version = "0.3", features = [ "futures" ] }
 
 #[target.'cfg(engine)'.dev-dependencies]
 #fantoccini = "0.17"

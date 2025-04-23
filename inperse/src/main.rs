@@ -24,7 +24,7 @@ pub fn main<G: Html>() -> PerseusApp<G> {
 
         //.global_state_creator(crate::tmpl::index::get_global_state_creator())
         .index_view(|cx| view! { cx, html { head { meta(charset="UTF-8")
-            meta(name="viewport", content="width=device-width, initial-scale=1.0")
+            meta(name="viewport", content="width=device-width,initial-scale=1")
             link(rel="icon",      href=".perseus/static/favicon.ico")
             title { "24 Puzzle" }
 

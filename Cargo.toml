@@ -86,6 +86,10 @@ cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
 default = [ "cc", "cli", "ahash" ] # "gxhash", "cxx", "serde", "num-rational", "num-bigint",
 dhat-heap = [ "dhat" ]
 
+[[bin]]
+name = "inrust"
+required-features = [ "cli" ]
+
 [[bench]]
 name = "calc24_bench"
 #path = "benches/calc24_bench.rs"

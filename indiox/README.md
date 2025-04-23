@@ -9,7 +9,7 @@ and tw-elements package: <https://tw-elements.com/docs/standard/getting-started/
 ```bash
 npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
 
-npx tailwindcss -i input.css -o dist/tailwind.css -w #-m
+npx tailwindcss -i input.css -o assets/tailwind.css -w #-m
 ```
 
 Launch the Dioxus Web/Desktop app:

@@ -55,8 +55,6 @@ jobs:
         run: |
           cargo install perseus-cli
           cp ../indiox/assets/tailwind.css static/
-          #npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
-          #npx tailwindcss -i tailwind_base.css -o static/tailwind.css -m
           cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
           perseus deploy -e
 

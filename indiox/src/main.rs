@@ -162,14 +162,20 @@ fn solver() -> Element {    // TODO: l10n
         if game24.peek().ncnt == 1 {
             let inp = evt.as_web_event().target().unwrap()
                 .dyn_into::<HtmlInputElement>().unwrap();
-            inp.set_read_only(false);   inp.focus().unwrap();
+            //let end = inp.value().len() as u32; inp.set_selection_range(end, end).unwrap();
+            inp.blur().unwrap();      inp.set_read_only(false);
+            use_before_render(move || inp.focus().unwrap()); // XXX: why need to click again?
+            /* spawn(async move {
+                gloo_timers::future::sleep(std::time::Duration::from_millis(20)).await;
+                inp.focus().unwrap();
+            }); */
     };
 
     let num_changed = move |evt: Event<FormData>| {
         let inp = evt.as_web_event().target().unwrap()
             .dyn_into::<HtmlInputElement>().unwrap();
 
-        if  inp.check_validity() {  inp.set_read_only(true);
+        if  inp.check_validity() && !inp.value().is_empty() {   inp.set_read_only(true);
             let mut game = game24.write();
             let nums =  &mut game.nums;
 
@@ -191,6 +197,7 @@ fn solver() -> Element {    // TODO: l10n
     let num_checked = move |evt: Event<MouseData>| async move {
         let inp = evt.as_web_event().target().unwrap()
             .dyn_into::<HtmlInputElement>().unwrap();
+        if !inp.read_only() { return }
         let mut game = game24.write();
         let opd = &mut game.opd_elq;
         let mut idx = opd.len();
@@ -285,7 +292,7 @@ fn solver() -> Element {    // TODO: l10n
 
                         input { r#type: "text", id: "N{idx}", value: "{num}", name: "nums",
                             maxlength: "6", size: "3", readonly: "true", draggable: "true",
-                            placeholder: "?", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
+                            placeholder: "?", inputmode: "numeric", pattern: r"-?\d+(\/\d+)?",
                             class: "{num_class} aria-checked:ring-purple-600 aria-checked:ring \
                             rounded-full mx-2",     // XXX: why won't update on re-rendering?
                         }   // https://regexr.com, https://regex101.com
@@ -299,8 +306,8 @@ fn solver() -> Element {    // TODO: l10n
                         if *resolving.peek() { resolving.set(false); }
                         let inp = evt.as_web_event().target().unwrap()
                             .dyn_into::<HtmlInputElement>().unwrap();
-                        let vs  = inp.value();  if inp.check_validity() && !vs.is_empty() {
-                            game24.write().nums = vs.split_ascii_whitespace()
+                        if  inp.check_validity() && !inp.value().is_empty() {
+                            game24.write().nums =    inp.value().split_ascii_whitespace()
                                 .filter_map(|s| s.parse::<Rational>().ok()).collect();
                             //resolving.set(true);
                         } else if inp.focus().is_ok() { inp.select(); }
@@ -322,7 +329,7 @@ fn solver() -> Element {    // TODO: l10n
 
                 input { r#type: "text", id: "G", readonly: "true", value: "{game24.peek().goal}",
                     ondoubleclick: num_editable, onchange: num_changed, onfocusout: num_focusout,
-                    placeholder: "??", "inputmode": "numeric", pattern: r"-?\d+(\/\d+)?",
+                    placeholder: "??", inputmode: "numeric", pattern: r"-?\d+(\/\d+)?",
                     maxlength: "8", size: "4", class: "{num_class} rounded-md",
                     "data-bs-toggle": "tooltip", title: "Double click to input new goal",
                 }
