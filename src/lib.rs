@@ -95,9 +95,27 @@ pub fn shell_pipe(prog: &str, args: &[&str], inps: &str) -> std::io::Result<Stri
         })
 }
 
+/** Returns the largest item in a list.
+ ```
+    assert_eq!(inrust::misc::largest(&[1, 2, 3, 4, 5]), &5);
+ ``` */
 pub fn largest<T: PartialOrd>(list: &[T]) -> &T {
     let mut largest = &list[0];     // for &item in list {}
     for item in list { if largest < item { largest = item } }  largest
+}
+
+/* #include <stdint.h>
+
+uint64_t rdtsc(void) {  uint32_t  lo, hi;
+    asm volatile ("rdtsc": "=a"(lo), "=d"(hi));
+    return ((uint64_t)hi << 32) | lo;
+} */
+
+#[cfg(target_arch = "x86_64")] #[unsafe(no_mangle)] pub fn rdtsc() -> u64 {
+    let (lo, hi): (u32, u32);
+    unsafe { std::arch::asm!("rdtsc", out("eax") lo, out("edx") hi,
+        options(nomem, nostack, preserves_flags),
+    ); }    ((hi as u64) << 32) | (lo as u64)
 }
 
 #[cfg_attr(coverage_nightly, coverage(off))] //#[cfg(not(tarpaulin_include))]

@@ -15,8 +15,11 @@
 * [median](https://github.com/regexident/median)
 * [idsp](https://github.com/quartiq/idsp)
 
-* [mathru](https://gitlab.com/matthiaseiholzer/mathru)
 * [fast_fp](https://github.com/standard-ai/fast_fp)
+* [mathru](https://gitlab.com/matthiaseiholzer/mathru)
+
+* [trig-const](https://github.com/michaelciraci/trig-const)
+* [Monarch](https://github.com/michaelciraci/Monarch-Butterfly)
 
 * [Streamlining Digital Signal Processing: A Tricks of the Trade Guidebook](https://ieeexplore.ieee.org/book/6241055)
 * <https://crates.io/crates/fixed/reverse_dependencies>
