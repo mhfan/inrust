@@ -19,8 +19,7 @@ fn bench_24calc(c: &mut Criterion) {
     let (goal, nums) = (rng.sample(dst), rng.sample_iter(dst).take(6).collect::<Vec<_>>());
     */let (goal, nums) = (24, fibonacci().skip(3).take(7).collect::<Vec<i32>>());
 
-    use yansi::Paint;
-    println!("Compute {} from {:?} ", Paint::cyan(&goal), Paint::cyan(&nums));
+    println!("Compute {} from {:?} ", goal.cyan(), nums.cyan());    use yansi::Paint;
     let nums = nums.into_iter().map(|n| n.into()).collect::<Vec<_>>();
     let (goal, mut cnt) = (goal.into(), 0);
 
@@ -30,7 +29,7 @@ fn bench_24calc(c: &mut Criterion) {
                 if cxx.is_empty() { cnt = calc24_coll(&goal, &nums, algo).len(); } else {
                     #[cfg(feature = "cc")] { cnt = calc24_coll_cffi(&goal, &nums, algo).len(); }
                 }
-            }));    if 0 < cnt { println!(r"Got {} solutions.", Paint::magenta(&cnt)) }
+            }));    if 0 < cnt { println!(r"Got {} solutions.", cnt.magenta()) }
         };
 
         #[cfg(feature = "cc")] bench_closure(algo, "Cxx");

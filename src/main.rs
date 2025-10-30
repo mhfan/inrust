@@ -71,12 +71,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     use rand::Rng;
     let secret = rand::rng().random_range(1..=max); //dbg!(secret);
-    println!("\n### {title} (1~{}) ###", Paint::cyan(&max).bold());
+    println!("\n### {title} (1~{}) ###", max.cyan().bold());
 
     //use std::io::prelude::*;
     use std::{io::Write, cmp::Ordering};
     let _res = 'label: loop {   // unused prefixed with underscore
-        print!("\n{}", Paint::white(prompt).dim());
+        print!("\n{}", prompt.white().dim());
 
         let mut guess = String::new();
         std::io::stdout().flush().expect("Failed to flush"); //.unwrap();
@@ -88,9 +88,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if let Ok(guess) = guess.parse::<i32>() { // isize
             //if (guess < secret) { } else if (secret < guess) { } else { }
             match guess.cmp(&secret) {
-                Ordering::Greater =>    println!("[{}]", Paint::magenta(too_big)),
-                Ordering::Less    =>    println!("[{}]", Paint::yellow(too_small)),
-                Ordering::Equal   => {  println!("[{}]", Paint::green(bingo)); break 1 }
+                Ordering::Greater =>    println!("[{}]", too_big.magenta()),
+                Ordering::Less    =>    println!("[{}]", too_small.yellow()),
+                Ordering::Equal   => {  println!("[{}]", bingo.green()); break 1 }
             }
         } else if guess.eq_ignore_ascii_case("quit") { break 'label 0 }
         //guess.make_ascii_lowercase();  //guess.to_lowercase();

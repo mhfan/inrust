@@ -24,7 +24,7 @@ use {inrust::calc24::*, yansi::Paint, std::error::Error};
 
     // XXX: how to just disable ansi escape codes for a pty/tty?
     let ns = regex::Regex::new( // regex for ANSI escape codes
-        r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])").unwrap().replace_all(&ns, "");
+        r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])")?.replace_all(&ns, "");
     let nums = ns.chars().filter_map(|n| match n {
             ' ' | '\n' | '\r' | ':'   => None, _ => Some(match n {
             'T' => 10, 'J' => 11, 'Q' => 12, 'K' => 13, 'A' => 1, //'2'..='9'
@@ -39,50 +39,50 @@ use {inrust::calc24::*, yansi::Paint, std::error::Error};
     ptys.send_line("exit")?;        ptys.exp_eof()?;    Ok(())
 }
 
-#[test] fn game24_sols() -> Result<(), Box<dyn Error>> {  // XXX: many unwraps
+#[test] fn game24_sols() -> Result<(), Box<dyn Error>> {  // XXX: some unwraps
     use std::{fs::File, io::{BufRead, BufReader}};
-    BufReader::new(File::open("tests/game24_sols.fmh")?)
-        .lines().for_each(|line| line.unwrap().split(':')
-            .last().unwrap().split(',').for_each(|str| if !str.is_empty() {
-                //let str = str.chars.map(|ch|  // cargo r -- -G > tests/game24_sols.fmh
-                //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
-                assert!(str.parse::<Expr>().is_ok_and(|e|
-                    e.value() == &24.into()), "failed at: `{str}'");
-            }));
+    for line in BufReader::new(File::open("tests/game24_sols.fmh")?).lines() {
+        line?.split(':').next_back().unwrap().split(',').for_each(|str| if !str.is_empty() {
+            //let str = str.chars.map(|ch|  // cargo r -- -G > tests/game24_sols.fmh
+            //    match ch { '×' => '*', '÷' => '/', _ => ch }).collect::<String>();
+            assert!(str.parse::<Expr>().is_ok_and(|e|
+                e.value() == &24.into()), "failed at: `{str}'");
+        });
+    }
 
     let mut cnt = (0, 0);   // https://4shu.net/solutions/allsolutions/
-    BufReader::new(File::open("tests/game24_sols.txt")?)
-        .lines().for_each(|line| if let Ok(line) = line {
-            let mut cols = line.split('\t');
-            let nstr = cols.next().unwrap();
+    for line in BufReader::new(File::open("tests/game24_sols.txt")?).lines() {
+        let line = line?;
+        let mut cols = line.split('\t');
+        let nstr = cols.next().unwrap();
 
-            let nums = nstr.split(' ')  // split_ascii_whitespace
-                .map(|s| s.parse::<Rational>().unwrap()).collect::<Vec<_>>();
-            let exps = calc24_coll(&24.into(), &nums, DynProg);
+        let nums = nstr.split(' ')  // split_ascii_whitespace
+            .map(|s| s.parse::<Rational>().unwrap()).collect::<Vec<_>>();
+        let exps = calc24_coll(&24.into(), &nums, DynProg);
 
-            let sols = cols.collect::<Vec<_>>();
-            cnt.0 += 1u32;  cnt.1 += sols.len() as u32;
+        let sols = cols.collect::<Vec<_>>();
+        cnt.0 += 1u32;  cnt.1 += sols.len() as u32;
 
-            assert_eq!(exps.len(), sols.len(), r"[{}]: {:?}\n[{}]: {:?}",   // line,
-                Paint::cyan(nstr), Paint::magenta(&sols), Paint::cyan(nstr), Paint::green(&exps));
-        });
+        assert_eq!(exps.len(), sols.len(), r"[{}]: {:?}\n[{}]: {:?}",   // line,
+            nstr.cyan(), sols.magenta(), nstr.cyan(), exps.green());
+    }
 
     /* TODO: try use tokio and scraper to extract url and parse html?
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(false).delimiter(b'\t').flexible(true)
-        .trim(csv::Trim::All).from_path("tests/game24_sols.txt").unwrap();
+        .trim(csv::Trim::All).from_path("tests/game24_sols.txt")?;
 
     for record in rdr.records() {
-        let record = record.unwrap();
+        let record = record?;
         cnt.0 += 1usize;    cnt.1 += record.len() - 1;
 
         let nums = record[0].split(' ').map(|s|
             s.parse::<i32>().unwrap().into()).collect::<Vec<_>>();
         let exps = calc24_coll(&24.into(), &nums, DynProg);
 
-        assert_eq!(exps.len(), record.len() - 1, r"{:?}\n[{}]: {:?}", record,
-            Paint::cyan(&record[0]), Paint::green(exps));
+        assert_eq!(exps.len(), record.len() - 1, r"{:?}\n[{}]: {:?}",
+            record, record[0].cyan(), exps.green());
     }*/ assert!(cnt == (1362, 3017), r"records: {}, solutions: {}",
-            Paint::red(&cnt.0), Paint::red(&cnt.1));    Ok(())
+            cnt.0.red(), cnt.1.red());  Ok(())
 }
 

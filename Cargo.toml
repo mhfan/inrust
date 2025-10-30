@@ -37,8 +37,8 @@ yansi = { version = "1.0", features = [ "detect-tty", "detect-env" ], optional =
 rand  = { version = "0.9", optional = true }
 #atty  = "0.2"
 
-pest  = "2.7"
-pest_derive = "2.7"
+pest  = "2.8"
+pest_derive = "2.8"
 
 #async-recursion = "1.0"
 #async-std = "1.12"
@@ -52,7 +52,7 @@ pest_derive = "2.7"
 
 cxx   = { version = "1.0", optional = true }
 dhat  = { version = "0.3", optional = true }
-pprof = { version = "0.14", features = [ "flamegraph", "criterion" ], optional = true }
+pprof = { version = "0.15", features = [ "flamegraph", "criterion" ], optional = true }
 
 gxhash = { version = "3.4", optional = true }
  ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
@@ -63,10 +63,10 @@ serde = { version = "1", features = [ "derive" ], optional = true }
 #build-time = { version = "0.1", git = "https://github.com/AlephAlpha/build-time" }
 
 [dev-dependencies]  # used for compiling tests, examples, and benchmarks
-criterion = "0.5"   # not allowed to be optional
+criterion = "0.7"   # not allowed to be optional
 #bencher = "0.1"
 rexpect = "0.6"
-regex = "1.11"
+regex = "1.12"
 rand = "0.9"
 #csv = "1.1"
 

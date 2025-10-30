@@ -19,7 +19,7 @@ fn main() {     // https://doc.rust-lang.org/stable/cargo/reference/build-script
     #[cfg(not(feature = "cxx"))] #[cfg(feature = "cc")] let mut build = cc::Build::new();
 
     #[cfg(any(feature = "cc", feature = "cxx"))] { calc24_file.set_extension("cpp");
-        build.cpp(true).flag("-std=c++20")
+        build.cpp(true).flag("-std=c++20").flag("-Wno-misleading-indentation")
         //.define("USE_LIST", None)//.define("RUN_TEST", None)  // libcalc24.a
         .opt_level(2).define("NDEBUG", None).file(&calc24_file).compile("calc24");
 
