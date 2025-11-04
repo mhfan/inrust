@@ -14,28 +14,26 @@ version = "0.1.6"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-dioxus = { version = "0.6" } #, features = [ "fullstack", "router" ]
-#tracing = "0.1"
+dioxus = { version = "0.7" } #, features = [ "fullstack", "router" ]
 
-wasm-bindgen = "0.2"
-web-sys = { version = "0.3", features = [ #'Window', 'Document',
+web-sys = { version = "=0.3.78", features = [ 'Window', 'Document',
     'HtmlInputElement', 'HtmlCollection', #'HtmlCanvasElement', 'CanvasRenderingContext2d'
-] }
+] } # XXX: failed to build on macOS for web-sys v0.3.79~82 and wasm-bindgen v0.2.102~105
 
-rand = "0.8"    # XXX: path = "..", why not work with 'dx serve'?
-inrust  = { git = "https://github.com/mhfan/inrust", default-features = false, features = [ "ahash" ] }  # "cc", "serde",
+rand = "0.9"    # git = "https://github.com/mhfan/inrust",
+inrust  = { path = "..", default-features = false, features = [ "ahash" ] }  # "cc", "serde",
 instant = { version = "0.1", features = [ "wasm-bindgen" ] }
 #gloo-timers = { version = "0.3", features = [ "futures" ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = [ "js" ] }
+getrandom = { version = "0.3", features = [ "wasm_js" ] }
 #wasm-logger = "0.2"     # WebAssembly Debug
 
 [features]
 default = ["web"]
 desktop = ["dioxus/desktop"]
 mobile  = ["dioxus/mobile"]
-web     = ["dioxus/web"]
+web     = ["dioxus/web"]    # XXX: capable only since 'as_web_event' use
 
 [profile.release]
 codegen-units = 1

@@ -16,8 +16,9 @@ Launch the Dioxus Web/Desktop app:
 
 ```bash
 dx serve #--verbose
-dx serve --platform web
+dx serve --web
 
-dx serve --platform desktop #rm -rf dist
+dx serve --desktop #rm -rf dist
 cd dist && cargo r --features desktop
 ```
+

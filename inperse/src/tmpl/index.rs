@@ -44,7 +44,7 @@ impl Game24State {
     }
 
     fn dealer(&mut self, cnt: u8) {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         //let dst = rand::distributions::Uniform::new(1, 100);
         //let cnt = if 0 < cnt { cnt } else { self.nums.len() as u8 };
 
@@ -299,7 +299,7 @@ fn index_page<G: Html>(cx: Scope, _state: PageState) -> View<G> {
             }
 
             p(class="hidden peer-invalid:visible \
-                relative -top-[1rem] text-red-500 font-light") {
+                relative -top-4 text-red-500 font-light") {
                 "Invalid integer number input, please correct it!"
             }   // hidden or display:none, invisible will cause layout shift
 

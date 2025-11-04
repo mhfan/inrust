@@ -45,34 +45,29 @@ jobs:
           #cargo t #cargo nextest r
           cargo binstall dioxus-cli
           npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
-          npx tailwindcss -i input.css -o assets/tailwind.css -m
-          dx build -r --platform web
+          npx @tailwindcss/cli -i input.css -o assets/tailwind.css -m
+          dx bundle -r --web --out-dir dist
+          #dx build -r --web
 
       - name: Build 'inperse' with Perseus
         working-directory: inperse
         env:
-          PERSEUS_BASE_PATH: https://mhfan.github.io/inrust
+          PERSEUS_BASE_PATH: https://mhfan.github.io/inrust/inperse
         run: |
-          cargo install perseus-cli
+          #cargo binstall perseus-cli   # XXX: failed to build from default source
+          #cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
+          cargo install --git https://github.com/framesurge/perseus perseus-cli
           cp ../indiox/assets/tailwind.css static/
-          cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
-          perseus deploy -e
-
-      - name: Combine site files
-        #env:
-        #  REPO_NAME: ${GITHUB_REPOSITORY#$GITHUB_REPOSITORY_OWNER/}
-        run: |
-          rm -rf inperse/pkg/indiox
-          cp -r indiox/target/dx/indiox/release/web/public inperse/pkg/indiox
-          #target/dx/${{ github.event.repository.name }}/release/web/public
-          #target/dx/${{ env.REPO_NAME }}/release/web/public
+          perseus deploy -e --wasm-opt-args '\-\-enable-bulk-memory-opt --enable-nontrapping-float-to-int'
+          rm -rf    ../indiox/dist/public/inperse
+          cp -r pkg ../indiox/dist/public/inperse
 
       #- name: Setup GitHub Pages
       #  uses: actions/configure-pages@v4
       - name: Upload Artifacts
         uses: actions/upload-pages-artifact@v3
         with:   # https://github.com/actions/upload-pages-artifact
-          path: inperse/pkg
+          path: indiox/dist/public
 
   deploy:
     #if: github.ref == 'refs/heads/master'

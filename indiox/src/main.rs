@@ -4,8 +4,8 @@ use inrust::calc24::*;
 use instant::Instant;
 use std::collections::VecDeque;
 
-use web_sys::{HtmlElement, HtmlInputElement};
-use {dioxus::web::WebEventExt, wasm_bindgen::JsCast};
+use dioxus::{web::WebEventExt, core::use_before_render};
+use web_sys::{HtmlElement, HtmlInputElement, wasm_bindgen::JsCast};
 
 struct Game24State {
     goal: Rational,
@@ -31,7 +31,7 @@ impl Game24State {
     }
 
     fn dealer(&mut self, cnt: u8) {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         //let dst = rand::distributions::Uniform::new(1, 100);
         //let cnt = if 0 < cnt { cnt } else { self.nums.len() as u8 };
 
@@ -104,8 +104,8 @@ fn app() -> Element {
         } */
 
         //Title { "24 Puzzle" } // respect index.html and Dioxus.toml
-        //Link { rel: "icon",       href: "assets/favicon.ico" }
-        Link { rel: "stylesheet", href: "assets/tailwind.css" }
+        //Link { rel: "icon",       href: asset!("assets/favicon.ico") }
+        Link { rel: "stylesheet", href: asset!("assets/tailwind.css") }
         //Script { src: "https://cdn.tailwindcss.com" }
         Style { {head_style} }
 
@@ -233,13 +233,13 @@ fn solver() -> Element {    // TODO: l10n
     rsx! { main { class: "mt-auto mb-auto",
             /* div { id: "play-cards", class: "relative", hidden: true,
                 img { src: "poker-modern-qr-Maze/2C.svg",
-                    class: "inline-block absolute origin-bottom-left -rotate-[15deg]", }
+                    class: "inline-block absolute origin-bottom-left -rotate-15", }
                 img { src: "poker-modern-qr-Maze/3D.svg",
                     class: "inline-block absolute origin-bottom-left -rotate-[5deg]", }
                 img { src: "poker-modern-qr-Maze/4H.svg",
                     class: "inline-block absolute origin-bottom-left  rotate-[5deg]", }
                 img { src: "poker-modern-qr-Maze/5S.svg",
-                    class: "inline-block absolute origin-bottom-left  rotate-[15deg]", }
+                    class: "inline-block absolute origin-bottom-left  rotate-15", }
             }   // TODO: */
 
             p { class: "hidden",
@@ -335,7 +335,7 @@ fn solver() -> Element {    // TODO: l10n
                 }
             }
 
-            p { class: "hidden peer-invalid:visible relative -top-[1rem] text-red-500 font-light",
+            p { class: "hidden peer-invalid:visible relative -top-4 text-red-500 font-light",
                 "Invalid integer number input, please correct it!"
             }   // hidden or display:none, invisible will cause layout shift
 
