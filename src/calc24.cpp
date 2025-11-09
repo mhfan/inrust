@@ -13,19 +13,46 @@
 //#pragma once
 
 #include <cstdint>
+#include <cassert>
+#include <cstring>
+
+#include <string>
+using std::string;
+
+#include <sstream>
+using std::ostream; //, std::istream;
+
+#include <iomanip>
+#include <iostream>
+using std::cout, std::cerr, std::endl;
+
+#include <vector>
+using std::vector;  // XXX: list performance is inferior to vector
+
+#include <optional>
+#include <algorithm>
+#include <unordered_set>
+#define hset std::unordered_set
+
+struct Expr;
+#ifndef USE_STD_SHARED_PTR
+#include "smart_ptr.h"
+typedef intrusive_ptr<Expr> PtrE;
+#define make_ptre make_intrusive<Expr>
+#else   // XXX: shared_ptr<Expr> collapse performance a lot
+#include <memory>
+typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;
+#define make_ptre std::make_shared<Expr>
+#endif
+
 template <typename T> struct RNum { T n, d; RNum(auto n, T d = 1): n(n), d(d) {} };
 typedef RNum<int32_t> Rational;     // int32_t/int64_t/BigInt
 
 enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 //typedef char Oper;    // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 
-struct Expr;
-#include <memory>
-typedef std::shared_ptr<Expr> PtrE;     //const Expr* PtrE;
-#define make_ptre(e) std::make_shared<Expr>(std::forward<Expr>(e))
-// XXX: shared_ptr<Expr>(*Expr) collapse performance, try faster boost::intrusive_ptr?
-
 struct Expr {   Rational v; PtrE a, b; Oper op;     // anonymous structure  // const
+    mutable std::optional<uint32_t> cached_hash;
 
     Expr(const Rational& r, const Oper op = Num,    // a & b refer to left & right operands
          const PtrE& a = nullptr, const PtrE& b = nullptr): v(r), a(a), b(b), op(op) {}
@@ -35,6 +62,11 @@ struct Expr {   Rational v; PtrE a, b; Oper op;     // anonymous structure  // c
     //Expr(): Expr(Rational(0, 0)) {}
     //Expr(const Expr&) = delete;
     //Expr(Expr&&) = delete;
+
+    void add_ref() const { ++rfc; }
+    bool release() const { return --rfc == 0; }
+private:
+    mutable uint32_t rfc = 0;
 };
 
 typedef enum   Calc24Algo: uint8_t { DynProg, SplitSet, Inplace, Construct } Calc24Algo;
@@ -56,17 +88,17 @@ extern "C" void calc24_free(const char* ptr[], uint32_t cnt);
 #include "calc24.h"
 #endif//CALC24_H
 
-inline auto operator< (const Rational& lhs, const Rational& rhs) noexcept {
+constexpr inline auto operator< (const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.n * rhs.d < lhs.d * rhs.n;
     //auto ord = lhs.n * rhs.d < lhs.d * rhs.n;
     //if ((0 < lhs.d) ^ (0 < rhs.d)) return !ord; else return ord;
 }
 
-inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
+constexpr inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;
 }
 
-auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
+constexpr auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
     const auto lv = lhs.v.n * rhs.v.d, rv = lhs.v.d * rhs.v.n;
     if (lv  < rv) return true;
     if (lv == rv && rhs.op != Num) {
@@ -104,9 +136,6 @@ inline auto operator==(const Expr& lhs, const Expr& rhs) noexcept {
         return lhs.op == rhs.op && lhs.a == rhs.a && lhs.b == rhs.b;
 } */
 
-#include <sstream>
-using std::ostream; //, std::istream;
-
 //inline istream& operator>>(istream& is, Rational& r) { return is >> r.n >> r.d; }
 inline ostream& operator<<(ostream& os, const Rational& r) {
     return (1 == r.d && 0 <= r.n) ? os << r.n : os << r.n << '/' << r.d;
@@ -132,20 +161,23 @@ ostream& operator<<(ostream& os, const Expr& e) {
     if (bracket) os << '(' << *e.b << ')'; else os << *e.b;     return os;
 }
 
-inline auto hash_combine(uint32_t lhs, uint32_t rhs) {
+constexpr inline auto hash_combine(uint32_t lhs, uint32_t rhs) {
   return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
 }
 
 template <> struct std::hash<Expr> {
     auto operator()(const Expr& e) const noexcept {
-        if (e.op == Num) return hash_combine(e.v.n, e.v.d);     // XXX:
-        return hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
+        uint32_t hv;    if (e.cached_hash) return *e.cached_hash;
+        if (e.op == Num) {  hv = hash_combine(e.v.n, e.v.d);    // XXX:
+        } else { hv = hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
+        }   e.cached_hash = hv;
+        return   hv;
     }
 };
 
 static const std::hash<Expr> hash_expr;
 
-inline bool found_same(const auto& e, const auto& v, const Oper op) {
+constexpr inline bool found_same(const auto& e, const auto& v, const Oper op) {
     return e.op == op && (e.a->v == v || e.b->v == v ||
         found_same(*e.a, v, op) || found_same(*e.b, v, op));
 }
@@ -200,13 +232,6 @@ void form_compose(const auto& a, const auto& b, bool is_final, bool ngoal, auto&
     }
 }
 
-#include <vector>
-using std::vector;  // XXX: list performance is inferior to vector
-
-#include <algorithm>
-#include <unordered_set>
-#define hset std::unordered_set
-
 void calc24_dynprog (const Rational& goal, const vector<PtrE>& nums,
     const bool ngoal, auto&& each_found) {
     const auto psn = 1 << nums.size();
@@ -230,7 +255,7 @@ void calc24_dynprog (const Rational& goal, const vector<PtrE>& nums,
 
         const auto lambda = [&, is_final](auto&& e) {
             if (!is_final) vexp[x].push_back(make_ptre(e)); else
-            if (e.v == goal) each_found(std::move(e));
+            if (e.v == goal) each_found(std::forward<decltype(e)>(e));
         };
 
         for (auto i = 1; i < (x+1)/2; ++i) {
@@ -261,12 +286,13 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
 
     const auto lambda = [&, is_final](auto&& e) {
         if (!is_final) exps.push_back(make_ptre(e)); else
-        if (e.v == goal) each_found(std::move(e));
+        if (e.v == goal) each_found(std::forward<decltype(e)>(e));
     };
 
     hset<uint32_t> hv;      hv.reserve(psn - 1);                // psn - 2
     vector<PtrE> ns0, ns1;  ns0.reserve(n); ns1.reserve(n);     // n - 1
 
+    //#pragma omp parallel for schedule(dynamic)    // or use C++17 parallel algorithms
     for (auto x = 1; x < psn/2; ++x) {  ns0.clear();    ns1.clear();
         for (auto i = 0; const auto& e: nums)
             if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
@@ -308,8 +334,8 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
             const auto a(std::move(nums[i]));
 
             const auto lambda = [&, n, i, ngoal](auto&& e) {
-                if (n == 2) { if (e.v == goal) each_found(std::move(e)); } else {
-                    nums[i] = make_ptre(e);
+                if (n == 2) { if (e.v == goal) each_found(std::forward<decltype(e)>(e));
+                } else {    nums[i] = make_ptre(e);
                     calc24_inplace(goal, nums, ngoal, each_found, n - 1);
                 }
             };
@@ -333,10 +359,10 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     //    for (auto ia = nums.begin(); ia != ib; ++ia) {                const auto& a(*ia);
     for (; j < n; ++j) {    const auto& b(nums[j]);
         const auto lambda = [&, n, ngoal](auto&& e) {
-            if (n == 2) { if (e.v == goal) each_found(std::move(e)); } else {
-                nsub.push_back(make_ptre(e));
+            if (n == 2) { if (e.v == goal) each_found(std::forward<decltype(e)>(e));
+            } else {    nsub.push_back(make_ptre(e));
                 calc24_construct(goal, nsub, ngoal, each_found, j - 1);
-                nsub. pop_back();
+                        nsub. pop_back();
             }
         };
 
@@ -358,13 +384,13 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
 
     const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
-    for (const auto& n: rnv) nums.push_back(std::make_shared<Expr>(n));
+    for (const auto& n: rnv) nums.push_back(make_ptre(Expr(n)));
     std::sort(nums.begin(),  nums.end(),
         [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
 
     hset<uint32_t> eset;
     const auto hash_unify = [&](auto&& e) {
-        if (eset.insert(hash_expr(e)).second) each_found(std::move(e));
+        if (eset.insert(hash_expr(e)).second) each_found(std::forward<decltype(e)>(e));
     };
 
     switch (algo) {
@@ -374,9 +400,6 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
         case Construct: calc24_construct(goal, nums, ngoal, hash_unify, 1); break;
     }   //return exps;
 }
-
-#include <string>
-using std::string;
 
 inline vector<string> calc24_coll(const Rational& goal, const vector<Rational>& nums,
     Calc24Algo algo) {  vector<string> exps;
@@ -392,14 +415,12 @@ inline string calc24_first(const Rational& goal, const vector<Rational>& nums,
     }); return es;
 }
 
-#include <iostream>
 inline uint32_t calc24_print(const Rational& goal, const vector<Rational>& nums,
     Calc24Algo algo) {  auto cnt = 0u;
     calc24_algo(goal, nums, algo,
         [&](auto&& e) { std::cout << e << std::endl; ++cnt; });     return cnt;
 }
 
-#include <cstring>
 void calc24_cffi(Calc24IO* calc24) {
     /*assert(sizeof(calc24->algo == 1 && sizeof(bool) == 1);
     std::cerr << "algo: " << calc24->algo << ", ia: " << calc24->ia
@@ -429,12 +450,7 @@ void calc24_free(const char* ptr[], uint32_t cnt) {
     for (auto i = 0u; i < cnt; ++i) delete ptr[i];   delete[] ptr;
 }
 
-#include <cassert>
-#include <iomanip>
-
 extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve24
-    using std::cout, std::cerr, std::endl;
-
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
     cout << "Test format rational/expression: "
          << "a: " << a << ", b: " << b /*<< ", expr.: " << e*/ << endl;
@@ -515,9 +531,16 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
 
 #ifdef  RUN_TEST
 int main(int argc, char* argv[]) {
-    (void)argc;     (void)argv;
-    test_24calc();  return 0;
-}
+    if (argc < 2) { test_24calc(); return 0; }
+    const Rational goal(atoi(argv[1]));
+    vector<Rational> nums;
+
+    for (auto i = 2; i < argc; ++i) nums.push_back(atoi(argv[i]));
+    vector<string> exps = calc24_coll(goal, nums, DynProg);
+    cout << "Got " << exps.size() << " solutions:" << endl;
+    for (auto&& e: exps) cout << e << endl;
+    return 0;
+}   // g++ -DRUN_TEST -O2 -o calc24 src/calc24.cpp && ./calc24 24 3 5 8 13 21 34 55
 #endif
 
 // vim:sts=4 ts=4 sw=4 et
