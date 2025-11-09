@@ -31,8 +31,8 @@ pub fn isqrt(x: u64) -> u32 {   // XXX: to generalize?
         .for_each(|(n, p)| assert!(inrust::prime::is_prime(n) == p, "({n}, {p})"));
 ``` */
 pub fn is_prime(x: u64) -> bool {
-    if 3 < x && x % 2 == 0 { return false }     let mut n = 3;
-    while n * n <= x { if x % n == 0 { return false; } n += 2; }    1 < x
+    if 3 < x && x.is_multiple_of(2) { return false }     let mut n = 3;
+    while n * n <= x { if x.is_multiple_of(n) { return false; } n += 2; }    1 < x
 }
 
 /** ```

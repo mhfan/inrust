@@ -327,7 +327,7 @@ void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
 
     // XXX: skip duplicates over different combination order, as well in symmetric style
     for (auto j = 1u; j < n; ++j) {
-        const auto b(std::move(nums[j]));   nums[j] = nums[n - 1];
+        const auto b = std::exchange(nums[j], nums[n - 1]);
         const auto h0 = hash_expr(*b);
         for (auto i = 0u; i < j; ++i) {
             if (!hv.insert(hash_combine(hash_expr(*nums[i]), h0)).second) continue;
