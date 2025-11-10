@@ -43,7 +43,7 @@ jobs:
         working-directory: indiox
         run: |
           #cargo t #cargo nextest r
-          cargo binstall dioxus-cli
+          cargo binstall -y dioxus-cli
           npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
           npx @tailwindcss/cli -i input.css -o assets/tailwind.css -m
           dx bundle -r --web --out-dir dist
@@ -54,9 +54,9 @@ jobs:
         env:
           PERSEUS_BASE_PATH: https://mhfan.github.io/inrust/inperse
         run: |
-          #cargo binstall perseus-cli   # XXX: failed to build from default source
+          #cargo binstall -y perseus-cli   # XXX: failed to build from default source
           #cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
-          cargo install --git https://github.com/framesurge/perseus perseus-cli
+          perseus -V || cargo install --git https://github.com/framesurge/perseus perseus-cli
           cp ../indiox/assets/tailwind.css static/
           perseus deploy -e --wasm-opt-args '\-\-enable-bulk-memory-opt --enable-nontrapping-float-to-int'
           rm -rf    ../indiox/dist/public/inperse
