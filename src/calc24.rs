@@ -153,11 +153,11 @@ impl core::ops::Add for Expr {   //core::ops::{Add, Sub, Mul, Div}
 
 use std::rc::Rc;
 type RcExpr = Rc<Expr>;     //*const Expr;
-use core::cell::RefCell;    // for interior mutability, shared ownership
 
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)] // a & b refer to left & right operands
 pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)>,
-    cached_hash: RefCell<Option<u32>>,  //a: *const Expr, b: *const Expr, op: Oper, // XXX:
+    //a: *const Expr, b: *const Expr, op: Oper, // XXX:
+    cached_hash: core::cell::Cell<Option<u32>>,
 }
 
 impl Expr {     //#![allow(dead_code)]
@@ -322,18 +322,17 @@ impl PartialEq for Expr {
 use std::hash::{Hash, Hasher};
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        let mut cached = self.cached_hash.borrow_mut();
-        if let Some(hash) = *cached { hash.hash(state); return }
+        if let Some(hash) = self.cached_hash.get() { hash.hash(state); return }
         let mut hasher = DefaultHasher::default();
         let hs = &mut hasher; //state;
         if let Some((a, b, op)) = &self.m {
             (*op as u8).hash(hs);   a.hash(hs); b.hash(hs); // recursive
-            //hash_combine(a.cached_hash.borrow().unwrap() ^ ((*op as u32) << 11),
-            //             b.cached_hash.borrow().unwrap())
+            //hash_combine(a.cached_hash.get().unwrap() ^ ((*op as u32) << 11),
+            //             b.cached_hash.get().unwrap())
         } else { self.v.numer().hash(hs); self.v.denom().hash(hs);
             //hash_combine(self.v.numer() as _, self.v.denom() as _)
         }   let hv = hasher.finish() as _;
-        *cached = Some(hv);     hv.hash(state);
+        self.cached_hash.set(Some(hv));     hv.hash(state);
     }
 }
 
@@ -433,6 +432,7 @@ use std::collections::{HashSet, hash_map::DefaultHasher};
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
+    use core::cell::RefCell;    // for interior mutability, shared ownership
     let n = nums.len();     let psn = 1 << n; // size of powerset
     let mut vexp = vec![RefCell::new(vec![]); psn];
     if 1 < n { for i in 0..n { vexp[1 << i].get_mut().push(nums[i].clone()) } }
@@ -723,8 +723,8 @@ pub  use Calc24Algo::*;
 }
 
 #[cfg(feature = "cli")] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
-    let court_face = "_A23456789TJQK";  // ♠Spade, ♡Heart, ♢Diamond, ♣Club
-    let suit_color = [ Color::Blue, Color::Red, Color::Magenta, Color::Cyan ];
+    let court_face = "_A23456789TJQK";  // ♢Diamond, ♣Club, ♡Heart, ♠Spade
+    let suit_color = [ Color::Magenta, Color::Cyan, Color::Red, Color::Blue, ];
     let (mut rng, mut spos, mut batch)= (rand::rng(), 0, 0);
     let mut deck = (0..13*4u8).collect::<Vec<_>>();
 
