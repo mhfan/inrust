@@ -723,8 +723,8 @@ pub  use Calc24Algo::*;
 }
 
 #[cfg(feature = "cli")] pub fn game24_cards(goal: &Rational, cnt: u8, algo: Calc24Algo) {
-    let court_face = "_A23456789TJQK";  // ♢Diamond, ♣Club, ♡Heart, ♠Spade
-    let suit_color = [ Color::Magenta, Color::Cyan, Color::Red, Color::Blue, ];
+    // "♦♣♥♠ ♢♧♡♤ 🃟 ♦️♣️♥️♠️ 🃏 🂿" // ♢Diamond, ♣Club, ♡Heart, ♠Spade
+    let (court_faces, suits) = (b"A23456789TJQK", "♦♣♥♠");
     let (mut rng, mut spos, mut batch)= (rand::rng(), 0, 0);
     let mut deck = (0..13*4u8).collect::<Vec<_>>();
 
@@ -739,12 +739,16 @@ pub  use Calc24Algo::*;
 
         let nums = deck[spos as _..].partial_shuffle(&mut rng,
             cnt as _).0.iter().map(|&num| {     // cards deck dealer
-            let (num, sid) = ((num % 13) + 1, (num / 13)/* % 4 */);
-            //let (sid, num) = num.div_rem(13);   let num = num + 1;  //sid %= 4;
+            let (num, sid) = (num % 13, num / 13/* % 4 */);
+            //let (sid, num) = num.div_rem_euclid(13);
 
-            let ch = court_face.chars().nth(num as usize).unwrap_or('?');
-            print!(r" {}", ch.bold().bg(suit_color[sid as usize]));
-            (num as i32).into()
+            let color = if sid % 2 == 0 { Color::Red
+            } else { Color::Black }.on_white();
+            let court =    court_faces[num as usize] as char;
+            let ss = suits.chars().nth(sid as usize).unwrap_or('�');
+            print!(r" {}{}", court.bold().paint(color), ss.paint(color));
+
+            ((num + 1) as i32).into()
         }).collect::<Vec<_>>();     spos += cnt;    print!(r": ");
 
         let exps = calc24_coll(goal, &nums, algo);
