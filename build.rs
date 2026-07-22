@@ -20,7 +20,7 @@ fn main() {     // https://doc.rust-lang.org/stable/cargo/reference/build-script
 
     #[cfg(any(feature = "cc", feature = "cxx"))] { calc24_file.set_extension("cpp");
         build.cpp(true).flag("-std=c++20").flag("-Wno-misleading-indentation")
-        .opt_level(2).define("NDEBUG", None).file(&calc24_file).compile("calc24");
+        .opt_level(3).define("NDEBUG", None).file(&calc24_file).compile("calc24");
 
         println!("cargo:rerun-if-changed={}", calc24_file.display());
         println!("cargo:rerun-if-changed={}", calc24_file.with_extension("h").display());

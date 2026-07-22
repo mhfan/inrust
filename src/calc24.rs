@@ -29,10 +29,11 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
     fn is_negative(&self) -> bool { self.0 * self.1 < T::zero() }
     //fn is_positive(&self) -> bool { T::zero() < self.0 * self.1 }
 
+    /// let caller ensure denominator is not zero
     #[inline] pub const fn new_raw(n: T, d: T) -> Self { Self(n, d) }
     #[inline] pub fn new(num: T, den: T) -> Self {
         #[cfg(feature = "debug")] if den == T::zero() { panic!("zero division") }
-        let mut rn = Self::new_raw(num, den); rn.reduce(); rn
+        Self::new_raw(num, den).reduce()
     }
 
     /** ```
@@ -41,15 +42,14 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
                       (RNum::new(-4,  2), RNum::new_raw(-2, 1)),
                       (RNum::new( 6, -2), RNum::new_raw(-3, 1)),
                       (RNum::new( 0,  2), RNum::new_raw( 0, 1)),
-                      (RNum::new( 3,  2), RNum::new_raw( 3, 2)),
-        ];
+                      (RNum::new( 3,  2), RNum::new_raw( 3, 2)), ];
 
         cases.into_iter().for_each(|(a, b)| {
             assert!(a.numer() == b.numer() && a.denom() == b.denom(),
                 "simplified rational: {a}");
         });
     ``` */
-    /*pub */fn reduce(&mut self) -> &Self {
+    /*pub */fn reduce(mut self) -> Self {
         fn gcd<T: PrimInt>(mut a: T, mut b: T) -> T {
             // fast Euclid's algorithm for Greatest Common Denominator
             // Stein's algorithm (Binary GCD) support non-negative only
@@ -76,8 +76,7 @@ impl<T: PrimInt + Display> Display for RNum<T> {
     /** ```
         # use inrust::calc24::RNum;
         let cases = [ (RNum::from(1), "1"), (RNum::from(-1), "-1"),
-                      (RNum::from(0), "0"), (RNum::new_raw(1, 2), "1/2"),
-        ];
+                      (RNum::from(0), "0"), (RNum::new_raw(1, 2), "1/2"), ];
 
         cases.iter().for_each(|it| {
             assert!(it.0.to_string() == it.1, r"display {} != {}", it.0, it.1);
@@ -87,7 +86,7 @@ impl<T: PrimInt + Display> Display for RNum<T> {
         }); assert_eq!(" 2", format!("{:2}", RNum::from(2)));
     ``` */
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
-        let srn = self;     //srn.reduce();
+        let srn = self; //.reduce();
         //if  srn.1.is_zero() { write!(f, r"(INV)")?; return Ok(()) }
         //let bracket = srn.is_negative() || !srn.1.is_one();  // XXX:
         //if  bracket { write!(f, r"(")? }
@@ -103,7 +102,7 @@ impl<T: PrimInt + FromStr> FromStr for RNum<T> {
         let n = s.next().unwrap_or("" ).parse::<T>()?;
         let d = s.next().unwrap_or("1").parse::<T>()?;
         #[cfg(feature = "debug")] if d == T::zero() { panic!("zero division") } // FIXME:
-        Ok(Self::new_raw(n, d))
+        Ok(Self::new_raw(n, d)) // keep original numbers without reduction
     }   type Err = T::Err;
 }
 
@@ -113,9 +112,8 @@ use core::cmp::{Eq, PartialEq, PartialOrd, Ord, Ordering}; // Eq ⊆ PartialEq �
 
 impl<T: PrimInt> Ord for RNum<T> { #[inline]
     fn cmp(&self, rhs: &Self) -> Ordering { (self.0 * rhs.1).cmp(&(self.1 * rhs.0))
-        //let ord = (self.0 * rhs.1).cmp(&(self.1 * rhs.0));  // XXX:
         //if (T::zero() < self.1) ^ (T::zero() < rhs.1) { ord.reverse() } else { ord }
-    }
+    }   // XXX: denominator are never be zero in this project
 }
 
 impl<T: PrimInt> PartialOrd for RNum<T> {
@@ -143,7 +141,7 @@ impl core::ops::Add for Expr {   //core::ops::{Add, Sub, Mul, Div}
     }   type Output = Self;
 } */
 
-#[derive(/*Debug, */Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[repr(u8/*, C*/)] enum Oper { Num, Add = b'+', Sub = b'-', Mul = b'*', Div = b'/', }
 //type Oper = char; // type alias   // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 //struct Oper(u8);  // newtype idiom
@@ -155,16 +153,16 @@ use std::rc::Rc;
 type RcExpr = Rc<Expr>;     //*const Expr;
 
 //#[derive(Debug)] //#[repr(packed(4)/*, align(4)*/)] // a & b refer to left & right operands
-pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)>,
+#[derive(Clone)] pub struct Expr { v: Rational, m: Option<(RcExpr, RcExpr, Oper)>,
     //a: *const Expr, b: *const Expr, op: Oper, // XXX:
-    cached_hash: core::cell::Cell<Option<u32>>,
+    cached_hash: core::cell::Cell<u64>,
 }
 
 impl Expr {     //#![allow(dead_code)]
     #[inline] pub fn value(&self) -> &Rational { &self.v }
-    fn new(v: Rational, a: &RcExpr, b: &RcExpr, op: Oper) -> Self {
-        Self { v, m: Some((a.clone(), b.clone(), op)), cached_hash: None.into()
-    } }
+    fn new(v: Rational, a: &RcExpr, b: &RcExpr, op: Oper) -> Self { // XXX: v.reduce()?
+        Self { v, m: Some((a.clone(), b.clone(), op)), cached_hash: 0.into() }
+    }
 
     fn eval(a: Expr, b: Expr, ops: char) -> Result<Self, String> {
         let (an, ad) = (a.v.numer(), a.v.denom());
@@ -177,8 +175,8 @@ impl Expr {     //#![allow(dead_code)]
             '/' | '÷' => { op = Oper::Div;  //assert!(bn.ne(&0));
                 if bn.eq(&0) { return Err("Invalid divisor" .to_owned()) }
                 Rational::new_raw(an * bd, ad * bn)
-            }           _ => return Err("Invalid operator".to_owned())  //unreachable!()
-        };  Ok(Self::new(v, &Rc::new(a), &Rc::new(b), op))
+            }   _ =>           return Err("Invalid operator".to_owned())  //unreachable!()
+        };  Ok(Self { v, m: Some((Rc::new(a), Rc::new(b), op)), cached_hash: 0.into() })
     }
 
     fn fmt(&self, f: &mut Formatter<'_>, dbg: bool) -> fmtResult {
@@ -226,7 +224,7 @@ impl Expr {     //#![allow(dead_code)]
 //impl Drop for Expr { fn drop(&mut self) { eprintln!(r"Dropping: {self}"); } }
 
 impl From<Rational> for Expr { #[inline]
-    fn from(rn: Rational) -> Self { Self { v: rn, m: None, cached_hash: None.into() } }
+    fn from(rn: Rational) -> Self { Self { v: rn, m: None, cached_hash: 0.into() } }
 }
 
 #[cfg(feature = "debug")] impl Debug for Expr {
@@ -248,8 +246,7 @@ impl FromStr for Expr {
     ``` */
     fn from_str(s: &str) -> Result<Self, Self::Err> {   use pest::Parser;
         fn build_expr_ast(pair: pest::iterators::Pair<Rule>) -> Result<Expr, String> {
-            let mut ex = Err("None".to_owned());
-            let mut op = None;
+            let (mut ex, mut op) = (Err("None".to_owned()), None);
 
             for pair in pair.into_inner() {
                 let rule = pair.as_rule();  match rule {
@@ -288,8 +285,7 @@ impl Ord for Expr {
         if  ord != Ordering::Equal { return ord }
 
         match (&self.m, &rhs.m) {
-            (Some((la, lb, lop)),
-             Some((ra, rb, rop))) => {
+            (Some((la, lb, lop)), Some((ra, rb, rop))) => {
                 let ord = (*lop as u8).cmp(&(*rop as _));
                 if  ord != Ordering::Equal { return ord }
                 let ord = la.cmp(ra);   // recursive
@@ -311,18 +307,18 @@ impl PartialEq for Expr {
     fn eq(&self, rhs: &Self) -> bool { //self.cmp(rhs) == Ordering::Equal
         match (&self.m, &rhs.m) {
             (None, None) => self.v == rhs.v,
-            (Some((la, lop, lb)),
-             Some((ra, rop, rb))) =>
+            (Some((la, lb, lop)), Some((ra, rb, rop))) =>
                 lop == rop && la == ra && lb == rb,  // recursive
             _ => false, //(None, Some(_)) | (Some(_), None) => false,
         }   //self.v == rhs.v
     }
 }
 
-use std::hash::{Hash, Hasher};
+use core::hash::{Hash, Hasher};
 impl Hash for Expr {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        if let Some(hash) = self.cached_hash.get() { hash.hash(state); return }
+        let hv = self.cached_hash.get();
+        if  hv != 0 { hv.hash(state); return }
         let mut hasher = DefaultHasher::default();
         let hs = &mut hasher; //state;
         if let Some((a, b, op)) = &self.m {
@@ -331,9 +327,13 @@ impl Hash for Expr {
             //             b.cached_hash.get().unwrap())
         } else { self.v.numer().hash(hs); self.v.denom().hash(hs);
             //hash_combine(self.v.numer() as _, self.v.denom() as _)
-        }   let hv = hasher.finish() as _;
-        self.cached_hash.set(Some(hv));     hv.hash(state);
+        }   let hv = hasher.finish();
+        self.cached_hash.set(hv);   hv.hash(state);
     }
+}
+
+impl<T: PrimInt + Hash> Hash for RNum<T> {      // XXX: reduce before hashing?
+    fn hash<H: Hasher>(&self, state: &mut H) { self.0.hash(state); self.1.hash(state); }
 }
 
 #[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
@@ -347,12 +347,12 @@ impl Hash for Expr {
 
 // several pruning rules to find inequivalent/unique expressions only
 fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
-    mut new_expr: impl FnMut(Expr) -> Option<()>) -> Option<()> {
+    mut new_expr: impl FnMut(Expr) -> Option<()>) -> Option<()> {   // XXX: ControlFlow<(), ()>
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
 
     // XXX: check overflow and reduce?
     let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
-               a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
+                           a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
     // Commutativity (selecting a bias by lexicographical comparison)
     // ((A . B) . b) => (A . (B . b)), kept the right sub-tree only
     let (aop, bop) = (a.op(), b.op());   use Oper::*;
@@ -429,6 +429,23 @@ fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
 #[cfg(not(any(feature = "ahash", feature = "gxhash")))] // https://github.com/ogxd/gxhash
 use std::collections::{HashSet, hash_map::DefaultHasher};
 
+fn subset_multiset_keys(nums: &[RcExpr]) -> Vec<usize> {
+    debug_assert!(nums.windows(2).all(|w| w[0].v <= w[1].v));
+    let (mut weight, n) = (1usize, nums.len());
+    let (mut begin, mut elem_keys) = (0, vec![0; n]);
+    while begin < n { let mut end = begin + 1;
+        while end < n && nums[end].v == nums[begin].v { end += 1; }
+        elem_keys[begin..end].fill(weight);
+        weight *= end - begin + 1; begin = end;
+    }
+
+    let mut keys = vec![0; 1 << n];
+    for bits in 1usize..keys.len() {
+        let bit = bits.trailing_zeros() as usize;
+        keys[bits] = keys[bits & (bits - 1)] + elem_keys[bit];
+    }   keys
+}
+
 // traversely top-down divide the number set by dynamic programming
 fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     each_found: &mut F) -> Option<()> where F: FnMut(Expr) -> Option<()> {
@@ -438,17 +455,7 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     if 1 < n { for i in 0..n { vexp[1 << i].get_mut().push(nums[i].clone()) } }
 
     let mut hv = HashSet::with_capacity(psn - 1);   // psn - 2
-    let get_hash = |x| {
-        let mut hasher = DefaultHasher::default();
-        //nums.iter().enumerate().for_each(|(i, e)| if (1 << i) & x != 0 {
-        //    #[cfg(feature = "debug")] eprint!(r"{e} "); e.hash(&mut hasher) });
-
-        let (mut n, mut i) = (1, 0);
-        while n <= x {  if n & x != 0 {  nums[i].hash(&mut hasher);
-                #[cfg(feature = "debug")] eprint!(r"{} ", nums[i]);
-            }   n <<= 1;    i += 1;
-        }   hasher.finish()
-    };
+    let subset_keys = subset_multiset_keys(nums);
 
     for x in 3..psn {   // 0 is a placeholder, 1~2 both included in previous [1 << i]
         if x & (x - 1) == 0 { continue }    // skip when (x == 2^n)
@@ -461,16 +468,17 @@ fn calc24_dynprog <F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
             #[cfg(feature = "debug")] eprintln!(r"{i:08b}{} | {:08b}{}",
                 if es0.is_empty() {"X"} else {"="}, x - i, if es1.is_empty() {"X"} else {"="});
 
-            let h0 = get_hash(i);       if !hv.insert(h0) { // skip duplicate combinations
+            let (k0, k1) = (subset_keys[i], subset_keys[x - i]);
+            if !hv.insert(k0) { // skip duplicate combinations
                      #[cfg(feature = "debug")] eprintln!(r"~ dup"); continue
             } else { #[cfg(feature = "debug")] eprint!(r"~ "); }
 
-            let h1 = get_hash(x - i);   if h1 != h0 && !hv.insert(h1) {
+            if k0 != k1 && !hv.insert(k1) {
                 #[cfg(feature = "debug")] eprintln!(r"dup"); continue
             }   #[cfg(feature = "debug")] eprintln!(r"pick");
 
             es0.iter().enumerate().try_for_each(|(i, a)|
-                es1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b| {
+                es1.iter().skip(if k0 != k1 { 0 } else { i }).try_for_each(|b| {
                     // skip duplicates by symmetric subset combinations, e.g.: [5 3], [5 3]
                     let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                     form_compose(a, b, is_final, ngoal, |e| {
@@ -494,10 +502,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     //if nums.len() < 2 { return nums.to_vec() }
 
     let mut hv = HashSet::with_capacity(psn - 1);   // psn - 2
-    let get_hash = |ns: &[_]| {
-        let mut hasher = DefaultHasher::default();
-        ns.hash(&mut hasher);   hasher.finish()
-    };
+    let subset_keys = subset_multiset_keys(nums);
 
     //let mut used = HashSet::default();
     //let all_unique = nums.iter().all(|e| used.insert(e));
@@ -509,11 +514,12 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
         #[cfg(feature = "debug")] eprint!(r"{:?} ~ {:?} ", ns0, ns1);
 
         //if !all_unique {  // skip duplicate (ns0, ns1)
-        let h0 = get_hash(&ns0);    if !hv.insert(h0) {
+        let (k0, k1) = (subset_keys[x], subset_keys[(psn - 1) ^ x]);
+        if !hv.insert(k0) {
             #[cfg(feature = "debug")] eprintln!(r"dup"); continue
         }
 
-        let h1 = get_hash(&ns1);    if h1 != h0 && !hv.insert(h1) {
+        if k0 != k1 && !hv.insert(k1) {
             #[cfg(feature = "debug")] eprintln!(r"dup"); continue
         }   #[cfg(feature = "debug")] eprintln!(r"pick");
         //}     // no gain no penalty for performance
@@ -525,7 +531,7 @@ fn calc24_splitset<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
 
         //ns0.iter().cartesian_product(ns1).for_each(|(&a, &b)| { });
         if  ns0.iter().enumerate().try_for_each(|(i, a)|
-            ns1.iter().skip(if h1 != h0 { 0 } else { i }).try_for_each(|b| {
+            ns1.iter().skip(if k0 != k1 { 0 } else { i }).try_for_each(|b| {
                 // skip duplicates by symmetric subset combinations, e.g.: [5 3], [5 3]
                 let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
                 form_compose(a, b, is_final, ngoal, |e| {
@@ -546,14 +552,10 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
     for j in 1..n {     // the last j is n - 1
         let b = nums[n - 1].clone();
         let b = mem::replace(&mut nums[j], b);
-        let mut hasher = DefaultHasher::default();  b.hash(&mut hasher);
-
         for i in 0..j { let a = nums[i].clone();
-            let mut hasher = hasher.clone();        a.hash(&mut hasher);
-            if !hv.insert(hasher.finish()) { continue }     // unify duplicate numbers
-
             // XXX: compare expr. rather than value to avoid more duplicate combinations
             let (ta, tb) = if b < a { (&b, &a) } else { (&a, &b) };
+            if !hv.insert((ta.clone(), tb.clone())) { continue } // unify duplicate operands
             form_compose(ta, tb, n == 2, ngoal, |e| {
                 if n == 2 { if &e.v == goal { each_found(e)? } } else { nums[i] = Rc::new(e);
                     calc24_inplace(goal, &mut nums[..n-1], ngoal, each_found)?;
@@ -567,26 +569,23 @@ fn calc24_inplace<F>(goal: &Rational, nums: &mut [RcExpr], ngoal: bool,
 fn calc24_construct<F>(goal: &Rational, nums: &[RcExpr], ngoal: bool,
     each_found: &mut F, minj: usize) -> Option<()> where F: FnMut(Expr) -> Option<()> {
     let n = nums.len();
-    let mut hv = HashSet::with_capacity(n * n / 2);     // n * (n - 1) / 2
+    let mut rest = Vec::with_capacity(n);   // reuse buffer to avoid repeated allocation
+    let mut hv: HashSet<(&Expr, &Expr)> = HashSet::with_capacity(n * n / 2);
 
     // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //nums.iter().tuple_combinations::<(_, _)>().for_each(|(a, b)| { });
     nums.iter().enumerate().skip(minj).try_for_each(|(j, b)| {
-        let mut hasher = DefaultHasher::default();  b.hash(&mut hasher);
         nums.iter().take(j).try_for_each(|a| {
-            let mut hasher = hasher.clone();        a.hash(&mut hasher);
-            if !hv.insert(hasher.finish()) { return Some(()) }  // unify duplicate numbers
-
-            use ptr::eq as ptr_eq;    // Rc::ptr_eq   // drop sub-expr.
-            let mut nums = nums.iter().filter(|&e|
-                !ptr_eq(e, a) && !ptr_eq(e, b)).cloned().collect::<Vec<_>>();
+            rest.clear();   use ptr::eq as ptr_eq;    // Rc::ptr_eq   // drop sub-expr.
+            rest.extend(nums.iter().filter(|&e| !ptr_eq(e, a) && !ptr_eq(e, b)).cloned());
 
             let (a, b) = if b.v < a.v { (b, a) } else { (a, b) };
-            form_compose(a, b, nums.is_empty(), ngoal, |e| {
-                if  nums.is_empty() { if &e.v == goal { each_found(e)? } } else {
-                    nums.push(Rc::new(e));
-                    calc24_construct(goal, &nums, ngoal, each_found, j - 1)?;
-                    nums.pop();
+            if !hv.insert((a, b)) { return Some(()) } // unify duplicate operands
+            form_compose(a, b, rest.is_empty(), ngoal, |e| {
+                if  rest.is_empty() {  if &e.v == goal { each_found(e)? } } else {
+                    rest.push(Rc::new(e));
+                    calc24_construct(goal, &rest, ngoal, each_found, j - 1)?;
+                    rest.pop();
                 }   Some(())
             })
         })
@@ -632,13 +631,12 @@ pub  use Calc24Algo::*;
     let ngoal = goal.is_negative(); //goal < &0.into();
     let mut nums = nums.iter().map(|&rn|
         Rc::new(Expr::from(rn))).collect::<Vec<_>>();
-    nums.sort_unstable_by(|a, b| a.v.cmp(&b.v));
+    nums.sort_unstable_by_key(|a| a.v);
     // so don't needs order-free hasher     //quicksort(nums, |a, b| a.v < b.v);    // XXX:
 
-    let mut hexp = HashSet::<u64>::default();
+    let mut hexp = HashSet::<Expr>::default();
     let mut hash_unify = |e: Expr| {
-        let mut hasher = DefaultHasher::default();  e.hash(&mut hasher);
-        if hexp.insert(hasher.finish()) { each_found(e) } else { Some(()) }
+        if hexp.insert(e.clone()) { each_found(e) } else { Some(()) }
     };
 
     match algo {    // TODO: output/count all possible expr. forms?
@@ -760,6 +758,7 @@ pub  use Calc24Algo::*;
             if 0 == batch { println!(); }   continue
         }
 
+        let mut nums = nums.clone();    nums.sort_unstable();
         let tnow = std::time::Instant::now();
         loop {  let mut es = String::new();     use std::io::{self, Write};
             if let Err(e) = io::stdout().flush() {
@@ -778,7 +777,6 @@ pub  use Calc24Algo::*;
             if  es.parse::<Expr>().is_ok_and(|e| e.value() == goal && {
                     let mut rnsv = vec![];
                     e.traverse_num(&mut |&rn| rnsv.push(rn));   rnsv.sort_unstable();
-                    let mut nums = nums.clone();    nums.sort_unstable();
                     if rnsv != nums { println!("Please use the given numbers exactly!");
                         false } else { true } }) {
                 print!(r"{}/{:.1}s: ", "Bingo".bg(Color::Green), tnow.elapsed().as_secs_f32());
@@ -860,6 +858,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
                 }   nums.next();
             } else if first.eq_ignore_ascii_case("poker") ||
                       first.eq_ignore_ascii_case("cards") {
+                //first.get(5..).and_then(|s| s.parse::<u8>().ok()).unwrap_or(4)
                 game24_cards (&goal, first[5..].parse::<u8>().unwrap_or(4), algo);  continue
             } else if first.eq_ignore_ascii_case("quit") ||
                       first.eq_ignore_ascii_case("exit") { break }
@@ -904,7 +903,9 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     debug_assert!(mem::size_of::<Rational>() == 8);
     //eprintln!("algo: {:?}, goal: {}, ncnt: {}", calc24.algo, calc24.goal, calc24.ncnt);
 
-    unsafe { calc24_cffi(&mut calc24); }    let exps = unsafe {
+    unsafe { calc24_cffi(&mut calc24); }
+    if calc24.ecnt < 1/* || calc24.exps.is_null()*/ { return vec![]; }
+    let exps = unsafe {
         core::slice::from_raw_parts(calc24.exps, calc24.ecnt as _) }
             .iter().map(|&es| unsafe { std::ffi::CStr::from_ptr(es) }
                 .to_string_lossy().into_owned()).collect::<Vec<_>>();  //.to_str().unwrap()
@@ -935,6 +936,30 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
 #[cfg(test)] mod tests {    use super::*;   // unit test
     // Need to import items from parent module, to access non-public members.
 
+    #[test] fn subset_keys_encode_value_multiplicity() {
+        let nums = [1, 1, 2, 3].map(|n| Rc::new(Expr::from(Rational::from(n))));
+        let keys = subset_multiset_keys(&nums);
+        assert_eq!(keys[0b0001], keys[0b0010]);
+        assert_eq!(keys[0b0101], keys[0b0110]);
+        assert_ne!(keys[0b0011], keys[0b0100]);
+    }
+
+    #[test] fn hash_collisions_keep_distinct_expressions() {
+        use std::{collections::HashSet as StdHashSet, hash::{BuildHasherDefault, Hasher}};
+
+        #[derive(Default)] struct ZeroHasher;
+        impl Hasher for ZeroHasher {
+            fn finish(&self) -> u64 { 0 }
+            fn write(&mut self, _: &[u8]) { }
+        }
+
+        #[allow(clippy::mutable_key_type)]
+        let mut expressions = StdHashSet::<Expr, BuildHasherDefault<ZeroHasher>>::default();
+        assert!(expressions.insert("1 + 2".parse().unwrap()));
+        assert!(expressions.insert("1 * 2".parse().unwrap()));
+        assert_eq!(expressions.len(), 2);
+    }
+
     #[cfg(feature = "cxx")] #[test] fn cxx_bridge() {
         /*impl From<Expr> for ffi_cxx::Expr {
             fn from(e: Expr) -> Self {  use cxx::memory::SharedPtr;
@@ -946,6 +971,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
 
         impl From<Rational> for ffi_cxx::Rational {
             fn from(r: Rational) -> Self { unsafe { mem::transmute(r) } }
+            //fn from(r: Rational) -> Self { Self { n: r.numer(), d: r.denom() } }
         }
 
         //let goal: Rational = 24.into();   use cxx::{CxxString, CxxVector};
@@ -992,8 +1018,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
             (100, vec![13,14,15,16,17], vec!["16+(17-14)*(13+15)", "(17-13)*(14+15)-16"], 0),
             (100, vec![ 1, 2, 3, 4, 5, 6], vec![], 111),
             ( 24, vec![ 1, 2, 3, 4, 5, 6], vec![], 727),
-            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 45),
-        ];
+            ( 24, vec![ 1, 2, 3, 4, 5], vec![], 45), ];
 
         cases.into_iter().for_each(|it| {
             let (goal, nums, res, cnt) = it;

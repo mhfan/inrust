@@ -1,6 +1,6 @@
 
 ### https://doc.rust-lang.org/cargo/reference/manifest.html
-# rustup override set nightly
+# Optional for nightly-only experiments: rustup override set nightly
 
 [package]
 name = "inrust"
@@ -9,18 +9,19 @@ edition.workspace = true
 version.workspace = true
 license.workspace = true
 authors.workspace = true
-   homepage.workspace = true
- repository.workspace = true
+repository.workspace = true
+  homepage.workspace = true
+
 description = "Accumulate knowledge of my study on Rust language"
 categories  = [ "command-line-utilities", "games", "mathematics" ]
 keywords = [ "24-game", "24-solver", "24-puzzle", "24-challenge" ]
 exclude  = [ "README-DSP.md", "tmp" ]   # "tests", "benches", "fuzz"
 #publish  = [ "crates-io" ]  # cargo publish --registry crates-io
 
-#build = "build.rs"     # default, build = false
+#build = "build.rs"     # auto-discovered by default; use `build = false` to disable it
 
 [workspace.package]
-edition = "2021"    # use 'cargo fix' to fix for compatibility with different Rust edition.
+edition = "2021"    # use `cargo fix --edition` before migrating to a newer edition
 version = "0.3.9"
 #readme = "README.md"
 license = "MIT OR Apache-2.0"
@@ -54,8 +55,8 @@ cxx   = { version = "1.0", optional = true }
 dhat  = { version = "0.3", optional = true }
 pprof = { version = "0.15", features = [ "flamegraph", "criterion" ], optional = true }
 
-gxhash = { version = "3.4", optional = true }
  ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
+gxhash = { version = "3.4", optional = true }
 num-bigint   = { version = "0.4", optional = true }
 num-rational = { version = "0.4", optional = true }
 serde = { version = "1", features = [ "derive" ], optional = true }
@@ -70,9 +71,6 @@ regex = "1.12"
 rand = "0.9"
 #csv = "1.1"
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
-
 [build-dependencies]  # used for compiling build script
 cc = { version = "1.2", features = [ "parallel" ], optional = true }
 cxx-build = { version = "1.0", optional = true }
@@ -81,10 +79,10 @@ chrono = "0.4"
 
 [features]
 debug = []
-cli = [ "yansi", "rand" ]
-cxx = [ "dep:cxx", "cxx-build" ]   # implied by optional dependency
-default = [ "cc", "cli", "ahash" ] # "gxhash", "cxx", "serde", "num-rational", "num-bigint",
-dhat-heap = [ "dhat" ]
+cli = [ "dep:yansi", "dep:rand" ]
+cxx = [ "dep:cxx", "dep:cxx-build" ]   # `dep:` avoids implicit dependency features
+default = [ "cc", "cli", "ahash" ]     # opt-in alternatives: "gxhash", "cxx", "serde", etc.
+dhat-heap = [ "dep:dhat" ]
 
 [[bin]]
 name = "inrust"
@@ -93,8 +91,7 @@ required-features = [ "cli" ]
 [[bench]]
 name = "calc24_bench"
 #path = "benches/calc24_bench.rs"
-#cargo_bench_support = true
-#html_reports = false
+# Criterion HTML reports are configured by Criterion, not as `[[bench]]` keys.
 harness = false
 
 #[lib]
@@ -109,21 +106,23 @@ opt-level = 1   # Enable a small amount of optimization in debug mode
 opt-level = 3   # Enable high optimizations for dependencies, but not for own code.
 
 [profile.release]
-codegen-units = 1   # Perform optimizations on all codegen units.
-strip = 'debuginfo' # keep 'symbols'
-panic = 'abort' # Do not perform backtrace for panic on release builds.
+codegen-units = 1   # Optimize the crate as one codegen unit; slower build, potentially faster code.
+strip = 'debuginfo' # Remove debug information while retaining symbols where the platform supports it.
+panic = 'abort' # Abort instead of unwinding; panic hooks may still print a message/backtrace.
 #debug = 'full'  # for flamegraph
 #opt-level = 3   # default level
-lto = 'fat' # true
+lto = 'fat' # `true` also selects fat LTO.
 
 #cargo build -Z build-std=std,panic_abort -Z build-std-features=panic_immediate_abort
 
 #[profile.release-lto]  # customized profile
 #inherits = "release"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
+
 [workspace]
 members = [] #"inperse", "indiox", #"fuzz",
     #"inyew", "inyew/src-tauri",  #"inslint", "inegui",
 #exclude = [ "indsp", "inbevy", "inwasm", "cortex-m" ]
-#resolver = "2"  # default for 2021 edition?
-
+#resolver = "2"  # Match edition 2021 dependency-feature resolution explicitly.

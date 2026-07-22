@@ -13,8 +13,10 @@
 //#pragma once
 
 #include <cstdint>
+#include <bit>
 #include <cassert>
 #include <cstring>
+#include <new>
 
 #include <string>
 using std::string;
@@ -29,7 +31,7 @@ using std::cout, std::cerr, std::endl;
 #include <vector>
 using std::vector;  // XXX: list performance is inferior to vector
 
-#include <optional>
+//#include <optional>
 #include <algorithm>
 #include <unordered_set>
 #define hset std::unordered_set
@@ -52,7 +54,7 @@ enum Oper: char { Num, Add = '+', Sub = '-', Mul = '*', Div = '/', };
 //typedef char Oper;    // XXX: '*' -> '×' ('\xD7'), '/' -> '÷' ('\xF7')
 
 struct Expr {   Rational v; PtrE a, b; Oper op;     // anonymous structure  // const
-    mutable std::optional<uint32_t> cached_hash;
+    mutable uint64_t cached_hash = 0; // std::optional<>
 
     Expr(const Rational& r, const Oper op = Num,    // a & b refer to left & right operands
          const PtrE& a = nullptr, const PtrE& b = nullptr): v(r), a(a), b(b), op(op) {}
@@ -90,9 +92,8 @@ extern "C" void calc24_free(const char* ptr[], uint32_t cnt);
 
 constexpr inline auto operator< (const Rational& lhs, const Rational& rhs) noexcept {
     return lhs.n * rhs.d < lhs.d * rhs.n;
-    //auto ord = lhs.n * rhs.d < lhs.d * rhs.n;
     //if ((0 < lhs.d) ^ (0 < rhs.d)) return !ord; else return ord;
-}
+}   // XXX: denominator are never be zero in this project
 
 constexpr inline auto operator==(const Rational& lhs, const Rational& rhs) noexcept {
     return /*lhs.d != 0 && rhs.d != 0 && */lhs.n * rhs.d == lhs.d * rhs.n;
@@ -108,6 +109,12 @@ constexpr auto operator< (const Expr& lhs, const Expr& rhs) noexcept {
             if (lhs.a->op == rhs.a->op) return *lhs.b < *rhs.b;
         }
     }   return false;
+}
+
+inline auto operator==(const Expr& lhs, const Expr& rhs) noexcept {
+    if (lhs.op != rhs.op) return false;
+    if (lhs.op == Num) return lhs.v == rhs.v;
+    return *lhs.a == *rhs.a && *lhs.b == *rhs.b;
 }
 
 /* inline auto operator+(const Rational& lhs, const auto& rhs) noexcept {
@@ -161,25 +168,56 @@ ostream& operator<<(ostream& os, const Expr& e) {
     if (bracket) os << '(' << *e.b << ')'; else os << *e.b;     return os;
 }
 
-constexpr inline auto hash_combine(uint32_t lhs, uint32_t rhs) {
-  return lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2));
+constexpr inline auto hash_combine(uint64_t lhs, uint64_t rhs) {
+  return lhs ^ (rhs + 0x9e3779b97f4a7c15ULL + (lhs << 6) + (lhs >> 2));
 }
 
 template <> struct std::hash<Expr> {
     auto operator()(const Expr& e) const noexcept {
-        uint32_t hv;    if (e.cached_hash) return *e.cached_hash;
+        uint64_t hv;    if (e.cached_hash) return e.cached_hash;
         if (e.op == Num) {  hv = hash_combine(e.v.n, e.v.d);    // XXX:
-        } else { hv = hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (char(e.op) << 11);
-        }   e.cached_hash = hv;
-        return   hv;
+        } else { hv = hash_combine((*this)(*e.a), (*this)(*e.b)) ^ (uint64_t(e.op) << 11); }
+        e.cached_hash = hv; return hv;
     }
 };
 
 static const std::hash<Expr> hash_expr;
 
+struct ExprPair { const Expr *a, *b;
+    bool operator==(const ExprPair& rhs) const noexcept {
+        return *a == *rhs.a && *b == *rhs.b;
+    }
+};
+
+struct ExprPairHash {
+    auto operator()(const ExprPair& pair) const noexcept {
+        return hash_combine(hash_expr(*pair.a), hash_expr(*pair.b));
+    }
+};
+
 constexpr inline bool found_same(const auto& e, const auto& v, const Oper op) {
     return e.op == op && (e.a->v == v || e.b->v == v ||
         found_same(*e.a, v, op) || found_same(*e.b, v, op));
+}
+
+vector<size_t> subset_multiset_keys(const vector<PtrE>& nums) {
+    assert(std::is_sorted(nums.begin(), nums.end(),
+        [](const auto& a, const auto& b) { return a->v < b->v; }));
+    const auto n = nums.size(), psn = size_t(1) << n;
+    vector<size_t> elem_keys(n); size_t weight = 1;
+    for (size_t begin = 0; begin < n;) {
+        auto end = begin + 1;
+        while (end < n && nums[end]->v == nums[begin]->v) ++end;
+        std::fill(elem_keys.begin() + begin, elem_keys.begin() + end, weight);
+        weight *= end - begin + 1; begin = end;
+    }
+
+    vector<size_t> keys(psn);
+    for (size_t bits = 1; bits < psn; ++bits) {
+        const auto previous = bits & (bits - 1);
+        const auto bit = std::countr_zero(bits);
+        keys[bits] = keys[previous] + elem_keys[bit];
+    }   return keys;
 }
 
 // several pruning rules to find inequivalent/unique expressions only
@@ -242,31 +280,26 @@ void calc24_dynprog (const Rational& goal, const vector<PtrE>& nums,
         for (auto i = 0; const auto& e: nums) vexp[1 << i++].push_back(e);
     }
 
-    hset<uint32_t> hv;  hv.reserve(psn - 1);    // psn - 2
-    const auto get_hash = [&](auto x)/* -> auto*/ {     auto h0 = 0u;
-        //for (auto i = 0; const auto& e: nums)
-        //    if ((1 << i++) & x) h0 = hash_combine(h0, hash_expr(*e));
-        for (auto n = 1, i = 0; n <= x; n <<= 1, ++i)
-            if (n & x) h0 = hash_combine(h0, hash_expr(*nums[i]));  return h0;
-    };
+    hset<size_t> hv;  hv.reserve(psn - 1);    // psn - 2
+    const auto subset_keys = subset_multiset_keys(nums);
 
     for (auto x = 3; x < psn; ++x) {    if (!(x & (x - 1))) continue;
         const auto is_final = x == psn - 1;
 
         const auto lambda = [&, is_final](auto&& e) {
-            if (!is_final) vexp[x].push_back(make_ptre(e)); else
+            if (!is_final) vexp[x].push_back(make_ptre(std::forward<decltype(e)>(e))); else
             if (e.v == goal) each_found(std::forward<decltype(e)>(e));
         };
 
         for (auto i = 1; i < (x+1)/2; ++i) {
-            if ((x & i) != i) continue;             const auto h0 = get_hash(i);
-            if (!hv.insert(h0).second) continue;    const auto h1 = get_hash(x - i);
-            if (h1 != h0 && !hv.insert(h1).second) continue;
+            if ((x & i) != i) continue;             const auto k0 = subset_keys[i];
+            if (!hv.insert(k0).second) continue;    const auto k1 = subset_keys[x - i];
+            if (k1 != k0 && !hv.insert(k1).second) continue;
 
             const auto &es0(vexp[i]), &es1(vexp[x - i]);
             for (auto i = 0u; i < es0.size(); ++i) {
                     const auto& a(es0[i]);
-                for (auto j = (h1 != h0 ? 0u : i); j < es1.size(); ++j) {
+                for (auto j = (k1 != k0 ? 0u : i); j < es1.size(); ++j) {
                     const auto& b(es1[j]);
                     if (b->v < a->v) form_compose(b, a, is_final, ngoal, lambda); else
                                      form_compose(a, b, is_final, ngoal, lambda);
@@ -285,11 +318,12 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
     vector<PtrE> exps;
 
     const auto lambda = [&, is_final](auto&& e) {
-        if (!is_final) exps.push_back(make_ptre(e)); else
+        if (!is_final) exps.push_back(make_ptre(std::forward<decltype(e)>(e))); else
         if (e.v == goal) each_found(std::forward<decltype(e)>(e));
     };
 
-    hset<uint32_t> hv;      hv.reserve(psn - 1);                // psn - 2
+    hset<size_t> hv;        hv.reserve(psn - 1);                // psn - 2
+    const auto subset_keys = subset_multiset_keys(nums);
     vector<PtrE> ns0, ns1;  ns0.reserve(n); ns1.reserve(n);     // n - 1
 
     //#pragma omp parallel for schedule(dynamic)    // or use C++17 parallel algorithms
@@ -297,11 +331,9 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
         for (auto i = 0; const auto& e: nums)
             if ((1 << i++) & x) ns0.push_back(e); else ns1.push_back(e);
 
-        auto h0 = 0u, h1 = 0u;
-        for (const auto& e: ns0) h0 = hash_combine(h0, hash_expr(*e));
-        if (!hv.insert(h0).second) continue;
-        for (const auto& e: ns1) h1 = hash_combine(h1, hash_expr(*e));
-        if (h1 != h0 && !hv.insert(h1).second) continue;
+        const auto k0 = subset_keys[x], k1 = subset_keys[(psn - 1) ^ x];
+        if (!hv.insert(k0).second) continue;
+        if (k1 != k0 && !hv.insert(k1).second) continue;
 
         //for (const auto& e: ns0) std::cerr << ' ' << *e; std::cerr << ';';
         //for (const auto& e: ns1) std::cerr << ' ' << *e; std::cerr << std::endl; //continue;
@@ -312,7 +344,7 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
 
         for (auto i = 0u; i < ns0.size(); ++i) {
                 const auto& a(ns0[i]);
-            for (auto j = (h1 != h0 ? 0u : i); j < ns1.size(); ++j) {
+            for (auto j = (k1 != k0 ? 0u : i); j < ns1.size(); ++j) {
                 const auto& b(ns1[j]);
                 if (b->v < a->v) form_compose(b, a, is_final, ngoal, lambda); else
                                  form_compose(a, b, is_final, ngoal, lambda);
@@ -323,19 +355,19 @@ vector<PtrE> calc24_splitset(const Rational& goal, const vector<PtrE>& nums,
 
 void calc24_inplace(const Rational& goal, vector<PtrE>& nums,
     const bool ngoal, auto&& each_found, const uint32_t n) {
-    hset<uint32_t> hv;  hv.reserve(n * n / 2);  // n * (n - 1) / 2
+    hset<ExprPair, ExprPairHash> hv;  hv.reserve(n * n / 2);  // n * (n - 1) / 2
 
     // XXX: skip duplicates over different combination order, as well in symmetric style
     for (auto j = 1u; j < n; ++j) {
-        const auto b = std::exchange(nums[j], nums[n - 1]);
-        const auto h0 = hash_expr(*b);
+        auto b = std::exchange(nums[j], nums[n - 1]);
         for (auto i = 0u; i < j; ++i) {
-            if (!hv.insert(hash_combine(hash_expr(*nums[i]), h0)).second) continue;
-            const auto a(std::move(nums[i]));
+            auto a = std::move(nums[i]);
+            const auto key = *b < *a ? ExprPair{&*b, &*a} : ExprPair{&*a, &*b};
+            if (!hv.insert(key).second) { nums[i] = std::move(a); continue; }
 
             const auto lambda = [&, n, i, ngoal](auto&& e) {
                 if (n == 2) { if (e.v == goal) each_found(std::forward<decltype(e)>(e));
-                } else {    nums[i] = make_ptre(e);
+                } else {    nums[i] = make_ptre(std::forward<decltype(e)>(e));
                     calc24_inplace(goal, nums, ngoal, each_found, n - 1);
                 }
             };
@@ -352,7 +384,7 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     const bool ngoal, auto&& each_found, uint32_t j) {
     const auto n = nums.size();
     vector<PtrE> nsub;  nsub.reserve(n);        // n - 1
-    hset<uint32_t> hv;  hv.reserve(n * n / 2);  // n * (n - 1) / 2
+    hset<ExprPair, ExprPairHash> hv;  hv.reserve(n * n / 2);  // n * (n - 1) / 2
 
     // XXX: skip duplicates in symmetric style, e.g.: [1 1 5 5]
     //for (auto ib = nums.begin() + j; ib != nums.end(); ++ib, ++j) {   const auto& b(*ib);
@@ -360,15 +392,15 @@ void calc24_construct(const Rational& goal, const vector<PtrE>& nums,
     for (; j < n; ++j) {    const auto& b(nums[j]);
         const auto lambda = [&, n, ngoal](auto&& e) {
             if (n == 2) { if (e.v == goal) each_found(std::forward<decltype(e)>(e));
-            } else {    nsub.push_back(make_ptre(e));
+            } else {    nsub.push_back(make_ptre(std::forward<decltype(e)>(e)));
                 calc24_construct(goal, nsub, ngoal, each_found, j - 1);
                         nsub. pop_back();
             }
         };
 
-        const auto h0 = hash_expr(*b);
         for (auto i = 0u; i < j; ++i) {     const auto& a(nums[i]);
-            if (!hv.insert(hash_combine(hash_expr(*a), h0)).second) continue;
+            const auto key = *b < *a ? ExprPair{&*b, &*a} : ExprPair{&*a, &*b};
+            if (!hv.insert(key).second) continue;
 
             for (const auto& e: nums) if (e != a && e != b) nsub.push_back(e);
             if (b->v < a->v) form_compose(b, a, n == 2, ngoal, lambda); else
@@ -384,13 +416,14 @@ void calc24_algo(const Rational& goal, const vector<Rational>& rnv,
 
     const auto ngoal = goal < Rational(0);
     vector<PtrE> nums;       nums.reserve(rnv.size());
-    for (const auto& n: rnv) nums.push_back(make_ptre(Expr(n)));
+    for (const auto& n: rnv) nums.push_back(make_ptre(n));
     std::sort(nums.begin(),  nums.end(),
         [](const auto& a, const auto& b) -> bool { return a->v < b->v; });
 
-    hset<uint32_t> eset;
+    hset<Expr> eset;
     const auto hash_unify = [&](auto&& e) {
-        if (eset.insert(hash_expr(e)).second) each_found(std::forward<decltype(e)>(e));
+        const auto [it, inserted] = eset.insert(std::forward<decltype(e)>(e));
+        if (inserted) each_found(*it);
     };
 
     switch (algo) {
@@ -435,20 +468,26 @@ void calc24_cffi(Calc24IO* calc24) {
         calc24->ecnt = calc24_print(calc24->goal, nums, calc24->algo);  return;
     }
 
-    vector<string> exps;
+    vector<string> exps;    size_t chars_size = 0;
     calc24_algo(calc24->goal, nums, calc24->algo, [&](auto&& e) {
-        std::stringstream ss;   ss << e;    exps.push_back(ss.str());   //exps.push_back(e);
+        std::stringstream ss;   ss << e;    const auto str = ss.str();
+        chars_size += str.size() + 1;       exps.push_back(str);   //exps.push_back(e);
     });
 
-    calc24->exps = new char*[calc24->ecnt = exps.size()];
-    for (auto i = 0u; i < calc24->ecnt; ++i) {   auto&& str = exps[i];
-        std::strcpy(calc24->exps[i] = new char[str.size() + 1], str.c_str());
-    }   //calc24->exps = /*nullptr; */exps.data();    exps = std::move(exps);
+    calc24->ecnt = exps.size(); if (calc24->ecnt < 1) { return; }
+    const auto ptrs_size = sizeof(*calc24->exps) * calc24->ecnt;
+    calc24->exps = static_cast<char**>(::operator new(ptrs_size + chars_size));
+    auto data = reinterpret_cast<char*>(calc24->exps) + ptrs_size;
+
+    for (auto i = 0u; i < calc24->ecnt; ++i) {
+        const auto& str = exps[i];
+        const auto  len = str.size() + 1;
+        std::memcpy(data, str.c_str(), len);
+        calc24->exps[i] = data; data += len;
+    }
 }
 
-void calc24_free(const char* ptr[], uint32_t cnt) {
-    for (auto i = 0u; i < cnt; ++i) delete ptr[i];   delete[] ptr;
-}
+void calc24_free(const char* ptr[], uint32_t /*cnt*/) { ::operator delete(ptr); }
 
 extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve24
     auto a = Expr(5), b = Expr(6); //e = a * (b - a / b) + b;
@@ -459,6 +498,13 @@ extern "C" void test_24calc() { // deprecated, unified with Rust unit test solve
     ss << a; assert(ss.str() == "5");   ss.str("");
     ss << b; assert(ss.str() == "6");   //ss.str("");
     //ss << e; assert(ss.str() == "1*(2-1/2)+2");
+
+    vector<PtrE> keyed_nums;
+    for (auto n: {1, 1, 2, 3}) keyed_nums.push_back(make_ptre(Expr(n)));
+    const auto keys = subset_multiset_keys(keyed_nums);
+    assert(keys[0b0001] == keys[0b0010]);
+    assert(keys[0b0101] == keys[0b0110]);
+    assert(keys[0b0011] != keys[0b0100]);
 
     struct CaseT { int32_t goal; vector<int32_t> nums; vector<string> exps; uint32_t cnt; };
     const vector<CaseT> cases {

@@ -3,27 +3,47 @@
 # rustfmt --print-config default    # rustfmt --print-config current rustfmt.toml
 
 unstable_features = true
-edition = "2021"
-version = "Two"
+style_edition = "2024"
+#edition = "2024"
+
+#ignore = ["/"] # Skip formatting files
+
+use_small_heuristics = "Max"
+max_width = 96
+
+#array_width = 80
+#chain_width = 80
+#fn_call_width = 80
+#struct_lit_width = 80
+#attr_fn_like_width = 80
+#struct_variant_width = 80
+#single_line_if_else_max_width  = 80
+#single_line_let_else_max_width = 80
+
+short_array_element_width_threshold = 32
+#enum_discrim_align_threshold = 32
+#struct_field_align_threshold = 32
+inline_attribute_width = 96
+comment_width = 96
+
 binop_separator = "Back"
 fn_params_layout = "Compressed"
 brace_style = "PreferSameLine"
+imports_granularity = "Crate" # "Module"
+group_imports = "StdExternalCrate"
+#imports_indent = "Visual"
+#indent_style   = "Visual"
+
 condense_wildcard_suffixes  = true
 format_code_in_doc_comments = true
 format_macro_matchers = true
+format_macro_bodies = false
 format_strings = true
 fn_single_line = true
-#imports_indent = "Visual"
-#indent_style   = "Visual"
+wrap_comments  = true
 match_arm_blocks  = false
 where_single_line = true
 overflow_delimited_expr  = true
 use_field_init_shorthand = true
 normalize_doc_attributes = true
-imports_granularity = "Module"
-group_imports = "StdExternalCrate"
-short_array_element_width_threshold = 20
-enum_discrim_align_threshold = 20
-inline_attribute_width = 80
-struct_lit_width = 50
 
