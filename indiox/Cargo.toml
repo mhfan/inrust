@@ -16,7 +16,7 @@ version = "0.1.6"
 [dependencies]
 dioxus = { version = "0.7" } #, features = [ "fullstack", "router" ]
 
-web-sys = { version = "=0.3.78", features = [ 'Window', 'Document',
+web-sys = { version = "0.3", features = [ 'Window', 'Document',
     'HtmlInputElement', 'HtmlCollection', #'HtmlCanvasElement', 'CanvasRenderingContext2d'
 ] } # XXX: failed to build on macOS for web-sys v0.3.79~82 and wasm-bindgen v0.2.102~105
 

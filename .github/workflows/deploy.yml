@@ -58,7 +58,7 @@ jobs:
           #cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
           perseus -V || cargo install --git https://github.com/framesurge/perseus perseus-cli
           cp ../indiox/assets/tailwind.css static/
-          perseus deploy -e --wasm-opt-args '\-\-enable-bulk-memory-opt --enable-nontrapping-float-to-int'
+          perseus deploy --no-minify-js -e --wasm-opt-args '\-\-enable-bulk-memory-opt --enable-nontrapping-float-to-int'
           rm -rf    ../indiox/dist/public/inperse
           cp -r pkg ../indiox/dist/public/inperse
 
