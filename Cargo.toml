@@ -68,6 +68,7 @@ criterion = "0.8"   # not allowed to be optional
 #bencher = "0.1"
 rexpect = "0.7"
 regex = "1.12"
+yansi = "1.0"
 rand = "0.10"
 #csv = "1.1"
 

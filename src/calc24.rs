@@ -33,7 +33,7 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
     #[inline] pub const fn new_raw(n: T, d: T) -> Self { Self(n, d) }
     #[inline] pub fn new(num: T, den: T) -> Self {
         #[cfg(feature = "debug")] if den == T::zero() { panic!("zero division") }
-        Self::new_raw(num, den).reduce()
+        Self::new_raw(num, den).reduced()
     }
 
     /** ```
@@ -49,7 +49,7 @@ impl<T: PrimInt> RNum<T> {   #![allow(dead_code)]
                 "simplified rational: {a}");
         });
     ``` */
-    /*pub */fn reduce(mut self) -> Self {
+    /*pub */fn reduced(mut self) -> Self {
         fn gcd<T: PrimInt>(mut a: T, mut b: T) -> T {
             // fast Euclid's algorithm for Greatest Common Denominator
             // Stein's algorithm (Binary GCD) support non-negative only
@@ -86,7 +86,7 @@ impl<T: PrimInt + Display> Display for RNum<T> {
         }); assert_eq!(" 2", format!("{:2}", RNum::from(2)));
     ``` */
     fn fmt(&self, f: &mut Formatter<'_>) -> fmtResult {
-        let srn = self; //.reduce();
+        let srn = self; //.reduced();
         //if  srn.1.is_zero() { write!(f, r"(INV)")?; return Ok(()) }
         //let bracket = srn.is_negative() || !srn.1.is_one();  // XXX:
         //if  bracket { write!(f, r"(")? }
@@ -160,7 +160,7 @@ type RcExpr = Rc<Expr>;     //*const Expr;
 
 impl Expr {     //#![allow(dead_code)]
     #[inline] pub fn value(&self) -> &Rational { &self.v }
-    fn new(v: Rational, a: &RcExpr, b: &RcExpr, op: Oper) -> Self { // XXX: v.reduce()?
+    fn new(v: Rational, a: &RcExpr, b: &RcExpr, op: Oper) -> Self { // XXX: v.reduced()?
         Self { v, m: Some((a.clone(), b.clone(), op)), cached_hash: 0.into() }
     }
 
@@ -336,10 +336,13 @@ impl<T: PrimInt + Hash> Hash for RNum<T> {      // XXX: reduce before hashing?
     fn hash<H: Hasher>(&self, state: &mut H) { self.0.hash(state); self.1.hash(state); }
 }
 
-#[allow(dead_code)] fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // u64
-    lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs.wrapping_shl(6))
-                                       .wrapping_add(lhs.wrapping_shr(2)))
-    //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))
+/** ```
+    use inrust::calc24::hash_combine;
+    assert_eq!(hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
+    ``` */
+pub fn hash_combine(lhs: u32, rhs: u32) -> u32 {    // XXX: use u64?
+    lhs ^ (rhs.wrapping_add(0x9e3779b9).wrapping_add(lhs << 6).wrapping_add(lhs >> 2))
+    //lhs ^ (rhs + 0x9e3779b9 + (lhs << 6) + (lhs >> 2))  // or use core::num::Wrapping;
 }
 
 // context-free grammar, Chomsky type 2/3, Kleen Algebra
@@ -350,9 +353,15 @@ fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     mut new_expr: impl FnMut(Expr) -> Option<()>) -> Option<()> {   // XXX: ControlFlow<(), ()>
     #[cfg(feature = "debug")] eprintln!(r"({a:?}) ? ({b:?})");
 
-    // XXX: check overflow and reduce?
-    let (nmd, dmn, dmd) = (a.v.numer() * b.v.denom(),
-                           a.v.denom() * b.v.numer(), a.v.denom() * b.v.denom());
+    /* let sqrt_max = i16::MAX as _;
+    let av = if a.v.numer().unsigned_abs() > sqrt_max ||
+                a.v.denom().unsigned_abs() > sqrt_max { a.v.reduced() } else { a.v };
+    let bv = if b.v.numer().unsigned_abs() > sqrt_max ||
+                b.v.denom().unsigned_abs() > sqrt_max { b.v.reduced() } else { b.v }; */
+    let (av, bv) = (a.v, b.v); // XXX: reduce only when possibly overflow
+    let (nmd, dmn, dmd) = (av.numer() * bv.denom(), av.denom() * bv.numer(),
+                           av.denom() * bv.denom());
+
     // Commutativity (selecting a bias by lexicographical comparison)
     // ((A . B) . b) => (A . (B . b)), kept the right sub-tree only
     let (aop, bop) = (a.op(), b.op());   use Oper::*;
@@ -366,40 +375,30 @@ fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
         } else { false }
     }
 
-    struct  Cacher<T> where T: Fn() -> bool, { calc: T, v: Option<bool>, }
-    impl<T> Cacher<T> where T: Fn() -> bool, {
-        fn new(calc: T) -> Cacher<T> { Cacher { calc, v: None, } }
-
-        fn get(&mut self) -> bool {
-            match self.v {  Some(v) => v,
-                None => { let v = (self.calc)(); self.v = Some(v); v }
-            }   // memoization, lazy evaluation
-        }
-    }
-
-    let mut subl_cmp = Cacher::new(||
-        if let Some((ba, ..)) = &b.m { ba.cmp(a) == Ordering::Less } else { false });
+    let subl_cmp = core::cell::OnceCell::new();   // memoization, lazy evaluation
+    let subl_less = || *subl_cmp.get_or_init(||
+        b.m.as_ref().is_some_and(|(ba, ..)| ba.cmp(a) == Ordering::Less));
 
     // ((A / B) * b) => ((A * b) / B) if b != 1,
     // (a * (A / B)) => ((a * A) / B) if a != 1, (1 * x) => kept in the final only,
     /* (a * (A * B)) => (A * (a * B)) if A  < a */  let op = Mul;
-    if !(aop == op || (aop == Div   && !b.v.is_one())  || (Div == bop && !a.v.is_one()) ||
-        (!is_final && (a.v.is_one()  || b.v.is_one()))  || (op == bop && subl_cmp.get())) {
-        new_expr(Expr::new(Rational::new_raw(a.v.numer() * b.v.numer(), dmd), a, b, op))?;
+    if !(aop == op || (aop == Div && !bv.is_one()) || (Div == bop && !av.is_one()) ||
+        (!is_final && (av.is_one() || bv.is_one())) || (op == bop && subl_less())) {
+        new_expr(Expr::new(Rational::new_raw(av.numer() * bv.numer(), dmd), a, b, op))?;
     }
 
     // ((A - B) + b) => ((A + b) - B) if b != 0,
     // (a + (A - B)) => ((a + A) - B) if a != 0, (0 + x) => kept in the final only,
     /* (a + (A + B)) => (A + (a + B)) if A  < a */  let op = Add;
-    if !(aop == op || (aop == Sub   && !b.v.is_zero()) || (Sub == bop && !a.v.is_zero()) ||
-        (!is_final && (a.v.is_zero() || b.v.is_zero())) || (op == bop && subl_cmp.get())) {
+    if !(aop == op || (aop == Sub  && !bv.is_zero()) || (Sub == bop && !av.is_zero()) ||
+        (!is_final && (av.is_zero() || bv.is_zero())) || (op == bop && subl_less())) {
         new_expr(Expr::new(Rational::new_raw(nmd + dmn, dmd), a, b, op))?;
     }
 
     // (b - (B - A)) => ((b + A) - B), (x - 0) => (0 + x),
     /* ((A + x) - x) => kept in the final only */   let op = Sub;
-    if !(aop == op || op == bop || a.v.is_zero() ||
-        (!is_final && found_same(b, &a.v, Add))) {  if ngoal {
+    if !(aop == op || op == bop ||   av.is_zero() ||
+        (!is_final && found_same(b, &av, Add))) {  if ngoal {
             new_expr(Expr::new(Rational::new_raw(nmd - dmn, dmd), a, b, op))?;
         } else {    // Asymmetric select subtraction by judging sign of the target/goal
             new_expr(Expr::new(Rational::new_raw(dmn - nmd, dmd), b, a, op))?;
@@ -409,12 +408,12 @@ fn form_compose(a: &RcExpr, b: &RcExpr, is_final: bool, ngoal: bool,
     // (a / (A / B)) => ((a * B) / A), (x / 1) => (1 * x), (0 / x) => (0 * x),
     /* ((x * B) / x) => ((x + B) - x) */    let op = Div;
     if !(aop == op || op == bop) {
-        if !(dmn == 0 || b.v.is_one() || a.v.is_zero() || found_same(a, &b.v, Mul)) {
+        if !(dmn == 0 || bv.is_one() || av.is_zero() || found_same(a, &bv, Mul)) {
             new_expr(Expr::new(Rational::new_raw(nmd, dmn), a, b, op))?;
         }
 
-        if !(nmd == 0 || a.v.is_one() || b.v.is_zero() ||   // order mattered only if a != b
-             nmd == dmn || found_same(b, &a.v, Mul)) {
+        if !(nmd == 0 || av.is_one() || bv.is_zero() ||   // order mattered only if a != b
+             nmd == dmn || found_same(b, &av, Mul)) {
             new_expr(Expr::new(Rational::new_raw(dmn, nmd), b, a, op))?;
         }
     }   Some(())
@@ -650,7 +649,7 @@ pub  use Calc24Algo::*;
 
 //#[cfg(feature = "cli")] pub mod cli {}  use super::*;   //#[cfg(not(target_arch = "wasm32"))]
 
-#[cfg(feature = "cli")] fn deck_traverse(min: i32, max: i32, cnt: u8,
+#[allow(dead_code)] fn deck_traverse(min: i32, max: i32, cnt: u8,
     mrpt: u8, nums: &mut Vec<i32>, solve: &mut impl FnMut(&[i32])) {
     (min..=max).for_each(|x| {  let len = nums.len() as _;
         if mrpt - 1 < len && nums.iter().fold(0u8, |acc, &n|
@@ -979,10 +978,6 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
         //let _cnt = ffi_cxx::calc24_print(&goal.into(), &nums, DynProg);     // FIXME:
     }
 
-    #[test] fn hash_combine() {
-        assert_eq!(super::hash_combine(0x12345678, 0x98765432), 0xda64d7f1);
-    }
-
     #[test] fn poker_dealer() {     use super::deck_traverse;   // for non-public function
         let (mut nums, mut cnt) = (vec![], 0);
         deck_traverse(1, 13, 5, 4, &mut nums, &mut |_| cnt += 1);
@@ -1028,9 +1023,9 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
             let goal = goal.into();
 
             let assert_closure = |algo, cxx: &str| {
-                let exps = if cfg!(feature = "cc") && !cxx.is_empty() {
-                    calc24_coll_cffi(&goal, &nums, algo)
-                } else { calc24_coll(&goal, &nums, algo) };
+                #[cfg(feature = "cc")] let exps = if !cxx.is_empty() {
+                    calc24_coll_cffi(&goal, &nums, algo) } else { calc24_coll(&goal, &nums, algo) };
+                #[cfg(not(feature = "cc"))] let exps = calc24_coll(&goal, &nums, algo);
 
                 exps.iter().for_each(|e| {  if res.is_empty() { return }
                     assert!(res.contains(&e.replace(' ', "").as_str()), // strip whitespace
