@@ -19,23 +19,18 @@ jobs:
       #- run: rustup update
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-      #- uses: swatinem/rust-cache@v2
-      - uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-            ~/.npm
-            indiox/node_modules/
-            indiox/package.json
-            indiox/package-lock.json
-            inperse/node_modules/
-            inperse/package.json
-            inperse/package-lock.json
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          #cache: npm
+          node-version: 24
+          #cache-dependency-path: indiox/package-lock.json
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            indiox -> target
+            inperse -> target
+          key: deploy-${{ hashFiles('Cargo.toml', 'Cargo.lock', 'indiox/Cargo.toml', 'indiox/Cargo.lock', 'inperse/Cargo.toml', 'inperse/Cargo.lock') }}
+      #- uses: actions/cache@v4
 
       #-  uses: taiki-e/install-action@nextest
       - uses: cargo-bins/cargo-binstall@main
@@ -43,7 +38,7 @@ jobs:
         working-directory: indiox
         run: |
           #cargo t #cargo nextest r
-          cargo binstall -y dioxus-cli
+          cargo binstall -y dioxus-cli@0.7
           npm install tailwindcss @tailwindcss/cli tw-elements #-D -g
           npx @tailwindcss/cli -i input.css -o assets/tailwind.css -m
           dx bundle -r --web --out-dir dist
@@ -54,11 +49,12 @@ jobs:
         env:
           PERSEUS_BASE_PATH: https://mhfan.github.io/inrust/inperse
         run: |
-          #cargo binstall -y perseus-cli   # XXX: failed to build from default source
+          #cargo binstall -y perseus-cli@0.4   # XXX: failed to build from default source
           #cargo update && sed -e '1,5s/version = 4/version = 3/' -i"-bak" Cargo.lock
-          perseus -V || cargo install --git https://github.com/framesurge/perseus perseus-cli
+          cargo install --git https://github.com/framesurge/perseus perseus-cli@0.4.3
           cp ../indiox/assets/tailwind.css static/
-          perseus deploy --no-minify-js -e --wasm-opt-args '\-\-enable-bulk-memory-opt --enable-nontrapping-float-to-int'
+          perseus deploy --no-minify-js -e \
+            --wasm-opt-args '\-\-enable-bulk-memory-opt --enable-nontrapping-float-to-int'
           rm -rf    ../indiox/dist/public/inperse
           cp -r pkg ../indiox/dist/public/inperse
 
@@ -86,4 +82,3 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
         id: deployment
-
