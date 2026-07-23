@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "Too large", "Too small", "Bingo!" ]
     };  // i18n mechanism?
 
-    use rand::Rng;
+    use rand::RngExt;
     let secret = rand::rng().random_range(1..=max); //dbg!(secret);
     println!("\n### {title} (1~{}) ###", max.cyan().bold());
 

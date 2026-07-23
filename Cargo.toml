@@ -35,7 +35,7 @@ description = "Algorithms and WebUI for 24-Game/Puzzle/Challenge"
 num-traits = "0.2"
 #itertools = "0.10"
 yansi = { version = "1.0", features = [ "detect-tty", "detect-env" ], optional = true }
-rand  = { version = "0.9", optional = true }
+rand  = { version = "0.10", optional = true }
 #atty  = "0.2"
 
 pest  = "2.8"
@@ -57,18 +57,18 @@ pprof = { version = "0.15", features = [ "flamegraph", "criterion" ], optional =
 
  ahash = { version = "0.8", optional = true }    # https://github.com/tkaitchuck/aHash
 gxhash = { version = "3.4", optional = true }
-num-bigint   = { version = "0.4", optional = true }
+num-bigint   = { version = "0.5", optional = true }
 num-rational = { version = "0.4", optional = true }
 serde = { version = "1", features = [ "derive" ], optional = true }
 #arbitrary  = { version = "1", features = ["derive"], optional = true }
 #build-time = { version = "0.1", git = "https://github.com/AlephAlpha/build-time" }
 
 [dev-dependencies]  # used for compiling tests, examples, and benchmarks
-criterion = "0.7"   # not allowed to be optional
+criterion = "0.8"   # not allowed to be optional
 #bencher = "0.1"
-rexpect = "0.6"
+rexpect = "0.7"
 regex = "1.12"
-rand = "0.9"
+rand = "0.10"
 #csv = "1.1"
 
 [build-dependencies]  # used for compiling build script

@@ -1058,7 +1058,7 @@ pub fn game24_cli() {   //#[cfg_attr(coverage_nightly, coverage(off))]  // XXX:
     #[cfg_attr(coverage_nightly, coverage(off))] //#[cfg(not(tarpaulin_include))]
      #[ignore] /*#[bench] */#[test] fn solve24_random() {
         let (cnt, mut total_time) = (50, std::time::Duration::from_millis(0));
-        for _ in 0..cnt {   use rand::{Rng, distr::Uniform};
+        for _ in 0..cnt {   use rand::{RngExt, distr::Uniform};
             let dst = Uniform::new(1, 20).unwrap();
             let mut rng = rand::rng();
 
